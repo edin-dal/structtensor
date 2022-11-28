@@ -135,6 +135,12 @@ object Main extends App {
     else sops.slice(1, sops.length).foldLeft(sops(0))((acc, cur) => SoPTimesSoP(acc, cur))
   } 
 
+  def includeBoundaries(us: SoP, bounds: Map[Access, Prod], e: Access): SoP = {
+    if (!bounds.contains(e)) us
+    else if (us == emptySoP()) SoP(Seq(bounds.get(e).get))
+    else SoPTimesSoP(us, SoP(Seq(bounds.get(e).get)))
+  }
+
   def concatSoP(sops: Seq[SoP]): SoP = {
     val prods: Seq[Prod] = sops.foldLeft(Seq[Prod]())((acc, cur) => acc ++ cur.prods)
     SoP(prods)
@@ -186,6 +192,7 @@ object Main extends App {
     def uniqueName = s"${s}_US"
     def redundancyName = s"${s}_RM"
     def toVar: Variable = Variable(s)
+    def redundancyVars: Variable = s.toVar.redundancyVars
   }
 
   implicit class VariableOps(v: Variable) {
@@ -203,9 +210,9 @@ object Main extends App {
     def toMap: Map[Access, Seq[Dim]] = Map[Access, Seq[Dim]](d.access -> d.dims)
     def toVarsMap: Map[Variable, Seq[Dim]] = (d.access.vars zip d.dims).foldLeft(Map.empty[Variable, Seq[Dim]])((acc, cur) => acc + (cur._1 -> Seq(cur._2)))
     def toComparisonVariableProdMap: Map[Variable, Prod] = (d.access.vars zip d.dims).foldLeft(Map.empty[Variable, Prod])((acc, cur) => 
-    acc + (cur._1 -> Prod(Seq(Comparison("<=", ConstantInt(0), cur._1), Comparison(">", cur._2, cur._1)))))
+    mergeMap(Seq(acc, Map(cur._1 -> Prod(Seq(Comparison("<=", ConstantInt(0), cur._1), Comparison(">", cur._2, cur._1))))))((v1, v2) => prodTimesProd(v1, v2)))
     def toComparisonAccessProdMap: Map[Access, Prod] = (d.access.vars zip d.dims).foldLeft(Map.empty[Access, Prod])((acc, cur) => 
-    acc + (d.access -> Prod(Seq(Comparison("<=", ConstantInt(0), cur._1), Comparison(">", cur._2, cur._1)))))
+    mergeMap(Seq(acc, Map(d.access -> Prod(Seq(Comparison("<=", ConstantInt(0), cur._1), Comparison(">", cur._2, cur._1))))))((v1, v2) => prodTimesProd(v1, v2)))
     def toComparisonProd: Prod = Prod((d.access.vars zip d.dims).foldLeft(Seq[Exp]())((acc, cur) => 
     acc ++ Seq(Comparison("<=", ConstantInt(0), cur._1), Comparison(">", cur._2, cur._1))))
   }
@@ -226,29 +233,35 @@ object Main extends App {
     val bounds: Map[Access, Prod] = dimInfo.toComparisonAccessProdMap
     (e1, e2) match {
       case (Access(name1, vars1, Tensor), Access(name2, vars2, Tensor)) => {
-        val e1US: SoP = concatSoP(Seq(inp1US.body, SoP(Seq(bounds.get(e1.asInstanceOf[Access]).get)))) // if .get result is None leads to an error
-        val e2US: SoP = concatSoP(Seq(inp2US.body, SoP(Seq(bounds.get(e2.asInstanceOf[Access]).get)))) // if .get result is None leads to an error
-        if (isIntersectEmpty(vars1, vars2)) {
-          if (name1 == name2) {
-            val bodyUS: SoP = multSoP(Seq(e1US, e2US, SoP(Seq(vectorizeComparisonMultiplication("<=", vars1, vars2)))))
-            val bodyRM: SoP = concatSoP(Seq(SoPTimesSoP(inp1RM.body, inp2RM.body), 
-            multSoP(Seq(e1US, SoP(Seq(vectorizeComparisonMultiplication("=", vars1, inp1RM.head.vars.diff(vars1)))), inp2RM.body)), 
-            multSoP(Seq(e2US, SoP(Seq(vectorizeComparisonMultiplication("=", vars2, inp2RM.head.vars.diff(vars2)))), inp1RM.body)), 
-            multSoP(Seq(e1US, SoP(Seq(vectorizeComparisonMultiplication("=", vars1, inp1RM.head.vars.diff(vars1)))), e2US, 
-                        SoP(Seq(vectorizeComparisonMultiplication("=", vars2, inp2RM.head.vars.diff(vars2)))), 
-                        SoP(Seq(vectorizeComparisonMultiplication(">", vars1, vars2)))))))
-            return (Rule(headUS, bodyUS), Rule(headRM, bodyRM))
+        if (vars1.union(vars2).toSet == head.vars.toSet) {
+          val e1US: SoP = includeBoundaries(inp1US.body, bounds, e1.asInstanceOf[Access]) // if .get result is None leads to an error
+          val e2US: SoP = includeBoundaries(inp2US.body, bounds, e2.asInstanceOf[Access]) // if .get result is None leads to an error
+          if (isIntersectEmpty(vars1, vars2)) {
+            if (name1 == name2) {
+              val bodyUS: SoP = multSoP(Seq(e1US, e2US, SoP(Seq(vectorizeComparisonMultiplication("<=", vars1, vars2)))))
+              val bodyRM: SoP = concatSoP(Seq(SoPTimesSoP(inp1RM.body, inp2RM.body), 
+              multSoP(Seq(e1US, SoP(Seq(vectorizeComparisonMultiplication("=", vars1, inp1RM.head.vars.diff(vars1)))), inp2RM.body)), 
+              multSoP(Seq(e2US, SoP(Seq(vectorizeComparisonMultiplication("=", vars2, inp2RM.head.vars.diff(vars2)))), inp1RM.body)), 
+              multSoP(Seq(e1US, SoP(Seq(vectorizeComparisonMultiplication("=", vars1, inp1RM.head.vars.diff(vars1)))), e2US, 
+                          SoP(Seq(vectorizeComparisonMultiplication("=", vars2, inp2RM.head.vars.diff(vars2)))), 
+                          SoP(Seq(vectorizeComparisonMultiplication(">", vars1, vars2)))))))
+              return (Rule(headUS, bodyUS), Rule(headRM, bodyRM))
+            } else {
+              val bodyUS: SoP = SoPTimesSoP(e1US, e2US)
+              val bodyRM: SoP = concatSoP(Seq(SoPTimesSoP(inp1RM.body, inp2RM.body), 
+              SoPTimesSoP(SoPTimesSoP(e1US, SoP(Seq(vectorizeComparisonMultiplication("=", vars1, inp1RM.head.vars.diff(vars1))))), inp2RM.body), 
+              SoPTimesSoP(SoPTimesSoP(e2US, SoP(Seq(vectorizeComparisonMultiplication("=", vars2, inp2RM.head.vars.diff(vars2))))), inp1RM.body)))
+              return (Rule(headUS, bodyUS), Rule(headRM, bodyRM))
+            }
           } else {
-            val bodyUS: SoP = SoPTimesSoP(e1US, e2US)
-            val bodyRM: SoP = concatSoP(Seq(SoPTimesSoP(inp1RM.body, inp2RM.body), 
-            SoPTimesSoP(SoPTimesSoP(e1US, SoP(Seq(vectorizeComparisonMultiplication("=", vars1, inp1RM.head.vars.diff(vars1))))), inp2RM.body), 
-            SoPTimesSoP(SoPTimesSoP(e2US, SoP(Seq(vectorizeComparisonMultiplication("=", vars2, inp2RM.head.vars.diff(vars2))))), inp1RM.body)))
+            val bodyUS: SoP = concatSoP(Seq(SoPTimesSoP(e1US, e2US), SoPTimesSoP(inp1RM.body, e2US), SoPTimesSoP(inp1US.body, inp2RM.body)))
+            val bodyRM: SoP = SoPTimesSoP(inp1RM.body, inp2RM.body)
             return (Rule(headUS, bodyUS), Rule(headRM, bodyRM))
           }
         } else {
-          val bodyUS: SoP = concatSoP(Seq(SoPTimesSoP(e1US, e2US), SoPTimesSoP(inp1RM.body, e2US), SoPTimesSoP(inp1US.body, inp2RM.body)))
-          val bodyRM: SoP = SoPTimesSoP(inp1RM.body, inp2RM.body)
-          return (Rule(headUS, bodyUS), Rule(headRM, bodyRM))
+          val headP: Access = Access(head.name.redundancyVars.name, vars1.union(vars2), head.kind)
+          val us_rm: (Rule, Rule) = binMult(headP, dimInfo, e1, e2, inp1US, inp1RM, inp2US, inp2RM)
+          return project(head, dimInfo, headP, us_rm._1, us_rm._2)
         }
       }
       case (Access(name1, vars1, Tensor), Comparison(op2, index2, variable2)) => {
@@ -274,8 +287,8 @@ object Main extends App {
     val bounds: Map[Access, Prod] = dimInfo.toComparisonAccessProdMap
     (e1, e2) match {
       case (Access(name1, vars1, Tensor), Access(name2, vars2, Tensor)) => { 
-        val e1US: SoP = concatSoP(Seq(inp1US.body, SoP(Seq(bounds.get(e1.asInstanceOf[Access]).get)))) // if .get result is None leads to an error
-        val e2US: SoP = concatSoP(Seq(inp2US.body, SoP(Seq(bounds.get(e2.asInstanceOf[Access]).get)))) // if .get result is None leads to an error
+        val e1US: SoP = includeBoundaries(inp1US.body, bounds, e1.asInstanceOf[Access]) // if .get result is None leads to an error
+        val e2US: SoP = includeBoundaries(inp2US.body, bounds, e2.asInstanceOf[Access]) // if .get result is None leads to an error
         if (vars1 == vars2) {
           if (isSoPEquals(e1US, e2US) && isSoPEquals(inp1RM.body, inp2RM.body)) {
             val bodyUS: SoP = e1US
@@ -307,7 +320,7 @@ object Main extends App {
     val bounds: Map[Access, Prod] = dimInfo.toComparisonAccessProdMap
     e match {
       case Access(nameE, varsE, Tensor) => {
-        val eUS: SoP = concatSoP(Seq(inp1US.body, SoP(Seq(bounds.get(e.asInstanceOf[Access]).get)))) // if .get result is None leads to an error
+        val eUS: SoP = includeBoundaries(inp1US.body, bounds, e.asInstanceOf[Access]) // if .get result is None leads to an error
         if(outVars.toSet.subsetOf(varsE.toSet)) {
           val bodyUS: SoP = concatSoP(Seq(eUS, inp1RM.body))
           val bodyRM: SoP = SoP(Seq())
@@ -366,8 +379,8 @@ object Main extends App {
     val bounds: Map[Access, Prod] = dimInfo.toComparisonAccessProdMap
     (e1, e2) match {
       case (Access(name1, vars1, Tensor), Access(name2, vars2, Tensor)) => { 
-        val e1US: SoP = concatSoP(Seq(inp1US.body, SoP(Seq(bounds.get(e1.asInstanceOf[Access]).get)))) // if .get result is None leads to an error
-        val e2US: SoP = concatSoP(Seq(inp2US.body, SoP(Seq(bounds.get(e2.asInstanceOf[Access]).get)))) // if .get result is None leads to an error
+        val e1US: SoP = includeBoundaries(inp1US.body, bounds, e1.asInstanceOf[Access]) // if .get result is None leads to an error
+        val e2US: SoP = includeBoundaries(inp2US.body, bounds, e2.asInstanceOf[Access]) // if .get result is None leads to an error
         val bodyUS: SoP = concatSoP(Seq(e1US, SoPTimesSoP(e2US, SoP(Seq(Prod(e2Seq))))))
         val bodyRM: SoP = concatSoP(Seq(inp1RM.body, multSoP(Seq(inp2RM.body, SoP(Seq(Prod(e2Seq))), SoP(Seq(Prod(replaceVarsWithRedundancyVars(e2Seq))))))))
         return (Rule(headUS, bodyUS), Rule(headRM, bodyRM))
@@ -503,7 +516,7 @@ object Main extends App {
     (tensorComputation, infer(tensorComputation, dimInfo, var1US, var1RM, var2US, var2RM))
   }
 
-  // Self-outer product check
+  // Self-outer product check -- worked
   def test3(): (Rule, (Rule, Rule)) = {
     val head: Access = Access("M", Seq(Variable("x"), Variable("y")), Tensor)
     val var1: Access = Access("A",  Seq(Variable("x")), Tensor)
@@ -536,11 +549,406 @@ object Main extends App {
     (tensorComputation, infer(tensorComputation, dimInfo, var1US, var1RM, var2US, var2RM))
   }
 
-  
+  // DTTV -- checked: w/o simplifications
+  def test4(): (Rule, (Rule, Rule)) = {
+    val outSeqVar = Seq("i".toVar, "j".toVar)
+    val in1SeqVar = Seq("i".toVar, "j".toVar, "k".toVar)
+    val in2SeqVar = Seq("k".toVar)
+    val outName = "A"
+    val in1Name = "M"
+    val in2Name = "N"
 
+    val head: Access = Access(outName, outSeqVar, Tensor)
+    val var1: Access = Access(in1Name, in1SeqVar, Tensor)
+    val var2: Access = Access(in2Name, in2SeqVar, Tensor)
+    val prods: Prod = Prod(Seq(var1, var2))
+    val body: SoP = SoP(Seq(prods))
+    val tensorComputation: Rule = Rule(head, body)
+
+    val dim1: DimInfo = DimInfo(var1, Seq("m".toVar, "m".toVar, "m".toVar))
+    val dim2: DimInfo = DimInfo(var2, Seq("m".toVar))
+    val dimInfo: Seq[DimInfo] = Seq(dim1, dim2)
+
+
+    val var1HeadUS: Access = Access(in1Name.uniqueName, in1SeqVar, UniqueSet)
+    val var1ExpUS1: Exp = Comparison("=", "i".toVar, "j".toVar)
+    val var1ExpUS2: Exp = Comparison("=", "j".toVar, "k".toVar)
+    val var1ProdsUS: Prod = Prod(Seq(var1ExpUS1, var1ExpUS2))
+    val var1BodyUS: SoP = SoP(Seq(var1ProdsUS))
+    val var1US: Rule = Rule(var1HeadUS, var1BodyUS)
+
+    val var1HeadRM: Access = Access(in1Name.redundancyName,  in1SeqVar.redundancyVarsInplace, RedundancyMap)
+    val var1BodyRM: SoP = emptySoP()
+    val var1RM: Rule = Rule(var1HeadRM, var1BodyRM)
+
+    val var2HeadUS: Access = Access(in2Name.uniqueName,  in2SeqVar, UniqueSet)
+    val var2BodyUS: SoP = emptySoP()
+    val var2US: Rule = Rule(var2HeadUS, var2BodyUS)
+
+    val var2HeadRM: Access = Access(in2Name.redundancyName,  in2SeqVar.redundancyVarsInplace, RedundancyMap)
+    val var2BodyRM: SoP = emptySoP()
+    val var2RM: Rule = Rule(var2HeadRM, var2BodyRM)
+
+    (tensorComputation, infer(tensorComputation, dimInfo, var1US, var1RM, var2US, var2RM))
+  }
+
+  // RMD -- checked w/o simplification and inlining: page 12: M_U should be 0 <= k < n (not j instead of k!!!) also in simplifications should be fixed too!
+  def test5(): (Rule, (Rule, Rule)) = {
+    val outSeqVar = Seq("i".toVar, "j".toVar)
+    val in1SeqVar = Seq("i".toVar, "k".toVar)
+    val in2SeqVar = Seq("k".toVar, "j".toVar)
+    val outName = "A"
+    val in1Name = "M"
+    val in2Name = "N"
+
+    val head: Access = Access(outName, outSeqVar, Tensor)
+    val var1: Access = Access(in1Name, in1SeqVar, Tensor)
+    val var2: Access = Access(in2Name, in2SeqVar, Tensor)
+    val prods: Prod = Prod(Seq(var1, var2))
+    val body: SoP = SoP(Seq(prods))
+    val tensorComputation: Rule = Rule(head, body)
+
+    val dim1: DimInfo = DimInfo(var1, Seq("m".toVar, "n".toVar))
+    val dim2: DimInfo = DimInfo(var2, Seq("n".toVar, "n".toVar))
+    val dimInfo: Seq[DimInfo] = Seq(dim1, dim2)
+
+
+    val var1HeadUS: Access = Access(in1Name.uniqueName, in1SeqVar, UniqueSet)
+    val var1ExpUS1: Exp = Comparison("=", "i".toVar, "r".toVar)
+    val var1ProdsUS: Prod = Prod(Seq(var1ExpUS1))
+    val var1BodyUS: SoP = SoP(Seq(var1ProdsUS))
+    val var1US: Rule = Rule(var1HeadUS, var1BodyUS)
+
+    val var1HeadRM: Access = Access(in1Name.redundancyName,  in1SeqVar.redundancyVarsInplace, RedundancyMap)
+    val var1BodyRM: SoP = emptySoP()
+    val var1RM: Rule = Rule(var1HeadRM, var1BodyRM)
+
+    val var2HeadUS: Access = Access(in2Name.uniqueName,  in2SeqVar, UniqueSet)
+    val var2ExpUS1: Exp = Comparison("=", "k".toVar, "j".toVar)
+    val var2ProdsUS: Prod = Prod(Seq(var2ExpUS1))
+    val var2BodyUS: SoP = SoP(Seq(var2ProdsUS))
+    val var2US: Rule = Rule(var2HeadUS, var2BodyUS)
+
+    val var2HeadRM: Access = Access(in2Name.redundancyName,  in2SeqVar.redundancyVarsInplace, RedundancyMap)
+    val var2BodyRM: SoP = emptySoP()
+    val var2RM: Rule = Rule(var2HeadRM, var2BodyRM)
+
+    (tensorComputation, infer(tensorComputation, dimInfo, var1US, var1RM, var2US, var2RM))
+  }
+
+  // UHS -- checked: w/o simplifications
+  def test6(): (Rule, (Rule, Rule)) = {
+    val outSeqVar = Seq("i".toVar, "j".toVar)
+    val in1SeqVar = Seq("i".toVar, "j".toVar)
+    val in2SeqVar = Seq("i".toVar, "j".toVar)
+    val outName = "A"
+    val in1Name = "M"
+    val in2Name = "N"
+
+    val head: Access = Access(outName, outSeqVar, Tensor)
+    val var1: Access = Access(in1Name, in1SeqVar, Tensor)
+    val var2: Access = Access(in2Name, in2SeqVar, Tensor)
+    val prods: Prod = Prod(Seq(var1, var2))
+    val body: SoP = SoP(Seq(prods))
+    val tensorComputation: Rule = Rule(head, body)
+
+    val dim1: DimInfo = DimInfo(var1, Seq("n".toVar, "n".toVar))
+    val dim2: DimInfo = DimInfo(var2, Seq("n".toVar, "n".toVar))
+    val dimInfo: Seq[DimInfo] = Seq(dim1, dim2)
+
+
+    val var1HeadUS: Access = Access(in1Name.uniqueName, in1SeqVar, UniqueSet)
+    val var1ExpUS1: Exp = Comparison("<=", "i".toVar, "j".toVar)
+    val var1ProdsUS: Prod = Prod(Seq(var1ExpUS1))
+    val var1BodyUS: SoP = SoP(Seq(var1ProdsUS))
+    val var1US: Rule = Rule(var1HeadUS, var1BodyUS)
+
+    val var1HeadRM: Access = Access(in1Name.redundancyName,  in1SeqVar.redundancyVarsInplace, RedundancyMap)
+    val var1BodyRM: SoP = emptySoP()
+    val var1RM: Rule = Rule(var1HeadRM, var1BodyRM)
+
+    val var2HeadUS: Access = Access(in2Name.uniqueName,  in2SeqVar, UniqueSet)
+    val var2ExpUS1: Exp = Comparison("<=", "i".toVar, "j".toVar)
+    val var2ProdsUS: Prod = Prod(Seq(var2ExpUS1))
+    val var2BodyUS: SoP = SoP(Seq(var2ProdsUS))
+    val var2US: Rule = Rule(var2HeadUS, var2BodyUS)
+
+    val var2HeadRM: Access = Access(in2Name.redundancyName,  in2SeqVar.redundancyVarsInplace, RedundancyMap)
+    val var2ExpRM1: Exp = Comparison("<", "j".toVar, "i".toVar)
+    val var2ExpRM2: Exp = Comparison("=", "j".redundancyVars, "i".toVar)
+    val var2ExpRM3: Exp = Comparison("=", "i".redundancyVars, "j".toVar)
+    val var2ProdsRM: Prod = Prod(Seq(var2ExpRM1, var2ExpRM2, var2ExpRM3))
+    val var2BodyRM: SoP = SoP(Seq(var2ProdsRM))
+    val var2RM: Rule = Rule(var2HeadRM, var2BodyRM)
+
+    (tensorComputation, infer(tensorComputation, dimInfo, var1US, var1RM, var2US, var2RM))
+  }
+
+  // Example - Structure Inference -- checked
+  def test7(): (Rule, (Rule, Rule)) = {
+    val outSeqVar = Seq("x1".toVar, "x2".toVar, "x3".toVar, "x4".toVar, "x5".toVar)
+    val in1SeqVar = Seq("x1".toVar, "x2".toVar, "x3".toVar)
+    val in2SeqVar = Seq("x4".toVar, "x5".toVar)
+    val outName = "T"
+    val in1Name = "M"
+    val in2Name = "V"
+
+    val head: Access = Access(outName, outSeqVar, Tensor)
+    val var1: Access = Access(in1Name, in1SeqVar, Tensor)
+    val var2: Access = Access(in2Name, in2SeqVar, Tensor)
+    val prods: Prod = Prod(Seq(var1, var2))
+    val body: SoP = SoP(Seq(prods))
+    val tensorComputation: Rule = Rule(head, body)
+
+    val dim1: DimInfo = DimInfo(var1, Seq("d1".toVar, "d2".toVar, "d3".toVar))
+    val dim2: DimInfo = DimInfo(var2, Seq("d4".toVar, "d5".toVar))
+    val dimInfo: Seq[DimInfo] = Seq(dim1, dim2)
+
+
+    val var1HeadUS: Access = Access(in1Name.uniqueName, in1SeqVar, UniqueSet)
+    val var1ExpUS1: Exp = Comparison(">", "x1".toVar, "x2".toVar)
+    val var1ProdsUS: Prod = Prod(Seq(var1ExpUS1))
+    val var1BodyUS: SoP = SoP(Seq(var1ProdsUS))
+    val var1US: Rule = Rule(var1HeadUS, var1BodyUS)
+
+    val var1HeadRM: Access = Access(in1Name.redundancyName,  in1SeqVar.redundancyVarsInplace, RedundancyMap)
+    val var1BodyRM: SoP = emptySoP()
+    val var1RM: Rule = Rule(var1HeadRM, var1BodyRM)
+
+    val var2HeadUS: Access = Access(in2Name.uniqueName,  in2SeqVar, UniqueSet)
+    val var2ExpUS1: Exp = Comparison("<=", "x4".toVar, "x5".toVar)
+    val var2ProdsUS: Prod = Prod(Seq(var2ExpUS1))
+    val var2BodyUS: SoP = SoP(Seq(var2ProdsUS))
+    val var2US: Rule = Rule(var2HeadUS, var2BodyUS)
+
+    val var2HeadRM: Access = Access(in2Name.redundancyName,  in2SeqVar.redundancyVarsInplace, RedundancyMap)
+    val var2ExpRM1: Exp = Comparison(">", "x4".toVar, "x5".toVar)
+    val var2ExpRM2: Exp = Comparison("=", "x4".redundancyVars, "x5".toVar)
+    val var2ExpRM3: Exp = Comparison("=", "x5".redundancyVars, "x4".toVar)
+    val var2ProdsRM: Prod = Prod(Seq(var2ExpRM1, var2ExpRM2, var2ExpRM3))
+    val var2BodyRM: SoP = SoP(Seq(var2ProdsRM))
+    val var2RM: Rule = Rule(var2HeadRM, var2BodyRM)
+
+    (tensorComputation, infer(tensorComputation, dimInfo, var1US, var1RM, var2US, var2RM))
+  }
+
+  // Non-binary: Example - Unique set computation
+  def test8(): (Rule, (Rule, Rule)) = {
+    val outSeqVar = Seq("i".toVar, "j".toVar, "k".toVar)
+    val in1SeqVar = Seq("i".toVar, "j".toVar, "l".toVar)
+    val in2SeqVar = Seq("i".toVar, "k".toVar)
+    val in3SeqVar = Seq("j".toVar, "k".toVar)
+    val in4SeqVar = Seq("i".toVar, "j".toVar)
+    val outName = "A"
+    val inter1Name = "F"
+    val inter2Name = "G"
+    val in1Name = "B"
+    val in2Name = "C"
+    val in3Name = "D"
+    val in4Name = "E"
+
+    val head1: Access = Access(inter1Name, outSeqVar, Tensor)
+    val head2: Access = Access(inter2Name, outSeqVar, Tensor)
+    val head3: Access = Access(outName, outSeqVar, Tensor)
+    val var1: Access = Access(in1Name, in1SeqVar, Tensor)
+    val var2: Access = Access(in2Name, in2SeqVar, Tensor)
+    val var3: Access = Access(in3Name, in3SeqVar, Tensor)
+    val var4: Access = Access(in4Name, in4SeqVar, Tensor)
+    val prods1: Prod = Prod(Seq(var1, var2))
+    val prods2: Prod = Prod(Seq(var3, var4))
+    val body1: SoP = SoP(Seq(prods1))
+    val body2: SoP = SoP(Seq(prods2))
+    val body3: SoP = SoP(Seq(Prod(Seq(head1)), Prod(Seq(head2))))
+    val tensorComputation1: Rule = Rule(head1, body1)
+    val tensorComputation2: Rule = Rule(head2, body2)
+    val tensorComputation3: Rule = Rule(head3, body3)
+
+    val dim1: DimInfo = DimInfo(var1, Seq("n".toVar, "n".toVar, "n".toVar))
+    val dim2: DimInfo = DimInfo(var2, Seq("n".toVar, "n".toVar))
+    val dim3: DimInfo = DimInfo(var3, Seq("n".toVar, "n".toVar))
+    val dim4: DimInfo = DimInfo(var4, Seq("n".toVar, "n".toVar))
+    val dimH1: DimInfo = DimInfo(head1, Seq("n".toVar, "n".toVar, "n".toVar))
+    val dimH2: DimInfo = DimInfo(head2, Seq("n".toVar, "n".toVar, "n".toVar))
+    val dimInfo: Seq[DimInfo] = Seq(dim1, dim2, dim3, dim4, dimH1, dimH2)
+
+
+    val var1HeadUS: Access = Access(in1Name.uniqueName, in1SeqVar, UniqueSet)
+    val var1ExpUS1: Exp = Comparison("<=", "i".toVar, "j".toVar)
+    val var1ProdsUS: Prod = Prod(Seq(var1ExpUS1))
+    val var1BodyUS: SoP = SoP(Seq(var1ProdsUS))
+    val var1US: Rule = Rule(var1HeadUS, var1BodyUS)
+
+    val var1HeadRM: Access = Access(in1Name.redundancyName,  in1SeqVar.redundancyVarsInplace, RedundancyMap)
+    val var1BodyRM: SoP = emptySoP()
+    val var1RM: Rule = Rule(var1HeadRM, var1BodyRM)
+
+    val var2HeadUS: Access = Access(in2Name.uniqueName,  in2SeqVar, UniqueSet)
+    val var2ExpUS1: Exp = Comparison("=", "l".toVar, "k".toVar)
+    val var2ProdsUS: Prod = Prod(Seq(var2ExpUS1))
+    val var2BodyUS: SoP = SoP(Seq(var2ProdsUS))
+    val var2US: Rule = Rule(var2HeadUS, var2BodyUS)
+
+    val var2HeadRM: Access = Access(in2Name.redundancyName,  in2SeqVar.redundancyVarsInplace, RedundancyMap)
+    val var2BodyRM: SoP = emptySoP()
+    val var2RM: Rule = Rule(var2HeadRM, var2BodyRM)
+
+    val var3HeadUS: Access = Access(in3Name.uniqueName,  in3SeqVar, UniqueSet)
+    val var3BodyUS: SoP = emptySoP()
+    val var3US: Rule = Rule(var3HeadUS, var3BodyUS)
+
+    val var3HeadRM: Access = Access(in3Name.redundancyName,  in3SeqVar.redundancyVarsInplace, RedundancyMap)
+    val var3BodyRM: SoP = emptySoP()
+    val var3RM: Rule = Rule(var3HeadRM, var3BodyRM)
+
+    val var4HeadUS: Access = Access(in4Name.uniqueName,  in4SeqVar, UniqueSet)
+    val var4ExpUS1: Exp = Comparison("<=", "i".toVar, "k".toVar)
+    val var4ProdsUS: Prod = Prod(Seq(var4ExpUS1))
+    val var4BodyUS: SoP = SoP(Seq(var4ProdsUS))
+    val var4US: Rule = Rule(var4HeadUS, var4BodyUS)
+
+    val var4HeadRM: Access = Access(in4Name.redundancyName,  in4SeqVar.redundancyVarsInplace, RedundancyMap)
+    val var4BodyRM: SoP = emptySoP()
+    val var4RM: Rule = Rule(var4HeadRM, var4BodyRM)
+
+    val infer1: (Rule, Rule) = infer(tensorComputation1, dimInfo, var1US, var1RM, var2US, var2RM)
+    val infer2: (Rule, Rule) = infer(tensorComputation2, dimInfo, var3US, var3RM, var4US, var4RM)
+
+    (tensorComputation3, infer(tensorComputation3, dimInfo, infer1._1, infer1._2, infer2._1, infer2._2))
+  }
+
+  // Non-binary: Example - Diagonal Kronecker Product -- this one is wrong, should comparison directly go and be a part of unique set instead?
+  def test9(): (Rule, (Rule, Rule)) = {
+    val outSeqVar = Seq("i".toVar, "j".toVar)
+    val in1SeqVar = Seq("p".toVar, "q".toVar)
+    val in2SeqVar = Seq("r".toVar, "s".toVar)
+    val in3SeqVar = Seq("i".toVar, "p".toVar)
+    val in4SeqVar = Seq("j".toVar, "q".toVar)
+    val in5SeqVar = Seq("i".toVar, "r".toVar)
+    val in6SeqVar = Seq("j".toVar, "s".toVar)
+    val outName = "M"
+    val inter1Name = "C"
+    val inter2Name = "D"
+    val inter3Name = "E"
+    val inter4Name = "F"
+    val inter5Name = "G"
+    val inter6Name = "H"
+    val in1Name = "A"
+    val in2Name = "B"
+    val in3Name = "C1"
+    val in4Name = "C2"
+    val in5Name = "C3"
+    val in6Name = "C4"
+
+    val head1: Access = Access(inter1Name, in1SeqVar ++ outSeqVar, Tensor)
+    val head2: Access = Access(inter2Name, in2SeqVar ++ outSeqVar, Tensor)
+    val head3: Access = Access(inter3Name, in1SeqVar, Tensor)
+    val head4: Access = Access(inter4Name, in2SeqVar, Tensor)
+    val head: Access = Access(outName, outSeqVar, Tensor)
+    val var1: Access = Access(in1Name, in1SeqVar, Tensor)
+    val var2: Access = Access(in2Name, in2SeqVar, Tensor)
+    val var3: Comparison = Comparison("=", Arithmetic("//", "i".toVar, "m".toVar), "p".toVar)
+    val var4: Comparison = Comparison("=", Arithmetic("//", "j".toVar, "n".toVar), "q".toVar)
+    val var5: Comparison = Comparison("=", Arithmetic("%", "i".toVar, "m".toVar), "r".toVar)
+    val var6: Comparison = Comparison("=", Arithmetic("%", "j".toVar, "n".toVar), "s".toVar)
+    
+    val prods1: Prod = Prod(Seq(var3, var4))
+    val prods2: Prod = Prod(Seq(var5, var6))
+    val prods3: Prod = Prod(Seq(var1, head1))
+    val prods4: Prod = Prod(Seq(var2, head2))
+    val prods: Prod = Prod(Seq(head3, head4))
+    val body1: SoP = SoP(Seq(prods1))
+    val body2: SoP = SoP(Seq(prods2))
+    val body3: SoP = SoP(Seq(prods3))
+    val body4: SoP = SoP(Seq(prods4))
+    val body: SoP = SoP(Seq(prods))
+    val tensorComputation1: Rule = Rule(head1, body1)
+    val tensorComputation2: Rule = Rule(head2, body2)
+    val tensorComputation3: Rule = Rule(head3, body3)
+    val tensorComputation4: Rule = Rule(head4, body4)
+    val tensorComputation: Rule = Rule(head, body)
+
+    val dim1: DimInfo = DimInfo(var1, Seq("x".toVar, "y".toVar))
+    val dim2: DimInfo = DimInfo(var2, Seq("m".toVar, "n".toVar))
+    val dimInfo: Seq[DimInfo] = Seq(dim1, dim2)
+
+
+    val var1HeadUS: Access = Access(in1Name.uniqueName, in1SeqVar, UniqueSet)
+    val var1ExpUS1: Exp = Comparison("=", "p".toVar, "q".toVar)
+    val var1ProdsUS: Prod = Prod(Seq(var1ExpUS1))
+    val var1BodyUS: SoP = SoP(Seq(var1ProdsUS))
+    val var1US: Rule = Rule(var1HeadUS, var1BodyUS)
+
+    val var1HeadRM: Access = Access(in1Name.redundancyName,  in1SeqVar.redundancyVarsInplace, RedundancyMap)
+    val var1BodyRM: SoP = emptySoP()
+    val var1RM: Rule = Rule(var1HeadRM, var1BodyRM)
+
+    val var2HeadUS: Access = Access(in2Name.uniqueName,  in2SeqVar, UniqueSet)
+    val var2ExpUS1: Exp = Comparison("=", "r".toVar, "s".toVar)
+    val var2ProdsUS: Prod = Prod(Seq(var2ExpUS1))
+    val var2BodyUS: SoP = SoP(Seq(var2ProdsUS))
+    val var2US: Rule = Rule(var2HeadUS, var2BodyUS)
+
+    val var2HeadRM: Access = Access(in2Name.redundancyName,  in2SeqVar.redundancyVarsInplace, RedundancyMap)
+    val var2BodyRM: SoP = emptySoP()
+    val var2RM: Rule = Rule(var2HeadRM, var2BodyRM)
+
+    val var3HeadUS: Access = Access(in3Name.uniqueName,  in3SeqVar, UniqueSet)
+    val var3BodyUS: SoP = emptySoP()
+    val var3US: Rule = Rule(var3HeadUS, var3BodyUS)
+
+    val var3HeadRM: Access = Access(in3Name.redundancyName,  in3SeqVar.redundancyVarsInplace, RedundancyMap)
+    val var3BodyRM: SoP = emptySoP()
+    val var3RM: Rule = Rule(var3HeadRM, var3BodyRM)
+
+    val var4HeadUS: Access = Access(in4Name.uniqueName,  in4SeqVar, UniqueSet)
+    val var4BodyUS: SoP = emptySoP()
+    val var4US: Rule = Rule(var4HeadUS, var4BodyUS)
+
+    val var4HeadRM: Access = Access(in4Name.redundancyName,  in4SeqVar.redundancyVarsInplace, RedundancyMap)
+    val var4BodyRM: SoP = emptySoP()
+    val var4RM: Rule = Rule(var4HeadRM, var4BodyRM)
+
+    val var5HeadUS: Access = Access(in5Name.uniqueName,  in5SeqVar, UniqueSet)
+    val var5BodyUS: SoP = emptySoP()
+    val var5US: Rule = Rule(var5HeadUS, var5BodyUS)
+
+    val var5HeadRM: Access = Access(in5Name.redundancyName,  in5SeqVar.redundancyVarsInplace, RedundancyMap)
+    val var5BodyRM: SoP = emptySoP()
+    val var5RM: Rule = Rule(var5HeadRM, var5BodyRM)
+
+    val var6HeadUS: Access = Access(in6Name.uniqueName,  in6SeqVar, UniqueSet)
+    val var6BodyUS: SoP = emptySoP()
+    val var6US: Rule = Rule(var6HeadUS, var6BodyUS)
+
+    val var6HeadRM: Access = Access(in6Name.redundancyName,  in6SeqVar.redundancyVarsInplace, RedundancyMap)
+    val var6BodyRM: SoP = emptySoP()
+    val var6RM: Rule = Rule(var6HeadRM, var6BodyRM)
+
+    val infer1: (Rule, Rule) = infer(tensorComputation1, dimInfo, var3US, var3RM, var4US, var4RM)
+    val infer2: (Rule, Rule) = infer(tensorComputation2, dimInfo, var5US, var5RM, var6US, var6RM)
+    val infer3: (Rule, Rule) = infer(tensorComputation3, dimInfo, var1US, var1RM, infer1._1, infer1._2)
+    val infer4: (Rule, Rule) = infer(tensorComputation4, dimInfo, var2US, var2RM, infer2._1, infer2._2)
+
+    pprintTest((tensorComputation1, infer1))
+    pprintTest((tensorComputation2, infer2))
+    pprintTest((tensorComputation3, infer3))
+    pprintTest((tensorComputation4, infer4))
+
+    (tensorComputation, infer(tensorComputation, dimInfo, infer3._1, infer3._2, infer4._1, infer4._2))
+  }
+
+  // Chess Pattern is not implemented since it was just a unique set with no computation
+  // none of vec(.), //, and || are explained in the paper in mathematical terms + don't know how to implement the code for this example
+  // Kronecker product explanation in Fig 7. should have * in it (not +)!
   // pprintTest(test1())
   // pprintTest(test2())
-  pprintTest(test3())
+  // pprintTest(test3())
+  // pprintTest(test4())
+  // pprintTest(test5())
+  // pprintTest(test6())
+  // pprintTest(test7())
+  // pprintTest(test8())
+  pprintTest(test9())
   // println(Variable("a").equals(Variable("a")))
 
   // val a: Map[String, Seq[Int]] = Map("a" -> Seq(2))
