@@ -937,6 +937,83 @@ object Main extends App {
     (tensorComputation, infer(tensorComputation, dimInfo, infer3._1, infer3._2, infer4._1, infer4._2))
   }
 
+  // Non-binary: Polynomial Regression Degree 2 -- It's a confusing mess, will check it after all simplifications
+  def test10(): (Rule, (Rule, Rule)) = {
+    val inSeqVar = Seq("i".toVar, "j".toVar)
+    val in1SeqVar = Seq("i".toVar)
+    val in2SeqVar = Seq("j".toVar)
+    val outSeqVar = Seq("p".toVar, "q".toVar)
+    val interSeqVar1 = Seq("k".toVar)
+    val interSeqVar2 = Seq("p".toVar)
+    val interSeqVar3 = Seq("q".toVar)
+    val outName = "S"
+    val inter1Name = "A"
+    val inter2Name = "B"
+    val inter3Name = "C"
+    val inter4Name = "D"
+    val in1Name = "f"
+    val in2Name = "f"
+    val in3Name = "f"
+    val in4Name = "f"
+    val in5Name = "f"
+    val in6Name = "f"
+    val in7Name = "f"
+
+    val head1: Access = Access(inter1Name, inSeqVar, Tensor)
+    val head2: Access = Access(inter2Name, interSeqVar1, Tensor)
+    val head3: Access = Access(inter3Name, interSeqVar2, Tensor)
+    val head4: Access = Access(inter4Name, interSeqVar3, Tensor)
+    val head: Access = Access(outName, outSeqVar, Tensor)
+    val var1: Access = Access(in1Name, in1SeqVar, Tensor)
+    val var2: Access = Access(in1Name, in2SeqVar, Tensor)
+    val var3: Comparison = Comparison("=", Arithmetic("+", Arithmetic("*", "i".toVar, "n".toVar), "j".toVar), "k".toVar)
+    val var4: Access = Access(in1Name, interSeqVar2, Tensor)
+    val var5: Comparison = Comparison("=", Arithmetic("-", "p".toVar, "n".toVar), "k".toVar)
+    val var6: Access = Access(in1Name, interSeqVar3, Tensor)
+    val var7: Comparison = Comparison("=", Arithmetic("-", "q".toVar, "n".toVar), "k".toVar)
+    val prods1: Prod = Prod(Seq(var1, var2))
+    val prods2: Prod = Prod(Seq(head1, var3))
+    val prods3: Prod = Prod(Seq(head2, var5))
+    val prods4: Prod = Prod(Seq(head2, var7))
+    val prods: Prod = Prod(Seq(head3, head4))
+    val body1: SoP = SoP(Seq(prods1))
+    val body2: SoP = SoP(Seq(prods2))
+    val body3: SoP = SoP(Seq(Prod(Seq(var4)), prods3))
+    val body4: SoP = SoP(Seq(Prod(Seq(var6)), prods4))
+    val body: SoP = SoP(Seq(prods))
+    val tensorComputation1: Rule = Rule(head1, body1)
+    val tensorComputation2: Rule = Rule(head2, body2)
+    val tensorComputation3: Rule = Rule(head3, body3)
+    val tensorComputation4: Rule = Rule(head4, body4)
+    val tensorComputation: Rule = Rule(head, body)
+
+    val dim1: DimInfo = DimInfo(var1, Seq("n".toVar))
+    val dim2: DimInfo = DimInfo(var2, Seq("n".toVar))
+    val dim3: DimInfo = DimInfo(var4, Seq("n".toVar))
+    val dim4: DimInfo = DimInfo(var6, Seq("n".toVar))
+    // val dimH1: DimInfo = DimInfo(head1, Seq("n".toVar, "n".toVar, "n".toVar)) n times n?
+    val dimH2: DimInfo = DimInfo(head2, Seq("n".toVar))
+    val dimInfo: Seq[DimInfo] = Seq(dim1, dim2, dim3, dim4, dimH2)
+
+
+    val var1HeadUS: Access = Access(in1Name.uniqueName, in1SeqVar, UniqueSet)
+    val var1BodyUS: SoP = emptySoP()
+    val var1US: Rule = Rule(var1HeadUS, var1BodyUS)
+
+    val var1HeadRM: Access = Access(in1Name.redundancyName,  in1SeqVar.redundancyVarsInplace, RedundancyMap)
+    val var1BodyRM: SoP = emptySoP()
+    val var1RM: Rule = Rule(var1HeadRM, var1BodyRM)
+
+    // since all of them are empty so it doesn't matter
+
+    val infer1: (Rule, Rule) = infer(tensorComputation1, dimInfo, var1US, var1RM, var1US, var1RM)
+    val infer2: (Rule, Rule) = infer(tensorComputation2, dimInfo, infer1._1, infer1._2, var1US, var1RM)
+    val infer3: (Rule, Rule) = infer(tensorComputation1, dimInfo, var1US, var1RM, infer2._1, infer2._2)
+    val infer4: (Rule, Rule) = infer(tensorComputation1, dimInfo, var1US, var1RM, infer2._1, infer2._2)
+
+    (tensorComputation, infer(tensorComputation, dimInfo, infer3._1, infer3._2, infer4._1, infer4._2))
+  }
+
   // Chess Pattern is not implemented since it was just a unique set with no computation
   // none of vec(.), //, and || are explained in the paper in mathematical terms + don't know how to implement the code for this example
   // Kronecker product explanation in Fig 7. should have * in it (not +)!
@@ -948,7 +1025,8 @@ object Main extends App {
   // pprintTest(test6())
   // pprintTest(test7())
   // pprintTest(test8())
-  pprintTest(test9())
+  // pprintTest(test9())
+  pprintTest(test10())
   // println(Variable("a").equals(Variable("a")))
 
   // val a: Map[String, Seq[Int]] = Map("a" -> Seq(2))
