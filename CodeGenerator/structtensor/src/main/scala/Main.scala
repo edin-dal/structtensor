@@ -84,6 +84,8 @@ object Main extends App {
 
   def emptySoP(): SoP = SoP(Seq[Prod]())
 
+  def emptyRule(): Rule = Rule(Access("", Seq[Variable](), Tensor), emptySoP())
+
   def pprint(r: Rule): Unit = println(r.prettyFormat)
 
   def pprintTest(rTUR: (Rule, (Rule, Rule))): Unit = {
@@ -234,16 +236,16 @@ object Main extends App {
     (e1, e2) match {
       case (Access(name1, vars1, Tensor), Access(name2, vars2, Tensor)) => {
         if (vars1.union(vars2).toSet == head.vars.toSet) {
-          val e1US: SoP = includeBoundaries(inp1US.body, bounds, e1.asInstanceOf[Access]) // if .get result is None leads to an error
-          val e2US: SoP = includeBoundaries(inp2US.body, bounds, e2.asInstanceOf[Access]) // if .get result is None leads to an error
+          val e1US: SoP = includeBoundaries(inp1US.body, bounds, e1.asInstanceOf[Access]) 
+          val e2US: SoP = includeBoundaries(inp2US.body, bounds, e2.asInstanceOf[Access]) 
           if (isIntersectEmpty(vars1, vars2)) {
             if (name1 == name2) {
               val bodyUS: SoP = multSoP(Seq(e1US, e2US, SoP(Seq(vectorizeComparisonMultiplication("<=", vars1, vars2)))))
               val bodyRM: SoP = concatSoP(Seq(SoPTimesSoP(inp1RM.body, inp2RM.body), 
               multSoP(Seq(e1US, SoP(Seq(vectorizeComparisonMultiplication("=", vars1, inp1RM.head.vars.diff(vars1)))), inp2RM.body)), 
               multSoP(Seq(e2US, SoP(Seq(vectorizeComparisonMultiplication("=", vars2, inp2RM.head.vars.diff(vars2)))), inp1RM.body)), 
-              multSoP(Seq(e1US, SoP(Seq(vectorizeComparisonMultiplication("=", vars1, inp1RM.head.vars.diff(vars1)))), e2US, 
-                          SoP(Seq(vectorizeComparisonMultiplication("=", vars2, inp2RM.head.vars.diff(vars2)))), 
+              multSoP(Seq(e1US, SoP(Seq(vectorizeComparisonMultiplication("=", vars2, inp1RM.head.vars.diff(vars1)))), e2US, 
+                          SoP(Seq(vectorizeComparisonMultiplication("=", vars1, inp2RM.head.vars.diff(vars2)))), 
                           SoP(Seq(vectorizeComparisonMultiplication(">", vars1, vars2)))))))
               return (Rule(headUS, bodyUS), Rule(headRM, bodyRM))
             } else {
@@ -254,7 +256,7 @@ object Main extends App {
               return (Rule(headUS, bodyUS), Rule(headRM, bodyRM))
             }
           } else {
-            val bodyUS: SoP = concatSoP(Seq(SoPTimesSoP(e1US, e2US), SoPTimesSoP(inp1RM.body, e2US), SoPTimesSoP(inp1US.body, inp2RM.body)))
+            val bodyUS: SoP = concatSoP(Seq(SoPTimesSoP(e1US, e2US), SoPTimesSoP(inp1RM.body, e2US), SoPTimesSoP(e1US, inp2RM.body)))
             val bodyRM: SoP = SoPTimesSoP(inp1RM.body, inp2RM.body)
             return (Rule(headUS, bodyUS), Rule(headRM, bodyRM))
           }
@@ -273,6 +275,10 @@ object Main extends App {
           val bodyUS: SoP = SoP(Seq(Prod(Seq(Comparison("=", index1, variable1)))))
           val bodyRM: SoP = SoP(Seq(Prod(Seq(Comparison("<", index1, variable1), e2, Comparison("=", index1, variable1.redundancyVars))))) // inp1RM.head.vars.diff(Seq(variable1))??
           return (Rule(headUS, bodyUS), Rule(headRM, bodyRM))
+        } else {
+          val bodyUS: SoP = concatSoP(Seq(SoPTimesSoP(inp1US.body, inp2US.body), SoPTimesSoP(inp1RM.body, inp2US.body), SoPTimesSoP(inp1US.body, inp2RM.body), SoP(Seq(Prod(Seq(e1, e2))))))
+          val bodyRM: SoP = SoPTimesSoP(inp1RM.body, inp2RM.body)
+          return (Rule(headUS, bodyUS), Rule(headRM, bodyRM))
         }
       }
     }
@@ -287,8 +293,8 @@ object Main extends App {
     val bounds: Map[Access, Prod] = dimInfo.toComparisonAccessProdMap
     (e1, e2) match {
       case (Access(name1, vars1, Tensor), Access(name2, vars2, Tensor)) => { 
-        val e1US: SoP = includeBoundaries(inp1US.body, bounds, e1.asInstanceOf[Access]) // if .get result is None leads to an error
-        val e2US: SoP = includeBoundaries(inp2US.body, bounds, e2.asInstanceOf[Access]) // if .get result is None leads to an error
+        val e1US: SoP = includeBoundaries(inp1US.body, bounds, e1.asInstanceOf[Access]) 
+        val e2US: SoP = includeBoundaries(inp2US.body, bounds, e2.asInstanceOf[Access]) 
         if (vars1 == vars2) {
           if (isSoPEquals(e1US, e2US) && isSoPEquals(inp1RM.body, inp2RM.body)) {
             val bodyUS: SoP = e1US
@@ -320,7 +326,7 @@ object Main extends App {
     val bounds: Map[Access, Prod] = dimInfo.toComparisonAccessProdMap
     e match {
       case Access(nameE, varsE, Tensor) => {
-        val eUS: SoP = includeBoundaries(inp1US.body, bounds, e.asInstanceOf[Access]) // if .get result is None leads to an error
+        val eUS: SoP = includeBoundaries(inp1US.body, bounds, e.asInstanceOf[Access]) 
         if(outVars.toSet.subsetOf(varsE.toSet)) {
           val bodyUS: SoP = concatSoP(Seq(eUS, inp1RM.body))
           val bodyRM: SoP = SoP(Seq())
@@ -379,8 +385,8 @@ object Main extends App {
     val bounds: Map[Access, Prod] = dimInfo.toComparisonAccessProdMap
     (e1, e2) match {
       case (Access(name1, vars1, Tensor), Access(name2, vars2, Tensor)) => { 
-        val e1US: SoP = includeBoundaries(inp1US.body, bounds, e1.asInstanceOf[Access]) // if .get result is None leads to an error
-        val e2US: SoP = includeBoundaries(inp2US.body, bounds, e2.asInstanceOf[Access]) // if .get result is None leads to an error
+        val e1US: SoP = includeBoundaries(inp1US.body, bounds, e1.asInstanceOf[Access]) 
+        val e2US: SoP = includeBoundaries(inp2US.body, bounds, e2.asInstanceOf[Access]) 
         val bodyUS: SoP = concatSoP(Seq(e1US, SoPTimesSoP(e2US, SoP(Seq(Prod(e2Seq))))))
         val bodyRM: SoP = concatSoP(Seq(inp1RM.body, multSoP(Seq(inp2RM.body, SoP(Seq(Prod(e2Seq))), SoP(Seq(Prod(replaceVarsWithRedundancyVars(e2Seq))))))))
         return (Rule(headUS, bodyUS), Rule(headRM, bodyRM))
@@ -389,7 +395,349 @@ object Main extends App {
     (inp1US, inp1RM)
   }
 
-  def infer(tensorComputation: Rule, dimInfo: Seq[DimInfo], inp1US: Rule, inp1RM: Rule, inp2US: Rule, inp2RM: Rule): (Rule, Rule) = {
+  def isPairwiseIntersectEmpty(vars: Seq[Seq[Variable]]): Boolean = {
+    vars.foldLeft(true)((acc, cur) => {
+      acc && vars.foldLeft(true)((acc2, cur2) => {
+        if(cur != cur2) acc2 && isIntersectEmpty(cur, cur2)
+        else acc2
+      })
+    })
+  }
+
+  def mult3(head: Access, dimInfo: Seq[DimInfo], e1: Exp, e2: Exp, e3: Exp, inp1US: Rule, inp1RM: Rule, inp2US: Rule, inp2RM: Rule, inp3US: Rule, inp3RM: Rule): (Rule, Rule) = { 
+    val outVars: Seq[Variable] = head.vars
+    val name: String = head.name
+    val headUS: Access = Access(name.uniqueName, outVars, UniqueSet)
+    val headRM: Access = Access(name.redundancyName, outVars.redundancyVarsInplace, RedundancyMap)
+    val bounds: Map[Access, Prod] = dimInfo.toComparisonAccessProdMap
+    (e1, e2, e3) match {
+      case (Access(name1, vars1, Tensor), Access(name2, vars2, Tensor), Access(name3, vars3, Tensor)) => {
+        val e1US: SoP = includeBoundaries(inp1US.body, bounds, e1.asInstanceOf[Access])
+        val e2US: SoP = includeBoundaries(inp2US.body, bounds, e2.asInstanceOf[Access])
+        val e3US: SoP = includeBoundaries(inp3US.body, bounds, e3.asInstanceOf[Access])
+        if (isPairwiseIntersectEmpty(Seq(vars1, vars2, vars3))) {
+          if (name1 == name2 && name2 == name3) {
+            val e1Red = inp1RM.head.vars.diff(vars1)
+            val e2Red = inp2RM.head.vars.diff(vars2)
+            val e3Red = inp3RM.head.vars.diff(vars3)
+            val e1US_allvars: SoP = SoPTimesSoP(e1US, SoP(Seq(vectorizeComparisonMultiplication("=", vars1, e1Red))))
+            val e2US_allvars: SoP = SoPTimesSoP(e2US, SoP(Seq(vectorizeComparisonMultiplication("=", vars2, e2Red))))
+            val e3US_allvars: SoP = SoPTimesSoP(e3US, SoP(Seq(vectorizeComparisonMultiplication("=", vars3, e3Red))))
+            val c11Red: SoP = SoP(Seq(vectorizeComparisonMultiplication("=", e1Red, vars1)))
+            val c12Red: SoP = SoP(Seq(vectorizeComparisonMultiplication("=", e1Red, vars2)))
+            val c12lt: SoP = SoP(Seq(vectorizeComparisonMultiplication("<", vars1, vars2)))
+            val c12eq: SoP = SoP(Seq(vectorizeComparisonMultiplication("=", vars1, vars2)))
+            val c13Red: SoP = SoP(Seq(vectorizeComparisonMultiplication("=", e1Red, vars3)))
+            val c13lt: SoP = SoP(Seq(vectorizeComparisonMultiplication("<", vars1, vars3)))
+            val c13eq: SoP = SoP(Seq(vectorizeComparisonMultiplication("=", vars1, vars3)))
+            val c21Red: SoP = SoP(Seq(vectorizeComparisonMultiplication("=", e2Red, vars1)))
+            val c21lt: SoP = SoP(Seq(vectorizeComparisonMultiplication("<", vars2, vars1)))
+            val c21eq: SoP = SoP(Seq(vectorizeComparisonMultiplication("=", vars2, vars1)))
+            val c22Red: SoP = SoP(Seq(vectorizeComparisonMultiplication("=", e2Red, vars2)))
+            val c23Red: SoP = SoP(Seq(vectorizeComparisonMultiplication("=", e2Red, vars3)))
+            val c23lt: SoP = SoP(Seq(vectorizeComparisonMultiplication("<", vars2, vars3)))
+            val c23eq: SoP = SoP(Seq(vectorizeComparisonMultiplication("=", vars2, vars3)))
+            val c31Red: SoP = SoP(Seq(vectorizeComparisonMultiplication("=", e3Red, vars1)))
+            val c31lt: SoP = SoP(Seq(vectorizeComparisonMultiplication("<", vars3, vars1)))
+            val c31eq: SoP = SoP(Seq(vectorizeComparisonMultiplication("=", vars3, vars1)))
+            val c32Red: SoP = SoP(Seq(vectorizeComparisonMultiplication("=", e3Red, vars2)))
+            val c32lt: SoP = SoP(Seq(vectorizeComparisonMultiplication("<", vars3, vars2)))
+            val c32eq: SoP = SoP(Seq(vectorizeComparisonMultiplication("=", vars3, vars2)))
+            val c33Red: SoP = SoP(Seq(vectorizeComparisonMultiplication("=", e3Red, vars3)))
+
+            
+            val bodyUS: SoP = multSoP(Seq(e1US, e2US, e3US, SoP(Seq(vectorizeComparisonMultiplication("<=", vars1, vars2))), SoP(Seq(vectorizeComparisonMultiplication("<=", vars2, vars3)))))
+            val bodyRM: SoP = concatSoP(Seq(
+              multSoP(Seq(inp1RM.body, inp2RM.body, inp3RM.body)), 
+              
+              multSoP(Seq(e1US_allvars, inp2RM.body, inp3RM.body)), 
+              multSoP(Seq(inp1RM.body, e2US_allvars, inp3RM.body)), 
+              multSoP(Seq(inp1RM.body, inp2RM.body, e3US_allvars)), 
+              
+              multSoP(Seq(e1US_allvars, e2US_allvars, inp3RM.body)), 
+              multSoP(Seq(e1US_allvars, inp2RM.body, e3US_allvars)), 
+              multSoP(Seq(inp1RM.body, e2US_allvars, e3US_allvars)), 
+            
+              multSoP(Seq(e1US, e2US, e3US, c13eq, c32lt, c11Red, c23Red, c32Red)), 
+              multSoP(Seq(e1US, e2US, e3US, c13lt, c32eq, c11Red, c23Red, c32Red)), 
+              multSoP(Seq(e1US, e2US, e3US, c13lt, c32lt, c11Red, c23Red, c32Red)), 
+              multSoP(Seq(e1US, e2US, e3US, c21eq, c13lt, c12Red, c21Red, c33Red)), 
+              multSoP(Seq(e1US, e2US, e3US, c21lt, c13eq, c12Red, c21Red, c33Red)), 
+              multSoP(Seq(e1US, e2US, e3US, c21lt, c13lt, c12Red, c21Red, c33Red)), 
+              multSoP(Seq(e1US, e2US, e3US, c23eq, c31lt, c12Red, c23Red, c31Red)), 
+              multSoP(Seq(e1US, e2US, e3US, c23lt, c31eq, c12Red, c23Red, c31Red)), 
+              multSoP(Seq(e1US, e2US, e3US, c23lt, c31lt, c12Red, c23Red, c31Red)), 
+              multSoP(Seq(e1US, e2US, e3US, c31eq, c12lt, c13Red, c21Red, c32Red)), 
+              multSoP(Seq(e1US, e2US, e3US, c31lt, c12eq, c13Red, c21Red, c32Red)), 
+              multSoP(Seq(e1US, e2US, e3US, c31lt, c12lt, c13Red, c21Red, c32Red)), 
+              multSoP(Seq(e1US, e2US, e3US, c32eq, c21lt, c13Red, c22Red, c31Red)), 
+              multSoP(Seq(e1US, e2US, e3US, c32lt, c21eq, c13Red, c22Red, c31Red)), 
+              multSoP(Seq(e1US, e2US, e3US, c32lt, c21lt, c13Red, c22Red, c31Red))
+            ))
+            return (Rule(headUS, bodyUS), Rule(headRM, bodyRM))
+          }
+        }
+      }
+    }
+    (inp1US, inp1RM)
+  }
+
+  def mult4(head: Access, dimInfo: Seq[DimInfo], e1: Exp, e2: Exp, e3: Exp, e4: Exp, inp1US: Rule, inp1RM: Rule, inp2US: Rule, inp2RM: Rule, inp3US: Rule, inp3RM: Rule, inp4US: Rule, inp4RM: Rule): (Rule, Rule) = { 
+    val outVars: Seq[Variable] = head.vars
+    val name: String = head.name
+    val headUS: Access = Access(name.uniqueName, outVars, UniqueSet)
+    val headRM: Access = Access(name.redundancyName, outVars.redundancyVarsInplace, RedundancyMap)
+    val bounds: Map[Access, Prod] = dimInfo.toComparisonAccessProdMap
+    (e1, e2, e3, e4) match {
+      case (Access(name1, vars1, Tensor), Access(name2, vars2, Tensor), Access(name3, vars3, Tensor), Access(name4, vars4, Tensor)) => {
+        val e1US: SoP = includeBoundaries(inp1US.body, bounds, e1.asInstanceOf[Access])
+        val e2US: SoP = includeBoundaries(inp2US.body, bounds, e2.asInstanceOf[Access])
+        val e3US: SoP = includeBoundaries(inp3US.body, bounds, e3.asInstanceOf[Access])
+        val e4US: SoP = includeBoundaries(inp4US.body, bounds, e4.asInstanceOf[Access])
+        if (isPairwiseIntersectEmpty(Seq(vars1, vars2, vars3, vars4))) {
+          if (name1 == name2 && name2 == name3 && name3 == name4) {
+            val e1Red = inp1RM.head.vars.diff(vars1)
+            val e2Red = inp2RM.head.vars.diff(vars2)
+            val e3Red = inp3RM.head.vars.diff(vars3)
+            val e4Red = inp4RM.head.vars.diff(vars4)
+            val e1US_allvars: SoP = SoPTimesSoP(e1US, SoP(Seq(vectorizeComparisonMultiplication("=", vars1, e1Red))))
+            val e2US_allvars: SoP = SoPTimesSoP(e2US, SoP(Seq(vectorizeComparisonMultiplication("=", vars2, e2Red))))
+            val e3US_allvars: SoP = SoPTimesSoP(e3US, SoP(Seq(vectorizeComparisonMultiplication("=", vars3, e3Red))))
+            val e4US_allvars: SoP = SoPTimesSoP(e4US, SoP(Seq(vectorizeComparisonMultiplication("=", vars4, e4Red))))
+            val c11Red: SoP = SoP(Seq(vectorizeComparisonMultiplication("=", e1Red, vars1)))
+            val c12Red: SoP = SoP(Seq(vectorizeComparisonMultiplication("=", e1Red, vars2)))
+            val c12lt: SoP = SoP(Seq(vectorizeComparisonMultiplication("<", vars1, vars2)))
+            val c12eq: SoP = SoP(Seq(vectorizeComparisonMultiplication("=", vars1, vars2)))
+            val c13Red: SoP = SoP(Seq(vectorizeComparisonMultiplication("=", e1Red, vars3)))
+            val c13lt: SoP = SoP(Seq(vectorizeComparisonMultiplication("<", vars1, vars3)))
+            val c13eq: SoP = SoP(Seq(vectorizeComparisonMultiplication("=", vars1, vars3)))
+            val c14Red: SoP = SoP(Seq(vectorizeComparisonMultiplication("=", e1Red, vars4)))
+            val c14lt: SoP = SoP(Seq(vectorizeComparisonMultiplication("<", vars1, vars4)))
+            val c14eq: SoP = SoP(Seq(vectorizeComparisonMultiplication("=", vars1, vars4)))
+            val c21Red: SoP = SoP(Seq(vectorizeComparisonMultiplication("=", e2Red, vars1)))
+            val c21lt: SoP = SoP(Seq(vectorizeComparisonMultiplication("<", vars2, vars1)))
+            val c21eq: SoP = SoP(Seq(vectorizeComparisonMultiplication("=", vars2, vars1)))
+            val c22Red: SoP = SoP(Seq(vectorizeComparisonMultiplication("=", e2Red, vars2)))
+            val c23Red: SoP = SoP(Seq(vectorizeComparisonMultiplication("=", e2Red, vars3)))
+            val c23lt: SoP = SoP(Seq(vectorizeComparisonMultiplication("<", vars2, vars3)))
+            val c23eq: SoP = SoP(Seq(vectorizeComparisonMultiplication("=", vars2, vars3)))
+            val c24Red: SoP = SoP(Seq(vectorizeComparisonMultiplication("=", e2Red, vars4)))
+            val c24lt: SoP = SoP(Seq(vectorizeComparisonMultiplication("<", vars2, vars4)))
+            val c24eq: SoP = SoP(Seq(vectorizeComparisonMultiplication("=", vars2, vars4)))
+            val c31Red: SoP = SoP(Seq(vectorizeComparisonMultiplication("=", e3Red, vars1)))
+            val c31lt: SoP = SoP(Seq(vectorizeComparisonMultiplication("<", vars3, vars1)))
+            val c31eq: SoP = SoP(Seq(vectorizeComparisonMultiplication("=", vars3, vars1)))
+            val c32Red: SoP = SoP(Seq(vectorizeComparisonMultiplication("=", e3Red, vars2)))
+            val c32lt: SoP = SoP(Seq(vectorizeComparisonMultiplication("<", vars3, vars2)))
+            val c32eq: SoP = SoP(Seq(vectorizeComparisonMultiplication("=", vars3, vars2)))
+            val c33Red: SoP = SoP(Seq(vectorizeComparisonMultiplication("=", e3Red, vars3)))
+            val c34Red: SoP = SoP(Seq(vectorizeComparisonMultiplication("=", e3Red, vars4)))
+            val c34lt: SoP = SoP(Seq(vectorizeComparisonMultiplication("<", vars3, vars4)))
+            val c34eq: SoP = SoP(Seq(vectorizeComparisonMultiplication("=", vars3, vars4)))
+            val c41Red: SoP = SoP(Seq(vectorizeComparisonMultiplication("=", e4Red, vars1)))
+            val c41lt: SoP = SoP(Seq(vectorizeComparisonMultiplication("<", vars4, vars1)))
+            val c41eq: SoP = SoP(Seq(vectorizeComparisonMultiplication("=", vars4, vars1)))
+            val c42Red: SoP = SoP(Seq(vectorizeComparisonMultiplication("=", e4Red, vars2)))
+            val c42lt: SoP = SoP(Seq(vectorizeComparisonMultiplication("<", vars4, vars2)))
+            val c42eq: SoP = SoP(Seq(vectorizeComparisonMultiplication("=", vars4, vars2)))
+            val c43Red: SoP = SoP(Seq(vectorizeComparisonMultiplication("=", e4Red, vars3)))
+            val c43lt: SoP = SoP(Seq(vectorizeComparisonMultiplication("<", vars4, vars3)))
+            val c43eq: SoP = SoP(Seq(vectorizeComparisonMultiplication("=", vars4, vars3)))
+            val c44Red: SoP = SoP(Seq(vectorizeComparisonMultiplication("=", e4Red, vars4)))
+            
+            val bodyUS: SoP = multSoP(Seq(e1US, e2US, e3US, e4US, SoP(Seq(vectorizeComparisonMultiplication("<=", vars1, vars2))), SoP(Seq(vectorizeComparisonMultiplication("<=", vars2, vars3))), SoP(Seq(vectorizeComparisonMultiplication("<=", vars3, vars4)))))
+            val bodyRM: SoP = concatSoP(Seq(
+              multSoP(Seq(inp1RM.body, inp2RM.body, inp3RM.body, inp4RM.body)), 
+              
+              multSoP(Seq(e1US_allvars, inp2RM.body, inp3RM.body, inp4RM.body)), 
+              multSoP(Seq(inp1RM.body, e2US_allvars, inp3RM.body, inp4RM.body)), 
+              multSoP(Seq(inp1RM.body, inp2RM.body, e3US_allvars, inp4RM.body)),
+              multSoP(Seq(inp1RM.body, inp2RM.body, inp3RM.body, e4US_allvars)), 
+              
+              multSoP(Seq(e1US_allvars, e2US_allvars, inp3RM.body, inp4RM.body)), 
+              multSoP(Seq(e1US_allvars, inp2RM.body, e3US_allvars, inp4RM.body)), 
+              multSoP(Seq(e1US_allvars, inp2RM.body, inp3RM.body, e4US_allvars)), 
+              multSoP(Seq(inp1RM.body, e2US_allvars, e3US_allvars, inp4RM.body)), 
+              multSoP(Seq(inp1RM.body, e2US_allvars, inp3RM.body, e4US_allvars)), 
+              multSoP(Seq(inp1RM.body, inp2RM.body, e3US_allvars, e4US_allvars)), 
+
+              multSoP(Seq(e1US_allvars, e2US_allvars, e3US_allvars, inp4RM.body)), 
+              multSoP(Seq(e1US_allvars, e2US_allvars, inp3RM.body, e4US_allvars)), 
+              multSoP(Seq(e1US_allvars, inp2RM.body, e3US_allvars, e4US_allvars)),
+              multSoP(Seq(inp1RM.body, e2US_allvars, e3US_allvars, e4US_allvars)),
+            
+              multSoP(Seq(e1US, e2US, e3US, e4US, c12eq, c24eq, c43lt, c11Red, c22Red, c34Red, c43Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c12eq, c24lt, c43eq, c11Red, c22Red, c34Red, c43Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c12eq, c24lt, c43lt, c11Red, c22Red, c34Red, c43Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c12lt, c24eq, c43eq, c11Red, c22Red, c34Red, c43Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c12lt, c24eq, c43lt, c11Red, c22Red, c34Red, c43Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c12lt, c24lt, c43eq, c11Red, c22Red, c34Red, c43Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c12lt, c24lt, c43lt, c11Red, c22Red, c34Red, c43Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c13eq, c32eq, c24lt, c11Red, c23Red, c32Red, c44Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c13eq, c32lt, c24eq, c11Red, c23Red, c32Red, c44Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c13eq, c32lt, c24lt, c11Red, c23Red, c32Red, c44Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c13lt, c32eq, c24eq, c11Red, c23Red, c32Red, c44Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c13lt, c32eq, c24lt, c11Red, c23Red, c32Red, c44Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c13lt, c32lt, c24eq, c11Red, c23Red, c32Red, c44Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c13lt, c32lt, c24lt, c11Red, c23Red, c32Red, c44Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c13eq, c34eq, c42lt, c11Red, c23Red, c34Red, c42Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c13eq, c34lt, c42eq, c11Red, c23Red, c34Red, c42Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c13eq, c34lt, c42lt, c11Red, c23Red, c34Red, c42Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c13lt, c34eq, c42eq, c11Red, c23Red, c34Red, c42Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c13lt, c34eq, c42lt, c11Red, c23Red, c34Red, c42Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c13lt, c34lt, c42eq, c11Red, c23Red, c34Red, c42Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c13lt, c34lt, c42lt, c11Red, c23Red, c34Red, c42Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c14eq, c42eq, c23lt, c11Red, c24Red, c32Red, c43Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c14eq, c42lt, c23eq, c11Red, c24Red, c32Red, c43Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c14eq, c42lt, c23lt, c11Red, c24Red, c32Red, c43Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c14lt, c42eq, c23eq, c11Red, c24Red, c32Red, c43Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c14lt, c42eq, c23lt, c11Red, c24Red, c32Red, c43Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c14lt, c42lt, c23eq, c11Red, c24Red, c32Red, c43Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c14lt, c42lt, c23lt, c11Red, c24Red, c32Red, c43Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c14eq, c43eq, c32lt, c11Red, c24Red, c33Red, c42Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c14eq, c43lt, c32eq, c11Red, c24Red, c33Red, c42Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c14eq, c43lt, c32lt, c11Red, c24Red, c33Red, c42Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c14lt, c43eq, c32eq, c11Red, c24Red, c33Red, c42Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c14lt, c43eq, c32lt, c11Red, c24Red, c33Red, c42Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c14lt, c43lt, c32eq, c11Red, c24Red, c33Red, c42Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c14lt, c43lt, c32lt, c11Red, c24Red, c33Red, c42Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c21eq, c13eq, c34lt, c12Red, c21Red, c33Red, c44Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c21eq, c13lt, c34eq, c12Red, c21Red, c33Red, c44Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c21eq, c13lt, c34lt, c12Red, c21Red, c33Red, c44Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c21lt, c13eq, c34eq, c12Red, c21Red, c33Red, c44Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c21lt, c13eq, c34lt, c12Red, c21Red, c33Red, c44Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c21lt, c13lt, c34eq, c12Red, c21Red, c33Red, c44Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c21lt, c13lt, c34lt, c12Red, c21Red, c33Red, c44Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c21eq, c14eq, c43lt, c12Red, c21Red, c34Red, c43Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c21eq, c14lt, c43eq, c12Red, c21Red, c34Red, c43Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c21eq, c14lt, c43lt, c12Red, c21Red, c34Red, c43Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c21lt, c14eq, c43eq, c12Red, c21Red, c34Red, c43Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c21lt, c14eq, c43lt, c12Red, c21Red, c34Red, c43Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c21lt, c14lt, c43eq, c12Red, c21Red, c34Red, c43Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c21lt, c14lt, c43lt, c12Red, c21Red, c34Red, c43Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c23eq, c31eq, c14lt, c12Red, c23Red, c31Red, c44Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c23eq, c31lt, c14eq, c12Red, c23Red, c31Red, c44Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c23eq, c31lt, c14lt, c12Red, c23Red, c31Red, c44Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c23lt, c31eq, c14eq, c12Red, c23Red, c31Red, c44Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c23lt, c31eq, c14lt, c12Red, c23Red, c31Red, c44Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c23lt, c31lt, c14eq, c12Red, c23Red, c31Red, c44Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c23lt, c31lt, c14lt, c12Red, c23Red, c31Red, c44Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c23eq, c34eq, c41lt, c12Red, c23Red, c34Red, c41Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c23eq, c34lt, c41eq, c12Red, c23Red, c34Red, c41Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c23eq, c34lt, c41lt, c12Red, c23Red, c34Red, c41Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c23lt, c34eq, c41eq, c12Red, c23Red, c34Red, c41Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c23lt, c34eq, c41lt, c12Red, c23Red, c34Red, c41Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c23lt, c34lt, c41eq, c12Red, c23Red, c34Red, c41Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c23lt, c34lt, c41lt, c12Red, c23Red, c34Red, c41Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c24eq, c41eq, c13lt, c12Red, c24Red, c31Red, c43Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c24eq, c41lt, c13eq, c12Red, c24Red, c31Red, c43Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c24eq, c41lt, c13lt, c12Red, c24Red, c31Red, c43Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c24lt, c41eq, c13eq, c12Red, c24Red, c31Red, c43Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c24lt, c41eq, c13lt, c12Red, c24Red, c31Red, c43Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c24lt, c41lt, c13eq, c12Red, c24Red, c31Red, c43Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c24lt, c41lt, c13lt, c12Red, c24Red, c31Red, c43Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c24eq, c43eq, c31lt, c12Red, c24Red, c33Red, c41Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c24eq, c43lt, c31eq, c12Red, c24Red, c33Red, c41Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c24eq, c43lt, c31lt, c12Red, c24Red, c33Red, c41Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c24lt, c43eq, c31eq, c12Red, c24Red, c33Red, c41Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c24lt, c43eq, c31lt, c12Red, c24Red, c33Red, c41Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c24lt, c43lt, c31eq, c12Red, c24Red, c33Red, c41Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c24lt, c43lt, c31lt, c12Red, c24Red, c33Red, c41Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c31eq, c12eq, c24lt, c13Red, c21Red, c32Red, c44Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c31eq, c12lt, c24eq, c13Red, c21Red, c32Red, c44Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c31eq, c12lt, c24lt, c13Red, c21Red, c32Red, c44Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c31lt, c12eq, c24eq, c13Red, c21Red, c32Red, c44Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c31lt, c12eq, c24lt, c13Red, c21Red, c32Red, c44Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c31lt, c12lt, c24eq, c13Red, c21Red, c32Red, c44Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c31lt, c12lt, c24lt, c13Red, c21Red, c32Red, c44Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c31eq, c14eq, c42lt, c13Red, c21Red, c34Red, c42Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c31eq, c14lt, c42eq, c13Red, c21Red, c34Red, c42Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c31eq, c14lt, c42lt, c13Red, c21Red, c34Red, c42Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c31lt, c14eq, c42eq, c13Red, c21Red, c34Red, c42Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c31lt, c14eq, c42lt, c13Red, c21Red, c34Red, c42Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c31lt, c14lt, c42eq, c13Red, c21Red, c34Red, c42Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c31lt, c14lt, c42lt, c13Red, c21Red, c34Red, c42Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c32eq, c21eq, c14lt, c13Red, c22Red, c31Red, c44Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c32eq, c21lt, c14eq, c13Red, c22Red, c31Red, c44Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c32eq, c21lt, c14lt, c13Red, c22Red, c31Red, c44Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c32lt, c21eq, c14eq, c13Red, c22Red, c31Red, c44Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c32lt, c21eq, c14lt, c13Red, c22Red, c31Red, c44Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c32lt, c21lt, c14eq, c13Red, c22Red, c31Red, c44Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c32lt, c21lt, c14lt, c13Red, c22Red, c31Red, c44Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c32eq, c24eq, c41lt, c13Red, c22Red, c34Red, c41Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c32eq, c24lt, c41eq, c13Red, c22Red, c34Red, c41Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c32eq, c24lt, c41lt, c13Red, c22Red, c34Red, c41Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c32lt, c24eq, c41eq, c13Red, c22Red, c34Red, c41Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c32lt, c24eq, c41lt, c13Red, c22Red, c34Red, c41Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c32lt, c24lt, c41eq, c13Red, c22Red, c34Red, c41Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c32lt, c24lt, c41lt, c13Red, c22Red, c34Red, c41Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c34eq, c41eq, c12lt, c13Red, c24Red, c31Red, c42Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c34eq, c41lt, c12eq, c13Red, c24Red, c31Red, c42Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c34eq, c41lt, c12lt, c13Red, c24Red, c31Red, c42Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c34lt, c41eq, c12eq, c13Red, c24Red, c31Red, c42Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c34lt, c41eq, c12lt, c13Red, c24Red, c31Red, c42Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c34lt, c41lt, c12eq, c13Red, c24Red, c31Red, c42Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c34lt, c41lt, c12lt, c13Red, c24Red, c31Red, c42Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c34eq, c42eq, c21lt, c13Red, c24Red, c32Red, c41Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c34eq, c42lt, c21eq, c13Red, c24Red, c32Red, c41Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c34eq, c42lt, c21lt, c13Red, c24Red, c32Red, c41Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c34lt, c42eq, c21eq, c13Red, c24Red, c32Red, c41Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c34lt, c42eq, c21lt, c13Red, c24Red, c32Red, c41Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c34lt, c42lt, c21eq, c13Red, c24Red, c32Red, c41Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c34lt, c42lt, c21lt, c13Red, c24Red, c32Red, c41Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c41eq, c12eq, c23lt, c14Red, c21Red, c32Red, c43Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c41eq, c12lt, c23eq, c14Red, c21Red, c32Red, c43Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c41eq, c12lt, c23lt, c14Red, c21Red, c32Red, c43Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c41lt, c12eq, c23eq, c14Red, c21Red, c32Red, c43Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c41lt, c12eq, c23lt, c14Red, c21Red, c32Red, c43Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c41lt, c12lt, c23eq, c14Red, c21Red, c32Red, c43Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c41lt, c12lt, c23lt, c14Red, c21Red, c32Red, c43Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c41eq, c13eq, c32lt, c14Red, c21Red, c33Red, c42Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c41eq, c13lt, c32eq, c14Red, c21Red, c33Red, c42Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c41eq, c13lt, c32lt, c14Red, c21Red, c33Red, c42Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c41lt, c13eq, c32eq, c14Red, c21Red, c33Red, c42Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c41lt, c13eq, c32lt, c14Red, c21Red, c33Red, c42Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c41lt, c13lt, c32eq, c14Red, c21Red, c33Red, c42Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c41lt, c13lt, c32lt, c14Red, c21Red, c33Red, c42Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c42eq, c21eq, c13lt, c14Red, c22Red, c31Red, c43Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c42eq, c21lt, c13eq, c14Red, c22Red, c31Red, c43Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c42eq, c21lt, c13lt, c14Red, c22Red, c31Red, c43Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c42lt, c21eq, c13eq, c14Red, c22Red, c31Red, c43Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c42lt, c21eq, c13lt, c14Red, c22Red, c31Red, c43Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c42lt, c21lt, c13eq, c14Red, c22Red, c31Red, c43Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c42lt, c21lt, c13lt, c14Red, c22Red, c31Red, c43Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c42eq, c23eq, c31lt, c14Red, c22Red, c33Red, c41Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c42eq, c23lt, c31eq, c14Red, c22Red, c33Red, c41Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c42eq, c23lt, c31lt, c14Red, c22Red, c33Red, c41Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c42lt, c23eq, c31eq, c14Red, c22Red, c33Red, c41Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c42lt, c23eq, c31lt, c14Red, c22Red, c33Red, c41Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c42lt, c23lt, c31eq, c14Red, c22Red, c33Red, c41Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c42lt, c23lt, c31lt, c14Red, c22Red, c33Red, c41Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c43eq, c31eq, c12lt, c14Red, c23Red, c31Red, c42Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c43eq, c31lt, c12eq, c14Red, c23Red, c31Red, c42Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c43eq, c31lt, c12lt, c14Red, c23Red, c31Red, c42Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c43lt, c31eq, c12eq, c14Red, c23Red, c31Red, c42Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c43lt, c31eq, c12lt, c14Red, c23Red, c31Red, c42Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c43lt, c31lt, c12eq, c14Red, c23Red, c31Red, c42Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c43lt, c31lt, c12lt, c14Red, c23Red, c31Red, c42Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c43eq, c32eq, c21lt, c14Red, c23Red, c32Red, c41Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c43eq, c32lt, c21eq, c14Red, c23Red, c32Red, c41Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c43eq, c32lt, c21lt, c14Red, c23Red, c32Red, c41Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c43lt, c32eq, c21eq, c14Red, c23Red, c32Red, c41Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c43lt, c32eq, c21lt, c14Red, c23Red, c32Red, c41Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c43lt, c32lt, c21eq, c14Red, c23Red, c32Red, c41Red)), 
+              multSoP(Seq(e1US, e2US, e3US, e4US, c43lt, c32lt, c21lt, c14Red, c23Red, c32Red, c41Red))
+            ))
+            return (Rule(headUS, bodyUS), Rule(headRM, bodyRM))
+          }
+        }
+      }
+    }
+    (inp1US, inp1RM)
+  }
+
+
+  def infer(tensorComputation: Rule, dimInfo: Seq[DimInfo], inp1US: Rule, inp1RM: Rule, inp2US: Rule, inp2RM: Rule, inp3US: Rule = emptyRule(), inp3RM: Rule = emptyRule(), inp4US: Rule = emptyRule(), inp4RM: Rule = emptyRule()): (Rule, Rule) = {
     val prods: Seq[Prod] = tensorComputation.body.prods
     val head: Access = tensorComputation.head
     if (prods.length == 1) {
@@ -401,8 +749,17 @@ object Main extends App {
         val e1: Exp = exps(0)
         val e2: Exp = exps(1)
         return binMult(head, dimInfo, e1, e2, inp1US, inp1RM, inp2US, inp2RM)
-      } else {
-
+      } else if (exps.length == 3) {
+        val e1: Exp = exps(0)
+        val e2: Exp = exps(1)
+        val e3: Exp = exps(2)
+        return mult3(head, dimInfo, e1, e2, e3, inp1US, inp1RM, inp2US, inp2RM, inp3US, inp3RM)
+      } else if (exps.length == 4) {
+        val e1: Exp = exps(0)
+        val e2: Exp = exps(1)
+        val e3: Exp = exps(2)
+        val e4: Exp = exps(3)
+        return mult4(head, dimInfo, e1, e2, e3, e4, inp1US, inp1RM, inp2US, inp2RM, inp3US, inp3RM, inp4US, inp4RM)
       }
     } else if (prods.length == 2) {
       val exps1: Seq[Exp] = prods(0).exps
@@ -424,6 +781,8 @@ object Main extends App {
     }
     (inp1US, inp2US)
   }
+
+  
 
   // Binary multiplication for 2 tensors check -- worked
   def test1(): (Rule, (Rule, Rule)) = {
@@ -816,7 +1175,7 @@ object Main extends App {
     (tensorComputation3, infer(tensorComputation3, dimInfo, infer1._1, infer1._2, infer2._1, infer2._2))
   }
 
-  // Non-binary: Example - Diagonal Kronecker Product -- this one is wrong, should comparison directly go and be a part of unique set instead?
+  // Non-binary: Example - Diagonal Kronecker Product
   def test9(): (Rule, (Rule, Rule)) = {
     val outSeqVar = Seq("i".toVar, "j".toVar)
     val in1SeqVar = Seq("p".toVar, "q".toVar)
@@ -1014,6 +1373,102 @@ object Main extends App {
     (tensorComputation, infer(tensorComputation, dimInfo, infer3._1, infer3._2, infer4._1, infer4._2))
   }
 
+  // Self-outer product 3 -- check 
+  def test11(): (Rule, (Rule, Rule)) = {
+    val head: Access = Access("M", Seq("x".toVar, "y".toVar, "z".toVar), Tensor)
+    val var1: Access = Access("A",  Seq("x".toVar), Tensor)
+    val var2: Access = Access("A",  Seq("y".toVar), Tensor)
+    val var3: Access = Access("A",  Seq("z".toVar), Tensor)
+    val prods: Prod = Prod(Seq(var1, var2, var3))
+    val body: SoP = SoP(Seq(prods))
+    val tensorComputation: Rule = Rule(head, body)
+
+    val dim1: DimInfo = DimInfo(var1, Seq("n".toVar))
+    val dim2: DimInfo = DimInfo(var2, Seq("n".toVar))
+    val dim3: DimInfo = DimInfo(var3, Seq("n".toVar))
+    val dimInfo: Seq[DimInfo] = Seq(dim1, dim2, dim3)
+
+
+    val var1HeadUS: Access = Access("A".uniqueName,  Seq(Variable("x")), UniqueSet)
+    val var1BodyUS: SoP = emptySoP()
+    val var1US: Rule = Rule(var1HeadUS, var1BodyUS)
+
+    val var1HeadRM: Access = Access("A".redundancyName,  Seq(Variable("x"), Variable("x").redundancyVars), RedundancyMap)
+    val var1BodyRM: SoP = emptySoP()
+    val var1RM: Rule = Rule(var1HeadRM, var1BodyRM)
+
+    val var2HeadUS: Access = Access("A".uniqueName,  Seq(Variable("y")), UniqueSet)
+    val var2BodyUS: SoP = emptySoP()
+    val var2US: Rule = Rule(var2HeadUS, var2BodyUS)
+
+    val var2HeadRM: Access = Access("A".redundancyName,  Seq(Variable("y"), Variable("y").redundancyVars), RedundancyMap)
+    val var2BodyRM: SoP = emptySoP()
+    val var2RM: Rule = Rule(var2HeadRM, var2BodyRM)
+
+    val var3HeadUS: Access = Access("A".uniqueName,  Seq(Variable("z")), UniqueSet)
+    val var3BodyUS: SoP = emptySoP()
+    val var3US: Rule = Rule(var3HeadUS, var3BodyUS)
+
+    val var3HeadRM: Access = Access("A".redundancyName,  Seq(Variable("z"), Variable("z").redundancyVars), RedundancyMap)
+    val var3BodyRM: SoP = emptySoP()
+    val var3RM: Rule = Rule(var3HeadRM, var3BodyRM)
+
+    (tensorComputation, infer(tensorComputation, dimInfo, var1US, var1RM, var2US, var2RM, var3US, var3RM))
+  }
+
+  // Self-outer product 4 -- check 
+  def test12(): (Rule, (Rule, Rule)) = {
+    val head: Access = Access("M", Seq("x".toVar, "y".toVar, "z".toVar, "p".toVar), Tensor)
+    val var1: Access = Access("A",  Seq("x".toVar), Tensor)
+    val var2: Access = Access("A",  Seq("y".toVar), Tensor)
+    val var3: Access = Access("A",  Seq("z".toVar), Tensor)
+    val var4: Access = Access("A",  Seq("p".toVar), Tensor)
+    val prods: Prod = Prod(Seq(var1, var2, var3, var4))
+    val body: SoP = SoP(Seq(prods))
+    val tensorComputation: Rule = Rule(head, body)
+
+    val dim1: DimInfo = DimInfo(var1, Seq("n".toVar))
+    val dim2: DimInfo = DimInfo(var2, Seq("n".toVar))
+    val dim3: DimInfo = DimInfo(var3, Seq("n".toVar))
+    val dim4: DimInfo = DimInfo(var4, Seq("n".toVar))
+    val dimInfo: Seq[DimInfo] = Seq(dim1, dim2, dim3, dim4)
+
+
+    val var1HeadUS: Access = Access("A".uniqueName,  Seq(Variable("x")), UniqueSet)
+    val var1BodyUS: SoP = emptySoP()
+    val var1US: Rule = Rule(var1HeadUS, var1BodyUS)
+
+    val var1HeadRM: Access = Access("A".redundancyName,  Seq(Variable("x"), Variable("x").redundancyVars), RedundancyMap)
+    val var1BodyRM: SoP = emptySoP()
+    val var1RM: Rule = Rule(var1HeadRM, var1BodyRM)
+
+    val var2HeadUS: Access = Access("A".uniqueName,  Seq(Variable("y")), UniqueSet)
+    val var2BodyUS: SoP = emptySoP()
+    val var2US: Rule = Rule(var2HeadUS, var2BodyUS)
+
+    val var2HeadRM: Access = Access("A".redundancyName,  Seq(Variable("y"), Variable("y").redundancyVars), RedundancyMap)
+    val var2BodyRM: SoP = emptySoP()
+    val var2RM: Rule = Rule(var2HeadRM, var2BodyRM)
+
+    val var3HeadUS: Access = Access("A".uniqueName,  Seq(Variable("z")), UniqueSet)
+    val var3BodyUS: SoP = emptySoP()
+    val var3US: Rule = Rule(var3HeadUS, var3BodyUS)
+
+    val var3HeadRM: Access = Access("A".redundancyName,  Seq(Variable("z"), Variable("z").redundancyVars), RedundancyMap)
+    val var3BodyRM: SoP = emptySoP()
+    val var3RM: Rule = Rule(var3HeadRM, var3BodyRM)
+
+    val var4HeadUS: Access = Access("A".uniqueName,  Seq(Variable("p")), UniqueSet)
+    val var4BodyUS: SoP = emptySoP()
+    val var4US: Rule = Rule(var4HeadUS, var4BodyUS)
+
+    val var4HeadRM: Access = Access("A".redundancyName,  Seq(Variable("p"), Variable("p").redundancyVars), RedundancyMap)
+    val var4BodyRM: SoP = emptySoP()
+    val var4RM: Rule = Rule(var4HeadRM, var4BodyRM)
+
+    (tensorComputation, infer(tensorComputation, dimInfo, var1US, var1RM, var2US, var2RM, var3US, var3RM, var4US, var4RM))
+  }
+
   // Chess Pattern is not implemented since it was just a unique set with no computation
   // none of vec(.), //, and || are explained in the paper in mathematical terms + don't know how to implement the code for this example
   // Kronecker product explanation in Fig 7. should have * in it (not +)!
@@ -1026,7 +1481,9 @@ object Main extends App {
   // pprintTest(test7())
   // pprintTest(test8())
   // pprintTest(test9())
-  pprintTest(test10())
+  // pprintTest(test10())
+  pprintTest(test11())
+  // pprintTest(test12())
   // println(Variable("a").equals(Variable("a")))
 
   // val a: Map[String, Seq[Int]] = Map("a" -> Seq(2))
