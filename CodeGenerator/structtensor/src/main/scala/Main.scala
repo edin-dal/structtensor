@@ -1148,36 +1148,22 @@ object Main extends App {
     else str
   }
 
-  def codeGenComputation(tensorComputation: Rule, variables: Seq[Variable], intervalsUS: Seq[Map[Variable, Interval]]): String = {
-    intervalsUS.foldLeft("")((acc, map) => {  
-      val nestedLoops = variables.foldLeft("")((acc2, variable) => {
-        val code = s"for (int ${variable.cFormat} = std::max({${getStringChain(map.get(variable).get.begin)}}); ${variable.cFormat} < std::min({${getStringChain(map.get(variable).get.end)}}); ++${variable.cFormat}) {"
+  def codeGenRule(tensorComputation: Rule, variables: Seq[Variable], intervals: Seq[Map[Variable, Interval]], genType: AccessType): String = {
+    val vars = if (genType == RedundancyMap) variables.redundancyVarsInplace else variables
+    intervals.foldLeft("")((acc, map) => {  
+      val nestedLoops = vars.foldLeft("")((acc2, variable) => {
+        val interval = map.get(variable).get
+        val code = s"for (int ${variable.cFormat} = std::max({${getStringChain(interval.begin)}}); ${variable.cFormat} < std::min({${getStringChain(interval.end)}}); ++${variable.cFormat}) {"
         s"$acc2\n$code"
       })
 
-      val body = tensorComputation.cPeqFormat
+      val body = if (genType == RedundancyMap) s"${tensorComputation.head.cFormat} = ${tensorComputation.head.cRedFormat}" else tensorComputation.cPeqFormat
 
-      val finalBrackets = variables.foldLeft("")((acc, _) => s"$acc}\n")
+      val finalBrackets = vars.foldLeft("")((acc, _) => s"$acc}\n")
       
       s"$acc\n$nestedLoops\n$body\n$finalBrackets"
     })
   }
-
-  def codeGenRedundancy(head: Access, variables: Seq[Variable], intervalsRM: Seq[Map[Variable, Interval]]): String = {
-    val varsAndRed = variables.redundancyVarsInplace
-    intervalsRM.foldLeft("")((acc, map) => {
-      val nestedLoops = varsAndRed.foldLeft("")((acc2, variable) => {
-        val code = s"for (int ${variable.cFormat} = std::max({${getStringChain(map.get(variable).get.begin)}}); ${variable.cFormat} < std::min({${getStringChain(map.get(variable).get.end)}}); ++${variable.cFormat}) {"
-        s"$acc2\n$code"
-      })
-
-      val body = s"${head.cFormat} = ${head.cRedFormat}"
-
-      val finalBrackets = variables.foldLeft("")((acc, _) => s"$acc}\n")
-
-      s"$acc\n$nestedLoops\n$body\n$finalBrackets"
-    })
-  }  
 
   def codeGen(tensorComputation: Rule, dimInfo: Seq[DimInfo], uniqueSets: Map[Exp, Rule], redundancyMaps: Map[Exp, Rule]): String = {
     val variables: Seq[Variable] = getVariables(tensorComputation)
@@ -1265,7 +1251,7 @@ object Main extends App {
     println(intervalsRM)
     println("==================")
 
-    codeGenComputation(tensorComputation, variables, intervalsUS) + "\n---------------\n" + codeGenRedundancy(tensorComputation.head, variables, intervalsRM)
+    codeGenRule(tensorComputation, variables, intervalsUS, UniqueSet) + "\n---------------\n" + codeGenRule(tensorComputation, variables, intervalsRM, RedundancyMap)
   }
 
   // Binary multiplication for 2 tensors check -- worked
