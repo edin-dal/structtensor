@@ -76,6 +76,8 @@ case class Rule(head: Access, body: SoP) {
   def prettyFormat(): String = s"${head.prettyFormat} := ${body.prettyFormat}"
 }
 
+case class Interval(begin: String, end: String, ifConds: String)
+
 case class DimInfo(access: Access, dims: Seq[Dim]) // how to assert that dims.size == access.vars.size?
 
 object Main extends App {
@@ -931,62 +933,248 @@ object Main extends App {
     Rule(rule.head, SoP(bodySet.map(expSet => Prod(uniqueExpSet(expSet).toSeq)).toSeq))
   }
 
-  def getVariableConditionMap(rule:Rule): Map[Variable, Seq[(String, Index)]] = { // this should turn into a sequence since there is an addition between each product. Conditions are || with eachother so are separate.
-    rule.body.prods.foldLeft(Map.empty[Variable, Seq[(String, Index)]])((acc, prod) => {
-      prod.exps.foldLeft(Map.empty[Variable, Seq[(String, Index)]])((acc2, exp) => {
+  def getVariableConditionMap(rule:Rule): Seq[Map[Variable, Seq[(String, Index)]]] = { // this should turn into a sequence since there is an addition between each product. Conditions are || with eachother so are separate.
+    rule.body.prods.foldLeft(Seq.empty[Map[Variable, Seq[(String, Index)]]])((acc, prod) => {
+      val prodMap = prod.exps.foldLeft(Map.empty[Variable, Seq[(String, Index)]])((acc2, exp) => {
         exp match {
-          case Comparison(op, index, variable) => mergeMap(Seq(acc, Map(variable -> Seq((op, index)))))((v1, v2) => v1 ++ v2)
-          case _ => acc
+          case Comparison(op, index, variable) => mergeMap(Seq(acc2, Map(variable -> Seq((op, index)))))((v1, v2) => v1 ++ v2)
+          case _ => acc2
         }
       })
+      acc :+ prodMap
     })
   }
 
-  // def getSoP(variableConditionMap: Map[Variable, Seq[(String, Index)]]): SoP = {
-  //   variableConditionMap.map { case (k, v) => {
-  //     v.foldLeft(Seq.empty[Comparison])((acc, cur) => {
-  //       acc ++ Seq(Comparison(cur._1, cur._2, k))
-  //     })
-  //   }
-  // }
+  def getSoP(variableConditionMaps: Seq[Map[Variable, Seq[(String, Index)]]]): SoP = {
+    val prods = variableConditionMaps.foldLeft(Seq.empty[Prod])((acc, map) => {
+      val prodExps = map.foldLeft(Seq.empty[Comparison])((acc2, cur2) => {
+        val variable = cur2._1
+        val condSeq = cur2._2
+        val compSeq = condSeq.foldLeft(Seq.empty[Comparison])((acc3, cur3) => {
+          val op = cur3._1
+          val index = cur3._2
+          acc3 :+ Comparison(op, index, variable)
+        })
+        acc2 ++ compSeq
+      })
+      acc :+ Prod(prodExps)
+    })
+    SoP(prods)
+  }
 
-  // should chenge as well based on new definition of getVariableConditionMap + return a SoP for US and RM so I can remove meaningless conditions (the ones that end up in emptySet) and also get distinct elements
+  def replaceVars(index: Index, equalRepresentative: Map[Variable, Variable]): Index = {
+    index match {
+      case Variable(_) => equalRepresentative.getOrElse(index.asInstanceOf[Variable], index)
+      case Arithmetic(op, index1, index2) => {
+        val repInd1 = replaceVars(index1, equalRepresentative)
+        val repInd2 = replaceVars(index2, equalRepresentative)
+        Arithmetic(op, repInd1, repInd2)
+      }
+      case _ => index
+    }
+  }
+
   def unifyEqualVariableConditionMap(variables: Seq[Variable], variableConditionMap: Map[Variable, Seq[(String, Index)]]): Map[Variable, Seq[(String, Index)]] = {
-    val equalityMap: Map[Variable, Variable] = variables.foldLeft(Map.empty[Variable, Variable])((acc, cur) => {
+    val varsAndRed = variables.redundancyVarsInplace
+    val equalityMap: Map[Variable, Set[Variable]] = varsAndRed.foldLeft(Map.empty[Variable, Set[Variable]])((acc, cur) => {
       val condSeq: Seq[(String, Index)] = variableConditionMap.getOrElse(cur, Seq())
-      condSeq.foldLeft(Map.empty[Variable, Variable])((acc2, cur2) => {
-        if (cur2._1 == "=" && cur2._2.isInstanceOf[Variable]) {
-          if (acc.contains(cur2._2.asInstanceOf[Variable])) mergeMap(Seq(acc, Map(cur -> acc.get(cur2._2.asInstanceOf[Variable]).get)))((v1, v2) => v1)
-          else mergeMap(Seq(acc, Map(cur2._2.asInstanceOf[Variable] -> acc.getOrElse(cur, cur))))((v1, v2) => v1)
-        } else acc
+      val varMap = condSeq.foldLeft(Set[Variable](cur))((acc2, cur2) => {
+        if (cur2._1 == "=" && cur2._2.isInstanceOf[Variable]) acc2 ++ Set(cur2._2.asInstanceOf[Variable])
+        else acc2
       })
+      mergeMap(Seq(acc, Map(cur -> varMap)))((v1, v2) => v1 ++ v2)
     })
 
-    val noEqMap: Map[Variable, Seq[(String, Index)]] = variables.foldLeft(Map.empty[Variable, Seq[(String, Index)]])((acc, cur) => {
-      val condSeq: Seq[(String, Index)] = variableConditionMap.getOrElse(cur, Seq())
-      condSeq.foldLeft(Map.empty[Variable, Seq[(String, Index)]])((acc2, cur2) => {
-        if (cur2._1 == "=" && cur2._2.isInstanceOf[Variable]) acc
-        else mergeMap(Seq(acc, Map(cur -> Seq(cur2))))((v1, v2) => v1 ++ v2)
+    val equalityMapAll: Map[Variable, Set[Variable]] = equalityMap.foldLeft(Map.empty[Variable, Set[Variable]])((acc, kv) => {
+      val allEquals = equalityMap.foldLeft(kv._2)((acc2, kv2) => {
+        if (kv._2.intersect(kv2._2).size > 0) acc2 ++ kv2._2
+        else acc2
       })
+      mergeMap(Seq(acc, Map(kv._1 -> allEquals)))((v1, v2) => v1 ++ v2)
     })
 
-    val uniformedEqualityMap: Map[Variable, Seq[(String, Index)]] = equalityMap.map { case (k, v) => (k -> Seq(("=", v))) }
-    mergeMap(Seq(uniformedEqualityMap, noEqMap))((v1, v2) => v1 ++ v2)
+    val equalRepresentative: Map[Variable, Variable] = varsAndRed.foldLeft(Map.empty[Variable, Variable])((acc, v) => {
+      val varMap = equalityMapAll.foldLeft(Map.empty[Variable, Variable])((acc2, kv) => {
+        if (kv._2.contains(v)) mergeMap(Seq(acc2, Map(kv._1 -> v)))((v1, v2) => v1) 
+        else acc2
+      })
+      mergeMap(Seq(acc, varMap))((v1, v2) => v1)
+    })
+
+    val equalRepresentativeConverted: Map[Variable, Seq[(String, Index)]] = equalRepresentative.foldLeft(Map.empty[Variable, Seq[(String, Index)]])((acc, cur) => {
+      if (cur._1 != cur._2) mergeMap(Seq(acc, Map(cur._2 -> Seq(("=", cur._1)))))((v1, v2) => v1 ++ v2)
+      else acc
+    })
+
+    val newVariableConditionMap: Map[Variable, Seq[(String, Index)]] = variableConditionMap.foldLeft(equalRepresentativeConverted)((acc, cur) => {
+      val variable: Variable = cur._1
+      val condSeq: Seq[(String, Index)] = cur._2
+      val nonEqMap = condSeq.foldLeft(Seq.empty[(String, Index)])((acc2, cur2) => {
+        val op: String = cur2._1
+        val index: Index = cur2._2
+        if (op != "=") acc2 ++ Seq((op, replaceVars(index, equalRepresentative)))
+        else acc2
+      })
+      mergeMap(Seq(acc, Map(replaceVars(variable, equalRepresentative).asInstanceOf[Variable] -> nonEqMap)))((v1, v2) => v1 ++ v2)
+    })
+
+    newVariableConditionMap
+  }
+
+  def unifyEqualVariableConditionMap(variables: Seq[Variable], variableConditionMaps: Seq[Map[Variable, Seq[(String, Index)]]]): Seq[Map[Variable, Seq[(String, Index)]]] = {
+    variableConditionMaps.foldLeft(Seq.empty[Map[Variable, Seq[(String, Index)]]])((acc, cur) => acc :+ unifyEqualVariableConditionMap(variables, cur))
+  }
+
+  def fixConditionOrder(variables: Seq[Variable], unifiedVariableConditionMap: Map[Variable, Seq[(String, Index)]]): Map[Variable, Seq[(String, Index)]] = {
+    val varsAndRed = variables.redundancyVarsInplace
+    varsAndRed.zipWithIndex.foldLeft(Map.empty[Variable, Seq[(String, Index)]])((acc, varInd) => {
+      val variable = varInd._1
+      val ind = varInd._2
+      val condSeq: Seq[(String, Index)] = unifiedVariableConditionMap.getOrElse(variable, Seq())
+      val orderedMap = condSeq.foldLeft(Map.empty[Variable, Seq[(String, Index)]])((acc2, cur2) => {
+        val op: String = cur2._1
+        val index: Index = cur2._2
+        if (index.isInstanceOf[Variable]) {
+          val indexVar = index.asInstanceOf[Variable]
+          if (varsAndRed.contains(indexVar) && !varsAndRed.slice(0, ind + 1).contains(indexVar)) 
+            mergeMap(Seq(acc2, Map(indexVar -> Seq((opComplement(op), variable)))))((v1, v2) => v1 ++ v2)
+          else mergeMap(Seq(acc2, Map(variable -> Seq((op, index)))))((v1, v2) => v1 ++ v2)
+        } else mergeMap(Seq(acc2, Map(variable -> Seq((op, index)))))((v1, v2) => v1 ++ v2)
+      })
+      mergeMap(Seq(acc, orderedMap))((v1, v2) => v1 ++ v2)
+    })
+  }
+
+  def fixConditionOrder(variables: Seq[Variable], unifiedVariableConditionMap: Seq[Map[Variable, Seq[(String, Index)]]]): Seq[Map[Variable, Seq[(String, Index)]]] = {
+    unifiedVariableConditionMap.foldLeft(Seq.empty[Map[Variable, Seq[(String, Index)]]])((acc, cur) => acc :+ fixConditionOrder(variables, cur))
+  }
+
+  def isProdEmpty(e1: Exp, e2: Exp, callCount: Int = 0): Boolean = {
+    if (e1 == e2) return false
+    (e1, e2) match {
+      case (Comparison(op1, index1, variable1), Comparison(op2, index2, variable2)) => {
+        val c1 = e1.asInstanceOf[Comparison]
+        val seqOp2: Seq[String] = op2 match {
+          case "<" => Seq(">", ">=", "=")
+          case "<=" => Seq(">")
+          case ">=" => Seq("<")
+          case ">" => Seq("<", "<=", "=")
+          case _ => Seq()
+        }
+        val seqC2: Seq[Comparison] = seqOp2.foldLeft(Seq.empty[Comparison])((acc, cur) => acc :+ Comparison(cur, index2, variable2))
+        val equivSet1: Set[Comparison] = getEquivSet(c1)
+        val equivSet2: Seq[Set[Comparison]] = seqC2.foldLeft(Seq.empty[Set[Comparison]])((acc, cur) => acc :+ getEquivSet(cur))
+        val res = equivSet2.foldLeft(false)((acc, cur) => acc || equivSet1.intersect(cur).size > 0)
+        if (callCount == 0) res || isProdEmpty(e2, e1, 1)
+        else res
+      }
+      case _ => false
+    }
+  }
+
+  def simplify(rule: Rule): Rule = {
+    val prodSeqNoEmpty = rule.body.prods.foldLeft(Seq.empty[Prod])((acc, prod) => {
+      val isPEmpty = prod.exps.foldLeft(false)((acc2, exp) => acc2 || prod.exps.foldLeft(false)((acc3, exp2) => acc3 || isProdEmpty(exp, exp2)))
+      if (isPEmpty) acc
+      else acc :+ prod
+    })
+    // here it just removes products that end up in emptySet + understands that (emptySet + e = e)
+    // we don't have (x >= y) * (x <= y) = (x = y). For this we might need to go through unifyEqualVariableConditionMap and simplify multiple rounds.
+    Rule(rule.head, SoP(prodSeqNoEmpty))
+  }
+
+  def getIntervals(variables: Seq[Variable], fixedConditionOrder: Map[Variable, Seq[(String, Index)]]): Map[Variable, Seq[Interval]] = {
+    // to be implemented
+  }
+
+  def getIntervals(variables: Seq[Variable], fixedConditionOrder: Seq[Map[Variable, Seq[(String, Index)]]]): Seq[Map[Variable, Seq[Interval]]] = {
+    fixedConditionOrder.foldLeft(Seq.empty[Map[Variable, Seq[(String, Index)]]])((acc, cur) => acc :+ getIntervals(variables, cur))
   }
 
   def codeGen(tensorComputation: Rule, dimInfo: Seq[DimInfo], uniqueSets: Map[Exp, Rule], redundancyMaps: Map[Exp, Rule]): String = {
     val variables: Seq[Variable] = getVariables(tensorComputation)
     val (outUS, outRM) = infer(tensorComputation, dimInfo, uniqueSets, redundancyMaps)
-    val variableConditionMapUS: Map[Variable, Seq[(String, Index)]] = getVariableConditionMap(outUS)
-    val variableConditionMapRM: Map[Variable, Seq[(String, Index)]] = getVariableConditionMap(outRM)
-    val unifiedVariableConditionMapUS: Map[Variable, Seq[(String, Index)]] = unifyEqualVariableConditionMap(variables, variableConditionMapUS)
-    val unifiedVariableConditionMapRM: Map[Variable, Seq[(String, Index)]] = unifyEqualVariableConditionMap(variables, variableConditionMapRM)
-    val distinctOutUS: Rule = keepDistinct(outUS)
-    val distinctOutRM: Rule = keepDistinct(outRM)
+    
+    val variableConditionMapUS: Seq[Map[Variable, Seq[(String, Index)]]] = getVariableConditionMap(outUS)
+    val variableConditionMapRM: Seq[Map[Variable, Seq[(String, Index)]]] = getVariableConditionMap(outRM)
+
+    val unifiedVariableConditionMapUS: Seq[Map[Variable, Seq[(String, Index)]]] = unifyEqualVariableConditionMap(variables, variableConditionMapUS)
+    val unifiedVariableConditionMapRM: Seq[Map[Variable, Seq[(String, Index)]]] = unifyEqualVariableConditionMap(variables, variableConditionMapRM)
+
+    val unifiedOutUS: Rule = Rule(outUS.head, getSoP(unifiedVariableConditionMapUS))
+    val unifiedOutRM: Rule = Rule(outRM.head, getSoP(unifiedVariableConditionMapRM))
+
+    val distinctOutUS: Rule = keepDistinct(unifiedOutUS)
+    val distinctOutRM: Rule = keepDistinct(unifiedOutRM)
+
+    val simplifiedOutUS: Rule = simplify(distinctOutUS)
+    val simplifiedOutRM: Rule = simplify(distinctOutRM)
+
+    val distinctConditionMapUS: Seq[Map[Variable, Seq[(String, Index)]]] = getVariableConditionMap(simplifiedOutUS)
+    val distinctConditionMapRM: Seq[Map[Variable, Seq[(String, Index)]]] = getVariableConditionMap(simplifiedOutRM)
+
+    val fixedConditionOrderUS: Seq[Map[Variable, Seq[(String, Index)]]] = fixConditionOrder(variables, distinctConditionMapUS)
+    val fixedConditionOrderRM: Seq[Map[Variable, Seq[(String, Index)]]] = fixConditionOrder(variables, distinctConditionMapRM)
+
+    val intervalsUS: Seq[Map[Variable, Seq[Interval]]] = getIntervals(variables, fixedConditionOrderUS)
+    val intervalsRM: Seq[Map[Variable, Seq[Interval]]] = getIntervals(variables, fixedConditionOrderRM)
     // fix condition order in infer for both US and RM based on variables order + detect impossible conditions and remove them
+    println("variables:")
     println(variables)
+    println("==================")
+    println("variableConditionMapUS")
+    println(variableConditionMapUS)
+    println("------------------")
+    println("variableConditionMapRM")
+    println(variableConditionMapRM)
+    println("==================")
+    println("unifiedVariableConditionMapUS")
+    println(unifiedVariableConditionMapUS)
+    println("------------------")
+    println("unifiedVariableConditionMapRM")
+    println(unifiedVariableConditionMapRM)
+    println("==================")
+    println("fixedConditionOrderUS")
+    println(fixedConditionOrderUS)
+    println("------------------")
+    println("fixedConditionOrderRM")
+    println(fixedConditionOrderRM)
+    println("==================")
+    println("unifiedOutUS")
+    pprint(unifiedOutUS)
+    println("------------------")
+    println("unifiedOutRM")
+    pprint(unifiedOutRM)
+    println("==================")
+    println("distinctOutUS")
     pprint(distinctOutUS)
+    println("------------------")
+    println("distinctOutRM")
     pprint(distinctOutRM)
+    println("==================")
+    println("simplifiedOutUS")
+    pprint(simplifiedOutUS)
+    println("------------------")
+    println("simplifiedOutRM")
+    pprint(simplifiedOutRM)
+    println("==================")
+    println("distinctConditionMapUS")
+    println(distinctConditionMapUS)
+    println("------------------")
+    println("distinctConditionMapRM")
+    println(distinctConditionMapRM)
+    println("==================")
+    println("fixedConditionOrderUS")
+    println(fixedConditionOrderUS)
+    println("------------------")
+    println("fixedConditionOrderRM")
+    println(fixedConditionOrderRM)
+    println("==================")
+    println("intervalsUS")
+    println(intervalsUS)
+    println("------------------")
+    println("intervalsRM")
+    println(intervalsRM)
     ""
   }
 

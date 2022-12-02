@@ -1,0 +1,9 @@
+List(Map(Variable(y) -> List((<=,Variable(x)), (<=,ConstantInt(0)), (>,Variable(n)), (>=,Variable(x)), (<=,ConstantInt(0)), (>,Variable(n))), 
+         Variable(x) -> List((<=,ConstantInt(0)), (>,Variable(m)), (<=,ConstantInt(0)), (>,Variable(m)))), 
+     Map(Variable(y) -> List((>,Variable(x)), (=,Variable(x')), (<=,ConstantInt(0)), (>,Variable(n)), (>=,Variable(x)), (<=,ConstantInt(0)), (>,Variable(n))), 
+         Variable(x) -> List((=,Variable(y')), (<=,ConstantInt(0)), (>,Variable(m)), (<=,ConstantInt(0)), (>,Variable(m)))), 
+     Map(Variable(y) -> List((<=,Variable(x)), (<=,ConstantInt(0)), (>,Variable(n)), (<,Variable(x)), (=,Variable(x')), (<=,ConstantInt(0)), (>,Variable(n))), 
+         Variable(x) -> List((<=,ConstantInt(0)), (>,Variable(m)), (=,Variable(y')), (<=,ConstantInt(0)), (>,Variable(m)))))
+
+List(Map(Variable(y) -> List((>,Variable(x)), (=,Variable(x')), (<=,ConstantInt(0)), (>,Variable(n)), (<,Variable(x)), (=,Variable(x')), (<=,ConstantInt(0)), (>,Variable(n))), 
+         Variable(x) -> List((=,Variable(y')), (<=,ConstantInt(0)), (>,Variable(m)), (=,Variable(y')), (<=,ConstantInt(0)), (>,Variable(m)))))
