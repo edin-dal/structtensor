@@ -1,48 +1,59 @@
 sealed trait Exp {
   def prettyFormat(): String
+  def cFormat(): String
 }
 
 sealed trait Index {
   def prettyFormat(): String
+  def cFormat(): String
 }
 
 sealed trait Dim extends Index
 
 sealed trait AccessType {
   def prettyFormat(): String
+  def cFormat(): String
 }
 
 case object Tensor extends AccessType {
   def prettyFormat(): String = "T"
+  def cFormat(): String = "T"
 }
 
 case object CompressedTensor extends AccessType {
   def prettyFormat(): String = "C"
+  def cFormat(): String = "C"
 }
 
 case object UniqueSet extends AccessType {
   def prettyFormat(): String = "U"
+  def cFormat(): String = "U"
 }
 
 case object RedundancyMap extends AccessType {
   def prettyFormat(): String = "R"
+  def cFormat(): String = "R"
 }
 
 
 case class Variable(name: String) extends Index with Dim {
   def prettyFormat(): String = name
+  def cFormat(): String = name
 }
 
 case class ConstantDouble(value: Double) extends Index {
   def prettyFormat(): String = value.toString
+  def cFormat(): String = value.toString
 }
 
 case class ConstantInt(value: Int) extends Index with Dim {
   def prettyFormat(): String = value.toString
+  def cFormat(): String = value.toString
 }
 
 case class Arithmetic(op: String, index1: Index, index2: Index) extends Index {
   def prettyFormat(): String = s"(${index1.prettyFormat} $op ${index2.prettyFormat})"
+  def cFormat(): String = s"(${index1.cFormat} $op ${index2.cFormat})"
 }
 
 case class Access(name: String, vars: Seq[Variable], kind: AccessType) extends Exp {
@@ -50,10 +61,13 @@ case class Access(name: String, vars: Seq[Variable], kind: AccessType) extends E
     val pr = vars.foldLeft("")((acc, cur) => s"$acc, ${cur.prettyFormat}")
     s"${name}(${pr.substring(2, pr.length)})"
   }
+  def cFormat(): String = vars.foldLeft(name)((acc, cur) => s"$acc[${cur.cFormat}]")
+  def cRedFormat(): String = vars.foldLeft(name)((acc, cur) => s"$acc[${cur.cFormat}']")
 }
 
 case class Comparison(op: String, index: Index, variable: Variable) extends Exp {
   def prettyFormat(): String = s"(${index.prettyFormat} $op ${variable.prettyFormat})"
+  def cFormat(): String = s"(${index.cFormat} $op ${variable.cFormat})"
 }
 
 case class Prod(exps: Seq[Exp]) {
@@ -62,6 +76,12 @@ case class Prod(exps: Seq[Exp]) {
     if (exps.length == 0) "∅"
     else s"(${pr.substring(3, pr.length)})"
   } 
+  def cFormat(): String = {
+    val pr = exps.foldLeft("")((acc, cur) => s"$acc * ${cur.cFormat}")
+    if (exps.length == 0) "∅"
+    else s"(${pr.substring(3, pr.length)})"
+  } 
+  
 }
 
 case class SoP(prods: Seq[Prod]) {
@@ -70,13 +90,20 @@ case class SoP(prods: Seq[Prod]) {
     if (prods.length == 0) "∅"
     else s"(${pr.substring(3, pr.length)})"
   }
+  def cFormat(): String = {
+    val pr = prods.foldLeft("")((acc, cur) => s"$acc + ${cur.cFormat}")
+    if (prods.length == 0) "∅"
+    else s"(${pr.substring(3, pr.length)})"
+  }
 }
 
 case class Rule(head: Access, body: SoP) {
   def prettyFormat(): String = s"${head.prettyFormat} := ${body.prettyFormat}"
+  def cFormat(): String = s"${head.cFormat} = ${body.cFormat}"
+  def cPeqFormat(): String = s"${head.cFormat} += ${body.cFormat}"
 }
 
-case class Interval(begin: String, end: String, ifConds: String)
+case class Interval(begin: Seq[Index], end: Seq[Index])
 
 case class DimInfo(access: Access, dims: Seq[Dim]) // how to assert that dims.size == access.vars.size?
 
@@ -139,10 +166,15 @@ object Main extends App {
     else sops.slice(1, sops.length).foldLeft(sops(0))((acc, cur) => SoPTimesSoP(acc, cur))
   } 
 
-  def includeBoundaries(us: SoP, bounds: Map[Access, Prod], e: Access): SoP = {
-    if (!bounds.contains(e)) us
-    else if (us == emptySoP()) SoP(Seq(bounds.get(e).get))
-    else SoPTimesSoP(us, SoP(Seq(bounds.get(e).get)))
+  def includeBoundaries(sop: SoP, bounds: Map[Access, Prod], e: Access, t: AccessType): SoP = {
+    if (t == UniqueSet) {
+      if (!bounds.contains(e)) sop
+      else if (sop == emptySoP()) SoP(Seq(bounds.get(e).get))
+      else SoPTimesSoP(sop, SoP(Seq(bounds.get(e).get)))
+    } else if (t == RedundancyMap) {
+      if (!bounds.contains(e) || sop == emptySoP()) sop
+      else SoPTimesSoP(sop, SoP(Seq(bounds.get(e).get)))
+    } else emptySoP()
   }
 
   def concatSoP(sops: Seq[SoP]): SoP = {
@@ -238,10 +270,10 @@ object Main extends App {
     (e1, e2) match {
       case (Access(name1, vars1, Tensor), Access(name2, vars2, Tensor)) => {
         if (vars1.union(vars2).toSet == head.vars.toSet) {
-          val e1US: SoP = includeBoundaries(inp1US.body, bounds, e1.asInstanceOf[Access]) 
-          val e2US: SoP = includeBoundaries(inp2US.body, bounds, e2.asInstanceOf[Access]) 
-          val e1RM: SoP = includeBoundaries(inp1RM.body, bounds, e1.asInstanceOf[Access]) 
-          val e2RM: SoP = includeBoundaries(inp2RM.body, bounds, e2.asInstanceOf[Access]) 
+          val e1US: SoP = includeBoundaries(inp1US.body, bounds, e1.asInstanceOf[Access], UniqueSet) 
+          val e2US: SoP = includeBoundaries(inp2US.body, bounds, e2.asInstanceOf[Access], UniqueSet) 
+          val e1RM: SoP = includeBoundaries(inp1RM.body, bounds, e1.asInstanceOf[Access], RedundancyMap) 
+          val e2RM: SoP = includeBoundaries(inp2RM.body, bounds, e2.asInstanceOf[Access], RedundancyMap) 
           if (isIntersectEmpty(vars1, vars2)) {
             if (name1 == name2) {
               val bodyUS: SoP = multSoP(Seq(e1US, e2US, SoP(Seq(vectorizeComparisonMultiplication("<=", vars1, vars2)))))
@@ -297,10 +329,10 @@ object Main extends App {
     val bounds: Map[Access, Prod] = dimInfo.toComparisonAccessProdMap
     (e1, e2) match {
       case (Access(name1, vars1, Tensor), Access(name2, vars2, Tensor)) => { 
-        val e1US: SoP = includeBoundaries(inp1US.body, bounds, e1.asInstanceOf[Access]) 
-        val e2US: SoP = includeBoundaries(inp2US.body, bounds, e2.asInstanceOf[Access]) 
-        val e1RM: SoP = includeBoundaries(inp1RM.body, bounds, e1.asInstanceOf[Access]) 
-        val e2RM: SoP = includeBoundaries(inp2RM.body, bounds, e2.asInstanceOf[Access]) 
+        val e1US: SoP = includeBoundaries(inp1US.body, bounds, e1.asInstanceOf[Access], UniqueSet) 
+        val e2US: SoP = includeBoundaries(inp2US.body, bounds, e2.asInstanceOf[Access], UniqueSet) 
+        val e1RM: SoP = includeBoundaries(inp1RM.body, bounds, e1.asInstanceOf[Access], RedundancyMap) 
+        val e2RM: SoP = includeBoundaries(inp2RM.body, bounds, e2.asInstanceOf[Access], RedundancyMap) 
         if (vars1 == vars2) {
           if (isSoPEquals(e1US, e2US) && isSoPEquals(e1RM, e2RM)) {
             val bodyUS: SoP = e1US
@@ -332,8 +364,8 @@ object Main extends App {
     val bounds: Map[Access, Prod] = dimInfo.toComparisonAccessProdMap
     e match {
       case Access(nameE, varsE, Tensor) => {
-        val eUS: SoP = includeBoundaries(inp1US.body, bounds, e.asInstanceOf[Access]) 
-        val eRM: SoP = includeBoundaries(inp1RM.body, bounds, e.asInstanceOf[Access]) 
+        val eUS: SoP = includeBoundaries(inp1US.body, bounds, e.asInstanceOf[Access], UniqueSet) 
+        val eRM: SoP = includeBoundaries(inp1RM.body, bounds, e.asInstanceOf[Access], RedundancyMap) 
         if(outVars.toSet.subsetOf(varsE.toSet)) {
           val bodyUS: SoP = concatSoP(Seq(eUS, eRM))
           val bodyRM: SoP = SoP(Seq())
@@ -392,10 +424,10 @@ object Main extends App {
     val bounds: Map[Access, Prod] = dimInfo.toComparisonAccessProdMap
     (e1, e2) match {
       case (Access(name1, vars1, Tensor), Access(name2, vars2, Tensor)) => { 
-        val e1US: SoP = includeBoundaries(inp1US.body, bounds, e1.asInstanceOf[Access]) 
-        val e2US: SoP = includeBoundaries(inp2US.body, bounds, e2.asInstanceOf[Access]) 
-        val e1RM: SoP = includeBoundaries(inp1RM.body, bounds, e1.asInstanceOf[Access]) 
-        val e2RM: SoP = includeBoundaries(inp2RM.body, bounds, e2.asInstanceOf[Access]) 
+        val e1US: SoP = includeBoundaries(inp1US.body, bounds, e1.asInstanceOf[Access], UniqueSet) 
+        val e2US: SoP = includeBoundaries(inp2US.body, bounds, e2.asInstanceOf[Access], UniqueSet) 
+        val e1RM: SoP = includeBoundaries(inp1RM.body, bounds, e1.asInstanceOf[Access], RedundancyMap) 
+        val e2RM: SoP = includeBoundaries(inp2RM.body, bounds, e2.asInstanceOf[Access], RedundancyMap) 
         val bodyUS: SoP = concatSoP(Seq(e1US, SoPTimesSoP(e2US, SoP(Seq(Prod(e2Seq))))))
         val bodyRM: SoP = concatSoP(Seq(e1RM, multSoP(Seq(e2RM, SoP(Seq(Prod(e2Seq))), SoP(Seq(Prod(replaceVarsWithRedundancyVars(e2Seq))))))))
         return (Rule(headUS, bodyUS), Rule(headRM, bodyRM))
@@ -421,12 +453,12 @@ object Main extends App {
     val bounds: Map[Access, Prod] = dimInfo.toComparisonAccessProdMap
     (e1, e2, e3) match {
       case (Access(name1, vars1, Tensor), Access(name2, vars2, Tensor), Access(name3, vars3, Tensor)) => {
-        val e1US: SoP = includeBoundaries(inp1US.body, bounds, e1.asInstanceOf[Access])
-        val e2US: SoP = includeBoundaries(inp2US.body, bounds, e2.asInstanceOf[Access])
-        val e3US: SoP = includeBoundaries(inp3US.body, bounds, e3.asInstanceOf[Access])
-        val e1RM: SoP = includeBoundaries(inp1RM.body, bounds, e1.asInstanceOf[Access]) 
-        val e2RM: SoP = includeBoundaries(inp2RM.body, bounds, e2.asInstanceOf[Access])
-        val e3RM: SoP = includeBoundaries(inp3RM.body, bounds, e3.asInstanceOf[Access]) 
+        val e1US: SoP = includeBoundaries(inp1US.body, bounds, e1.asInstanceOf[Access], UniqueSet)
+        val e2US: SoP = includeBoundaries(inp2US.body, bounds, e2.asInstanceOf[Access], UniqueSet)
+        val e3US: SoP = includeBoundaries(inp3US.body, bounds, e3.asInstanceOf[Access], UniqueSet)
+        val e1RM: SoP = includeBoundaries(inp1RM.body, bounds, e1.asInstanceOf[Access], RedundancyMap) 
+        val e2RM: SoP = includeBoundaries(inp2RM.body, bounds, e2.asInstanceOf[Access], RedundancyMap)
+        val e3RM: SoP = includeBoundaries(inp3RM.body, bounds, e3.asInstanceOf[Access], RedundancyMap) 
         if (isPairwiseIntersectEmpty(Seq(vars1, vars2, vars3))) {
           if (name1 == name2 && name2 == name3) {
             val e1Red = inp1RM.head.vars.diff(vars1)
@@ -502,14 +534,14 @@ object Main extends App {
     val bounds: Map[Access, Prod] = dimInfo.toComparisonAccessProdMap
     (e1, e2, e3, e4) match {
       case (Access(name1, vars1, Tensor), Access(name2, vars2, Tensor), Access(name3, vars3, Tensor), Access(name4, vars4, Tensor)) => {
-        val e1US: SoP = includeBoundaries(inp1US.body, bounds, e1.asInstanceOf[Access])
-        val e2US: SoP = includeBoundaries(inp2US.body, bounds, e2.asInstanceOf[Access])
-        val e3US: SoP = includeBoundaries(inp3US.body, bounds, e3.asInstanceOf[Access])
-        val e4US: SoP = includeBoundaries(inp4US.body, bounds, e4.asInstanceOf[Access])
-        val e1RM: SoP = includeBoundaries(inp1RM.body, bounds, e1.asInstanceOf[Access]) 
-        val e2RM: SoP = includeBoundaries(inp2RM.body, bounds, e2.asInstanceOf[Access])
-        val e3RM: SoP = includeBoundaries(inp3RM.body, bounds, e3.asInstanceOf[Access]) 
-        val e4RM: SoP = includeBoundaries(inp4RM.body, bounds, e4.asInstanceOf[Access]) 
+        val e1US: SoP = includeBoundaries(inp1US.body, bounds, e1.asInstanceOf[Access], UniqueSet)
+        val e2US: SoP = includeBoundaries(inp2US.body, bounds, e2.asInstanceOf[Access], UniqueSet)
+        val e3US: SoP = includeBoundaries(inp3US.body, bounds, e3.asInstanceOf[Access], UniqueSet)
+        val e4US: SoP = includeBoundaries(inp4US.body, bounds, e4.asInstanceOf[Access], UniqueSet)
+        val e1RM: SoP = includeBoundaries(inp1RM.body, bounds, e1.asInstanceOf[Access], RedundancyMap) 
+        val e2RM: SoP = includeBoundaries(inp2RM.body, bounds, e2.asInstanceOf[Access], RedundancyMap)
+        val e3RM: SoP = includeBoundaries(inp3RM.body, bounds, e3.asInstanceOf[Access], RedundancyMap) 
+        val e4RM: SoP = includeBoundaries(inp4RM.body, bounds, e4.asInstanceOf[Access], RedundancyMap) 
         if (isPairwiseIntersectEmpty(Seq(vars1, vars2, vars3, vars4))) {
           if (name1 == name2 && name2 == name3 && name3 == name4) {
             val e1Red = inp1RM.head.vars.diff(vars1)
@@ -834,18 +866,20 @@ object Main extends App {
     }
   }
 
-  def getVariables(rule: Rule): Seq[Variable] = {
-    val variables: Seq[Variable] = rule.body.prods.foldLeft(Seq[Variable]())((acc, prod) => {
-      prod.exps.foldLeft(Seq[Variable]())((acc2, exp) => {
-        exp match {
-          case Access(name, vars, kind) => vars
-          case Comparison(op, index, variable) => Seq(variable) ++ getVariables(index)
-          case _ => Seq()
-        }
-      })
+  def getVariables(prod: Prod): Seq[Variable] = {
+    prod.exps.foldLeft(Seq[Variable]())((acc, exp) => {
+      val varSeq = exp match {
+        case Access(name, vars, kind) => vars
+        case Comparison(op, index, variable) => Seq(variable) ++ getVariables(index)
+        case _ => Seq()
+      }
+      acc ++ varSeq
     })
-    return (rule.head.vars ++ variables).distinct
   }
+
+  def getVariables(sop: SoP): Seq[Variable] = sop.prods.foldLeft(Seq[Variable]())((acc, prod) => acc ++ getVariables(prod))
+
+  def getVariables(rule: Rule): Seq[Variable] = (rule.head.vars ++ getVariables(rule.body)).distinct
 
   def opComplement(op: String): String = {
     op match {
@@ -1083,13 +1117,67 @@ object Main extends App {
     Rule(rule.head, SoP(prodSeqNoEmpty))
   }
 
-  def getIntervals(variables: Seq[Variable], fixedConditionOrder: Map[Variable, Seq[(String, Index)]]): Map[Variable, Seq[Interval]] = {
-    // to be implemented
+  def getIntervals(variables: Seq[Variable], fixedConditionOrder: Map[Variable, Seq[(String, Index)]]): Map[Variable, Interval] = {
+    val varsAndRed = variables.redundancyVarsInplace
+    varsAndRed.foldLeft(Map.empty[Variable, Interval])((acc, variable) => {
+      val condSeq: Seq[(String, Index)] = fixedConditionOrder.getOrElse(variable, Seq())
+      val (begin, end): (Seq[Index], Seq[Index]) = condSeq.foldLeft((Seq.empty[Index], Seq.empty[Index]))((acc2, cur2) => {
+        val op: String = cur2._1
+        val index: Index = cur2._2
+        val (b, e) = op match {
+          case "<" => (Seq(Arithmetic("+", index, ConstantInt(1))), Seq())
+          case "<=" => (Seq(index), Seq())
+          case ">" => (Seq(), Seq(index))
+          case ">=" => (Seq(), Seq(Arithmetic("+", index, ConstantInt(1))))
+          case "=" => (Seq(index), Seq(Arithmetic("+", index, ConstantInt(1))))
+          case _ => (Seq(), Seq())
+        }
+        (acc2._1 ++ b, acc2._2 ++ e)
+      })
+      mergeMap(Seq(acc, Map(variable -> Interval(begin, end))))((v1, v2) => Interval(v1.begin ++ v2.begin, v1.end ++ v2.end))
+    })
   }
 
-  def getIntervals(variables: Seq[Variable], fixedConditionOrder: Seq[Map[Variable, Seq[(String, Index)]]]): Seq[Map[Variable, Seq[Interval]]] = {
-    fixedConditionOrder.foldLeft(Seq.empty[Map[Variable, Seq[(String, Index)]]])((acc, cur) => acc :+ getIntervals(variables, cur))
+  def getIntervals(variables: Seq[Variable], fixedConditionOrder: Seq[Map[Variable, Seq[(String, Index)]]]): Seq[Map[Variable, Interval]] = {
+    fixedConditionOrder.foldLeft(Seq.empty[Map[Variable, Interval]])((acc, cur) => acc :+ getIntervals(variables, cur))
   }
+
+  def getStringChain(indexSeq: Seq[Index]): String = {
+    val str = indexSeq.foldLeft("")((acc, index) => s"$acc, ${index.cFormat}")
+    if (str.length > 0) str.substring(2, str.length)
+    else str
+  }
+
+  def codeGenComputation(tensorComputation: Rule, variables: Seq[Variable], intervalsUS: Seq[Map[Variable, Interval]]): String = {
+    intervalsUS.foldLeft("")((acc, map) => {  
+      val nestedLoops = variables.foldLeft("")((acc2, variable) => {
+        val code = s"for (int ${variable.cFormat} = std::max({${getStringChain(map.get(variable).get.begin)}}); ${variable.cFormat} < std::min({${getStringChain(map.get(variable).get.end)}}); ++${variable.cFormat}) {"
+        s"$acc2\n$code"
+      })
+
+      val body = tensorComputation.cPeqFormat
+
+      val finalBrackets = variables.foldLeft("")((acc, _) => s"$acc}\n")
+      
+      s"$acc\n$nestedLoops\n$body\n$finalBrackets"
+    })
+  }
+
+  def codeGenRedundancy(head: Access, variables: Seq[Variable], intervalsRM: Seq[Map[Variable, Interval]]): String = {
+    val varsAndRed = variables.redundancyVarsInplace
+    intervalsRM.foldLeft("")((acc, map) => {
+      val nestedLoops = varsAndRed.foldLeft("")((acc2, variable) => {
+        val code = s"for (int ${variable.cFormat} = std::max({${getStringChain(map.get(variable).get.begin)}}); ${variable.cFormat} < std::min({${getStringChain(map.get(variable).get.end)}}); ++${variable.cFormat}) {"
+        s"$acc2\n$code"
+      })
+
+      val body = s"${head.cFormat} = ${head.cRedFormat}"
+
+      val finalBrackets = variables.foldLeft("")((acc, _) => s"$acc}\n")
+
+      s"$acc\n$nestedLoops\n$body\n$finalBrackets"
+    })
+  }  
 
   def codeGen(tensorComputation: Rule, dimInfo: Seq[DimInfo], uniqueSets: Map[Exp, Rule], redundancyMaps: Map[Exp, Rule]): String = {
     val variables: Seq[Variable] = getVariables(tensorComputation)
@@ -1116,9 +1204,9 @@ object Main extends App {
     val fixedConditionOrderUS: Seq[Map[Variable, Seq[(String, Index)]]] = fixConditionOrder(variables, distinctConditionMapUS)
     val fixedConditionOrderRM: Seq[Map[Variable, Seq[(String, Index)]]] = fixConditionOrder(variables, distinctConditionMapRM)
 
-    val intervalsUS: Seq[Map[Variable, Seq[Interval]]] = getIntervals(variables, fixedConditionOrderUS)
-    val intervalsRM: Seq[Map[Variable, Seq[Interval]]] = getIntervals(variables, fixedConditionOrderRM)
-    // fix condition order in infer for both US and RM based on variables order + detect impossible conditions and remove them
+    val intervalsUS: Seq[Map[Variable, Interval]] = getIntervals(variables, fixedConditionOrderUS)
+    val intervalsRM: Seq[Map[Variable, Interval]] = getIntervals(variables, fixedConditionOrderRM)
+
     println("variables:")
     println(variables)
     println("==================")
@@ -1175,7 +1263,9 @@ object Main extends App {
     println("------------------")
     println("intervalsRM")
     println(intervalsRM)
-    ""
+    println("==================")
+
+    codeGenComputation(tensorComputation, variables, intervalsUS) + "\n---------------\n" + codeGenRedundancy(tensorComputation.head, variables, intervalsRM)
   }
 
   // Binary multiplication for 2 tensors check -- worked
@@ -1274,6 +1364,8 @@ object Main extends App {
     val uniqueSets: Map[Exp, Rule] = Map(var1 -> var1US, var2 -> var2US)
     val redundancyMap: Map[Exp, Rule] = Map(var1 -> var1RM, var2 -> var2RM)
 
+    println(codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap))
+
     (tensorComputation, infer(tensorComputation, dimInfo, uniqueSets, redundancyMap))
   }
 
@@ -1309,6 +1401,8 @@ object Main extends App {
 
     val uniqueSets: Map[Exp, Rule] = Map(var1 -> var1US, var2 -> var2US)
     val redundancyMap: Map[Exp, Rule] = Map(var1 -> var1RM, var2 -> var2RM)
+
+    println(codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap))
 
     (tensorComputation, infer(tensorComputation, dimInfo, uniqueSets, redundancyMap))
   }
@@ -1356,6 +1450,8 @@ object Main extends App {
     val uniqueSets: Map[Exp, Rule] = Map(var1 -> var1US, var2 -> var2US)
     val redundancyMap: Map[Exp, Rule] = Map(var1 -> var1RM, var2 -> var2RM)
 
+    println(codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap))
+
     (tensorComputation, infer(tensorComputation, dimInfo, uniqueSets, redundancyMap))
   }
 
@@ -1402,6 +1498,8 @@ object Main extends App {
 
     val uniqueSets: Map[Exp, Rule] = Map(var1 -> var1US, var2 -> var2US)
     val redundancyMap: Map[Exp, Rule] = Map(var1 -> var1RM, var2 -> var2RM)
+
+    println(codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap))
 
     (tensorComputation, infer(tensorComputation, dimInfo, uniqueSets, redundancyMap))
   }
@@ -1454,6 +1552,8 @@ object Main extends App {
     val uniqueSets: Map[Exp, Rule] = Map(var1 -> var1US, var2 -> var2US)
     val redundancyMap: Map[Exp, Rule] = Map(var1 -> var1RM, var2 -> var2RM)
 
+    println(codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap))
+
     (tensorComputation, infer(tensorComputation, dimInfo, uniqueSets, redundancyMap))
   }
 
@@ -1504,6 +1604,8 @@ object Main extends App {
 
     val uniqueSets: Map[Exp, Rule] = Map(var1 -> var1US, var2 -> var2US)
     val redundancyMap: Map[Exp, Rule] = Map(var1 -> var1RM, var2 -> var2RM)
+
+    println(codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap))
 
     (tensorComputation, infer(tensorComputation, dimInfo, uniqueSets, redundancyMap))
   }
@@ -1924,9 +2026,9 @@ object Main extends App {
   // Chess Pattern is not implemented since it was just a unique set with no computation
   // none of vec(.), //, and || are explained in the paper in mathematical terms + don't know how to implement the code for this example
   // Kronecker product explanation in Fig 7. should have * in it (not +)!
-  pprintTest(test1())
+  // pprintTest(test1())
   // pprintTest(test2())
-  // pprintTest(test3())
+  pprintTest(test3())
   // pprintTest(test4())
   // pprintTest(test5())
   // pprintTest(test6())
