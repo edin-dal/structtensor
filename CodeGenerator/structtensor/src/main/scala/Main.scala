@@ -38,7 +38,7 @@ case object RedundancyMap extends AccessType {
 
 case class Variable(name: String) extends Index with Dim {
   def prettyFormat(): String = name
-  def cFormat(): String = name
+  def cFormat(): String = if (name.endsWith("'")) name.substring(0, name.size - 1) + "p" else name // renames redundancy vars to a writable format in C
 }
 
 case class ConstantDouble(value: Double) extends Index {
@@ -62,7 +62,7 @@ case class Access(name: String, vars: Seq[Variable], kind: AccessType) extends E
     s"${name}(${pr.substring(2, pr.length)})"
   }
   def cFormat(): String = vars.foldLeft(name)((acc, cur) => s"$acc[${cur.cFormat}]")
-  def cRedFormat(): String = vars.foldLeft(name)((acc, cur) => s"$acc[${cur.cFormat}']")
+  def cRedFormat(): String = vars.foldLeft(name)((acc, cur) => s"$acc[${cur.cFormat}p]")  // renames redundancy vars to a writable format in C
 }
 
 case class Comparison(op: String, index: Index, variable: Variable) extends Exp {
@@ -942,6 +942,13 @@ object Main extends App {
     }
   }
 
+  def getEquivSetIndex(index: Index): Set[Index] = {
+    index match {
+      case Arithmetic(_, _, _) => getEquivSet(index.asInstanceOf[Arithmetic]).asInstanceOf[Set[Index]]
+      case _ => Set(index)
+    }
+  }
+
   def areExpsEquiv(e1: Exp, e2: Exp): Boolean = {
     if (e1 == e2) return true
     (e1, e2) match {
@@ -1147,19 +1154,43 @@ object Main extends App {
     if (str.length > 0) str.substring(2, str.length)
     else str
   }
+  
+  def areBeginAndEndEqual(interval: Interval): (Boolean, Index) = { // Not the smartest way yet, but it works. Basic arithmetic simplification can be implemented to fix this situation
+    val intervalBeginEquivSet: Set[Index] = interval.begin.foldLeft(Set.empty[Index])((acc, index) => acc ++ getEquivSetIndex(index))
+    val intervalEndEquivSet: Set[Index] = interval.end.foldLeft(Set.empty[Index])((acc, index) => acc ++ getEquivSetIndex(index))
+    val intervalBeginPlusOneEquivSet: Set[Index] = interval.begin.foldLeft(Set.empty[Index])((acc, index) => acc ++ getEquivSetIndex(Arithmetic("+", index, ConstantInt(1))))
+    val intervalEndMinusOneEquivSet: Set[Index] = interval.end.foldLeft(Set.empty[Index])((acc, index) => acc ++ getEquivSetIndex(Arithmetic("-", index, ConstantInt(1))))
+
+    val intersectBEplusOne = intervalBeginPlusOneEquivSet.intersect(intervalEndEquivSet)
+    val intersectBEMinusOne = intervalBeginEquivSet.intersect(intervalEndMinusOneEquivSet)
+
+    (intersectBEplusOne.size > 0 || intersectBEMinusOne.size > 0, if (intersectBEplusOne.size > 0) Arithmetic("-", intersectBEplusOne.toSeq(0), ConstantInt(1)) else if (intersectBEMinusOne.size > 0) intersectBEMinusOne.toSeq(0) else "??".toVar)
+  }
 
   def codeGenRule(tensorComputation: Rule, variables: Seq[Variable], intervals: Seq[Map[Variable, Interval]], genType: AccessType): String = {
     val vars = if (genType == RedundancyMap) variables.redundancyVarsInplace else variables
-    intervals.foldLeft("")((acc, map) => {  
+    intervals.foldLeft("")((acc, map) => {
+      var cnt = 0
       val nestedLoops = vars.foldLeft("")((acc2, variable) => {
         val interval = map.get(variable).get
-        val code = s"for (int ${variable.cFormat} = std::max({${getStringChain(interval.begin)}}); ${variable.cFormat} < std::min({${getStringChain(interval.end)}}); ++${variable.cFormat}) {"
+        val begin = if(interval.begin.size > 1) s"std::max({${getStringChain(interval.begin)}})" else interval.begin(0).cFormat
+        val end = if(interval.end.size > 1) s"std::min({${getStringChain(interval.end)}})" else interval.end(0).cFormat
+        val (areEquals, index) = areBeginAndEndEqual(interval)
+        val code = if(areEquals) {
+          val init = s"int ${variable.cFormat} = ${index.cFormat};"
+          val rest = if (!(interval.begin.size == 1 && interval.end.size == 1)) s"if ($begin <= ${variable.cFormat} < $end) {" 
+          else {
+            cnt += 1
+            ""
+          } 
+          s"$init\n$rest"
+        } else s"for (int ${variable.cFormat} = $begin; ${variable.cFormat} < $end; ++${variable.cFormat}) {"
         s"$acc2\n$code"
       })
 
       val body = if (genType == RedundancyMap) s"${tensorComputation.head.cFormat} = ${tensorComputation.head.cRedFormat}" else tensorComputation.cPeqFormat
 
-      val finalBrackets = vars.foldLeft("")((acc, _) => s"$acc}\n")
+      val finalBrackets = vars.slice(cnt, vars.size).foldLeft("")((acc, _) => s"$acc}\n")
       
       s"$acc\n$nestedLoops\n$body\n$finalBrackets"
     })
