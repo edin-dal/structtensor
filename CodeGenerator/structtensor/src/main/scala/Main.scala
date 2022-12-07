@@ -167,14 +167,8 @@ object Main extends App {
   } 
 
   def includeBoundaries(sop: SoP, bounds: Map[Access, Prod], e: Access, t: AccessType): SoP = {
-    if (t == UniqueSet) {
-      if (!bounds.contains(e)) sop
-      else if (sop == emptySoP()) SoP(Seq(bounds.get(e).get))
-      else SoPTimesSoP(sop, SoP(Seq(bounds.get(e).get)))
-    } else if (t == RedundancyMap) {
-      if (!bounds.contains(e) || sop == emptySoP()) sop
-      else SoPTimesSoP(sop, SoP(Seq(bounds.get(e).get)))
-    } else emptySoP()
+    if (!bounds.contains(e) || sop == emptySoP()) sop
+    else SoPTimesSoP(sop, SoP(Seq(bounds.get(e).get)))
   }
 
   def concatSoP(sops: Seq[SoP]): SoP = {
@@ -251,6 +245,7 @@ object Main extends App {
     mergeMap(Seq(acc, Map(d.access -> Prod(Seq(Comparison("<=", ConstantInt(0), cur._1), Comparison(">", cur._2, cur._1))))))((v1, v2) => prodTimesProd(v1, v2)))
     def toComparisonProd: Prod = Prod((d.access.vars zip d.dims).foldLeft(Seq[Exp]())((acc, cur) => 
     acc ++ Seq(Comparison("<=", ConstantInt(0), cur._1), Comparison(">", cur._2, cur._1))))
+    def toSoP: SoP = SoP(Seq(Prod((d.access.vars zip d.dims).foldLeft(Seq.empty[Exp])((acc, varDim) => acc ++ Seq(Comparison("<=", ConstantInt(0), varDim._1), Comparison(">", varDim._2, varDim._1))))))
   }
 
   implicit class SeqDimInfoOps(d: Seq[DimInfo]) {
@@ -870,7 +865,7 @@ object Main extends App {
     prod.exps.foldLeft(Seq[Variable]())((acc, exp) => {
       val varSeq = exp match {
         case Access(name, vars, kind) => vars
-        case Comparison(op, index, variable) => Seq(variable) ++ getVariables(index)
+        // case Comparison(op, index, variable) => Seq(variable) ++ getVariables(index) // Maybe I shouldn't consider comparisons since all of them will be moved to US and RM and iterations won't be on them if they are not in an access
         case _ => Seq()
       }
       acc ++ varSeq
@@ -974,11 +969,16 @@ object Main extends App {
     Rule(rule.head, SoP(bodySet.map(expSet => Prod(uniqueExpSet(expSet).toSeq)).toSeq))
   }
 
-  def getVariableConditionMap(rule:Rule): Seq[Map[Variable, Seq[(String, Index)]]] = { // this should turn into a sequence since there is an addition between each product. Conditions are || with eachother so are separate.
+  def getVariableConditionMap(variables: Seq[Variable], rule:Rule): Seq[Map[Variable, Seq[(String, Index)]]] = { 
+    val varsAndRed = variables.redundancyVarsInplace
     rule.body.prods.foldLeft(Seq.empty[Map[Variable, Seq[(String, Index)]]])((acc, prod) => {
       val prodMap = prod.exps.foldLeft(Map.empty[Variable, Seq[(String, Index)]])((acc2, exp) => {
         exp match {
-          case Comparison(op, index, variable) => mergeMap(Seq(acc2, Map(variable -> Seq((op, index)))))((v1, v2) => v1 ++ v2)
+          case Comparison(op, index, variable) => {
+            if (!varsAndRed.contains(variable) && index.isInstanceOf[Variable] && varsAndRed.contains(index.asInstanceOf[Variable])) 
+              mergeMap(Seq(acc2, Map(index.asInstanceOf[Variable] -> Seq((op, variable)))))((v1, v2) => v1 ++ v2)
+            else mergeMap(Seq(acc2, Map(variable -> Seq((op, index)))))((v1, v2) => v1 ++ v2)
+          }
           case _ => acc2
         }
       })
@@ -1034,7 +1034,17 @@ object Main extends App {
       mergeMap(Seq(acc, Map(kv._1 -> allEquals)))((v1, v2) => v1 ++ v2)
     })
 
-    val equalRepresentative: Map[Variable, Variable] = varsAndRed.foldLeft(Map.empty[Variable, Variable])((acc, v) => {
+    val nonIterables: Set[Variable] = equalityMapAll.foldLeft(Set.empty[Variable])((acc, kv) => acc ++ Set(kv._1) ++ kv._2).diff(varsAndRed.toSet)
+
+    val equalRepresentativeForNonIterables: Map[Variable, Variable] = nonIterables.foldLeft(Map.empty[Variable, Variable])((acc, v) => {
+      val varMap = equalityMapAll.foldLeft(Map.empty[Variable, Variable])((acc2, kv) => {
+        if (kv._2.contains(v)) mergeMap(Seq(acc2, Map(v -> kv._1)))((v1, v2) => v1) 
+        else acc2
+      })
+      mergeMap(Seq(acc, varMap))((v1, v2) => v1)
+    })
+
+    val equalRepresentative: Map[Variable, Variable] = varsAndRed.foldLeft(equalRepresentativeForNonIterables)((acc, v) => {
       val varMap = equalityMapAll.foldLeft(Map.empty[Variable, Variable])((acc2, kv) => {
         if (kv._2.contains(v)) mergeMap(Seq(acc2, Map(kv._1 -> v)))((v1, v2) => v1) 
         else acc2
@@ -1154,8 +1164,28 @@ object Main extends App {
     if (str.length > 0) str.substring(2, str.length)
     else str
   }
+
+  def simplifyMath(arith: Arithmetic): Index = {
+    arith match {
+      case Arithmetic("+", index, ConstantInt(n)) => {
+        index match {
+          case Arithmetic("-", index2, ConstantInt(m)) => if (n != m) Arithmetic("+", index2, ConstantInt(n - m)) else index2
+          case _ => arith
+        }
+      }
+
+      case Arithmetic("-", index, ConstantInt(n)) => {
+        index match {
+          case Arithmetic("+", index2, ConstantInt(m)) => if (n != m) Arithmetic("+", index2, ConstantInt(m - n)) else index2
+          case _ => arith
+        }
+      }
+
+      case _ => arith
+    }
+  }
   
-  def areBeginAndEndEqual(interval: Interval): (Boolean, Index) = { // Not the smartest way yet, but it works. Basic arithmetic simplification can be implemented to fix this situation
+  def areBeginAndEndEqual(interval: Interval): (Boolean, Index, (Int, Int)) = {
     val intervalBeginEquivSet: Set[Index] = interval.begin.foldLeft(Set.empty[Index])((acc, index) => acc ++ getEquivSetIndex(index))
     val intervalEndEquivSet: Set[Index] = interval.end.foldLeft(Set.empty[Index])((acc, index) => acc ++ getEquivSetIndex(index))
     val intervalBeginPlusOneEquivSet: Set[Index] = interval.begin.foldLeft(Set.empty[Index])((acc, index) => acc ++ getEquivSetIndex(Arithmetic("+", index, ConstantInt(1))))
@@ -1164,7 +1194,17 @@ object Main extends App {
     val intersectBEplusOne = intervalBeginPlusOneEquivSet.intersect(intervalEndEquivSet)
     val intersectBEMinusOne = intervalBeginEquivSet.intersect(intervalEndMinusOneEquivSet)
 
-    (intersectBEplusOne.size > 0 || intersectBEMinusOne.size > 0, if (intersectBEplusOne.size > 0) Arithmetic("-", intersectBEplusOne.toSeq(0), ConstantInt(1)) else if (intersectBEMinusOne.size > 0) intersectBEMinusOne.toSeq(0) else "??".toVar)
+    val (begin, end): (Int, Int) =  if (intersectBEplusOne.size > 0) {
+      (interval.begin.zipWithIndex.find(indexID => intersectBEplusOne.contains(Arithmetic("+", indexID._1, ConstantInt(1)))).getOrElse(ConstantInt(0), -1)._2,
+      interval.end.zipWithIndex.find(indexID => intersectBEplusOne.contains(indexID._1)).getOrElse(ConstantInt(0), -1)._2)
+    } else if (intersectBEMinusOne.size > 0) {
+      (interval.begin.zipWithIndex.find(indexID =>intersectBEMinusOne.contains(indexID._1)).getOrElse(ConstantInt(0), -1)._2,
+      interval.end.zipWithIndex.find(indexID =>intersectBEMinusOne.contains(Arithmetic("-", indexID._1, ConstantInt(1)))).getOrElse(ConstantInt(0), -1)._2)
+    } else (-1, -1)
+
+    val areEquals = intersectBEplusOne.size > 0 || intersectBEMinusOne.size > 0
+
+    (areEquals, if (areEquals) interval.begin(begin) else "??".toVar, (begin, end))
   }
 
   def codeGenRule(tensorComputation: Rule, variables: Seq[Variable], intervals: Seq[Map[Variable, Interval]], genType: AccessType): String = {
@@ -1173,12 +1213,17 @@ object Main extends App {
       var cnt = 0
       val nestedLoops = vars.foldLeft("")((acc2, variable) => {
         val interval = map.get(variable).get
-        val begin = if(interval.begin.size > 1) s"std::max({${getStringChain(interval.begin)}})" else interval.begin(0).cFormat
-        val end = if(interval.end.size > 1) s"std::min({${getStringChain(interval.end)}})" else interval.end(0).cFormat
-        val (areEquals, index) = areBeginAndEndEqual(interval)
+        val (areEquals, index, (b, e)) = areBeginAndEndEqual(interval)
+        val newInterval: Interval = if((b, e) == (-1, -1)) interval 
+                          else Interval(interval.begin.zipWithIndex.filter(indexID => indexID._2 != b).map(indexID => indexID._1),
+                                interval.end.zipWithIndex.filter(indexID => indexID._2 != e).map(indexID => indexID._1))
+        val begin = if(newInterval.begin.size > 1) s"std::max({${getStringChain(newInterval.begin)}})" else if (newInterval.begin.size == 1) newInterval.begin(0).cFormat else ""
+        val end = if(newInterval.end.size > 1) s"std::min({${getStringChain(newInterval.end)}})" else if (newInterval.end.size == 1) newInterval.end(0).cFormat else ""
         val code = if(areEquals) {
           val init = s"int ${variable.cFormat} = ${index.cFormat};"
-          val rest = if (!(interval.begin.size == 1 && interval.end.size == 1)) s"if ($begin <= ${variable.cFormat} < $end) {" 
+          val rest = if (begin != "" && end != "") s"if ($begin <= ${variable.cFormat} && ${variable.cFormat} < $end) {" 
+          else if (begin != "" && end == "") s"if ($begin <= ${variable.cFormat}) {" 
+          else if (begin == "" && end != "") s"if (${variable.cFormat} < $end) {" 
           else {
             cnt += 1
             ""
@@ -1200,8 +1245,8 @@ object Main extends App {
     val variables: Seq[Variable] = getVariables(tensorComputation)
     val (outUS, outRM) = infer(tensorComputation, dimInfo, uniqueSets, redundancyMaps)
     
-    val variableConditionMapUS: Seq[Map[Variable, Seq[(String, Index)]]] = getVariableConditionMap(outUS)
-    val variableConditionMapRM: Seq[Map[Variable, Seq[(String, Index)]]] = getVariableConditionMap(outRM)
+    val variableConditionMapUS: Seq[Map[Variable, Seq[(String, Index)]]] = getVariableConditionMap(variables, outUS)
+    val variableConditionMapRM: Seq[Map[Variable, Seq[(String, Index)]]] = getVariableConditionMap(variables, outRM)
 
     val unifiedVariableConditionMapUS: Seq[Map[Variable, Seq[(String, Index)]]] = unifyEqualVariableConditionMap(variables, variableConditionMapUS)
     val unifiedVariableConditionMapRM: Seq[Map[Variable, Seq[(String, Index)]]] = unifyEqualVariableConditionMap(variables, variableConditionMapRM)
@@ -1215,8 +1260,8 @@ object Main extends App {
     val simplifiedOutUS: Rule = simplify(distinctOutUS)
     val simplifiedOutRM: Rule = simplify(distinctOutRM)
 
-    val distinctConditionMapUS: Seq[Map[Variable, Seq[(String, Index)]]] = getVariableConditionMap(simplifiedOutUS)
-    val distinctConditionMapRM: Seq[Map[Variable, Seq[(String, Index)]]] = getVariableConditionMap(simplifiedOutRM)
+    val distinctConditionMapUS: Seq[Map[Variable, Seq[(String, Index)]]] = getVariableConditionMap(variables, simplifiedOutUS)
+    val distinctConditionMapRM: Seq[Map[Variable, Seq[(String, Index)]]] = getVariableConditionMap(variables, simplifiedOutRM)
 
     val fixedConditionOrderUS: Seq[Map[Variable, Seq[(String, Index)]]] = fixConditionOrder(variables, distinctConditionMapUS)
     val fixedConditionOrderRM: Seq[Map[Variable, Seq[(String, Index)]]] = fixConditionOrder(variables, distinctConditionMapRM)
@@ -1282,7 +1327,7 @@ object Main extends App {
     println(intervalsRM)
     println("==================")
 
-    codeGenRule(tensorComputation, variables, intervalsUS, UniqueSet) + "\n---------------\n" + codeGenRule(tensorComputation, variables, intervalsRM, RedundancyMap)
+    "void compute() {\n" + codeGenRule(tensorComputation, variables, intervalsUS, UniqueSet) + "\n}\n\n\nvoid reconstruct() {\n" + codeGenRule(tensorComputation, variables, intervalsRM, RedundancyMap) + "\n}\n"
   }
 
   // Binary multiplication for 2 tensors check -- worked
@@ -1401,7 +1446,7 @@ object Main extends App {
 
 
     val var1HeadUS: Access = Access("A".uniqueName,  Seq(Variable("x")), UniqueSet)
-    val var1BodyUS: SoP = emptySoP()
+    val var1BodyUS: SoP = dim1.toSoP
     val var1US: Rule = Rule(var1HeadUS, var1BodyUS)
 
     val var1HeadRM: Access = Access("A".redundancyName,  Seq(Variable("x"), Variable("x").redundancyVars), RedundancyMap)
@@ -1409,7 +1454,7 @@ object Main extends App {
     val var1RM: Rule = Rule(var1HeadRM, var1BodyRM)
 
     val var2HeadUS: Access = Access("A".uniqueName,  Seq(Variable("y")), UniqueSet)
-    val var2BodyUS: SoP = emptySoP()
+    val var2BodyUS: SoP = dim2.toSoP
     val var2US: Rule = Rule(var2HeadUS, var2BodyUS)
 
     val var2HeadRM: Access = Access("A".redundancyName,  Seq(Variable("y"), Variable("y").redundancyVars), RedundancyMap)
@@ -1424,7 +1469,7 @@ object Main extends App {
     (tensorComputation, infer(tensorComputation, dimInfo, uniqueSets, redundancyMap))
   }
 
-  // DTTV -- checked: w/o simplifications
+  // DTTV check: worked
   def test4(): (Rule, (Rule, Rule)) = {
     val outSeqVar = Seq("i".toVar, "j".toVar)
     val in1SeqVar = Seq("i".toVar, "j".toVar, "k".toVar)
@@ -1457,7 +1502,7 @@ object Main extends App {
     val var1RM: Rule = Rule(var1HeadRM, var1BodyRM)
 
     val var2HeadUS: Access = Access(in2Name.uniqueName,  in2SeqVar, UniqueSet)
-    val var2BodyUS: SoP = emptySoP()
+    val var2BodyUS: SoP = dim2.toSoP
     val var2US: Rule = Rule(var2HeadUS, var2BodyUS)
 
     val var2HeadRM: Access = Access(in2Name.redundancyName,  in2SeqVar.redundancyVarsInplace, RedundancyMap)
@@ -1472,7 +1517,7 @@ object Main extends App {
     (tensorComputation, infer(tensorComputation, dimInfo, uniqueSets, redundancyMap))
   }
 
-  // RMD -- checked w/o simplification and inlining: page 12: M_U should be 0 <= k < n (not j instead of k!!!) also in simplifications should be fixed too!
+  // RMD check: worked -- page 12: M_U should be 0 <= k < n (not j instead of k!!!) also in simplifications should be fixed too!
   def test5(): (Rule, (Rule, Rule)) = {
     val outSeqVar = Seq("i".toVar, "j".toVar)
     val in1SeqVar = Seq("i".toVar, "k".toVar)
@@ -1521,7 +1566,7 @@ object Main extends App {
     (tensorComputation, infer(tensorComputation, dimInfo, uniqueSets, redundancyMap))
   }
 
-  // UHS -- checked: w/o simplifications
+  // UHS check: worked
   def test6(): (Rule, (Rule, Rule)) = {
     val outSeqVar = Seq("i".toVar, "j".toVar)
     val in1SeqVar = Seq("i".toVar, "j".toVar)
@@ -1574,7 +1619,7 @@ object Main extends App {
     (tensorComputation, infer(tensorComputation, dimInfo, uniqueSets, redundancyMap))
   }
 
-  // Example - Structure Inference -- checked
+  // Example - Structure Inference checked: worked
   def test7(): (Rule, (Rule, Rule)) = {
     val outSeqVar = Seq("x1".toVar, "x2".toVar, "x3".toVar, "x4".toVar, "x5".toVar)
     val in1SeqVar = Seq("x1".toVar, "x2".toVar, "x3".toVar)
@@ -1627,7 +1672,7 @@ object Main extends App {
     (tensorComputation, infer(tensorComputation, dimInfo, uniqueSets, redundancyMap))
   }
 
-  // Non-binary: Example - Unique set computation
+  // Non-binary: Example - Unique set computation: worked
   def test8(): (Rule, (Rule, Rule)) = {
     val outSeqVar = Seq("i".toVar, "j".toVar, "k".toVar)
     val in1SeqVar = Seq("i".toVar, "j".toVar, "l".toVar)
@@ -1711,8 +1756,16 @@ object Main extends App {
     val infer1: (Rule, Rule) = infer(tensorComputation1, dimInfo, uniqueSets, redundancyMap)
     val infer2: (Rule, Rule) = infer(tensorComputation2, dimInfo, uniqueSets, redundancyMap)
 
+    println(codeGen(tensorComputation1, dimInfo, uniqueSets, redundancyMap))
+    println(codeGen(tensorComputation2, dimInfo, uniqueSets, redundancyMap))
+
+    pprintTest((tensorComputation1, infer(tensorComputation1, dimInfo, uniqueSets, redundancyMap)))
+    pprintTest((tensorComputation2, infer(tensorComputation2, dimInfo, uniqueSets, redundancyMap)))
+
     val newUniqueSets: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head1 -> infer1._1, head2 -> infer2._1), uniqueSets))((v1, v2) => v2)
     val newRedundancyMap: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head1 -> infer1._2, head2 -> infer2._2), redundancyMap))((v1, v2) => v2)
+
+    println(codeGen(tensorComputation3, dimInfo, newUniqueSets, newRedundancyMap))
 
     (tensorComputation3, infer(tensorComputation3, dimInfo, newUniqueSets, newRedundancyMap))
   }
@@ -1770,7 +1823,8 @@ object Main extends App {
 
     val dim1: DimInfo = DimInfo(var1, Seq("x".toVar, "y".toVar))
     val dim2: DimInfo = DimInfo(var2, Seq("m".toVar, "n".toVar))
-    val dimInfo: Seq[DimInfo] = Seq(dim1, dim2)
+    val dimH1: DimInfo = DimInfo(head1, Seq("n".toVar, "m".toVar, "n".toVar, "m".toVar))
+    val dimInfo: Seq[DimInfo] = Seq(dim1, dim2, dimH1)
 
 
     val var1HeadUS: Access = Access(in1Name.uniqueName, in1SeqVar, UniqueSet)
@@ -1794,7 +1848,7 @@ object Main extends App {
     val var2RM: Rule = Rule(var2HeadRM, var2BodyRM)
 
     val var3HeadUS: Access = Access(in3Name.uniqueName,  in3SeqVar, UniqueSet)
-    val var3BodyUS: SoP = emptySoP()
+    val var3BodyUS: SoP = dimH1.toSoP
     val var3US: Rule = Rule(var3HeadUS, var3BodyUS)
 
     val var3HeadRM: Access = Access(in3Name.redundancyName,  in3SeqVar.redundancyVarsInplace, RedundancyMap)
@@ -1802,7 +1856,7 @@ object Main extends App {
     val var3RM: Rule = Rule(var3HeadRM, var3BodyRM)
 
     val var4HeadUS: Access = Access(in4Name.uniqueName,  in4SeqVar, UniqueSet)
-    val var4BodyUS: SoP = emptySoP()
+    val var4BodyUS: SoP = dimH1.toSoP
     val var4US: Rule = Rule(var4HeadUS, var4BodyUS)
 
     val var4HeadRM: Access = Access(in4Name.redundancyName,  in4SeqVar.redundancyVarsInplace, RedundancyMap)
@@ -1831,11 +1885,23 @@ object Main extends App {
     val infer1: (Rule, Rule) = infer(tensorComputation1, dimInfo, uniqueSets, redundancyMap)
     val infer2: (Rule, Rule) = infer(tensorComputation2, dimInfo, uniqueSets, redundancyMap)
 
+    println(codeGen(tensorComputation1, dimInfo, uniqueSets, redundancyMap))
+    println(codeGen(tensorComputation2, dimInfo, uniqueSets, redundancyMap))
+
+    pprintTest((tensorComputation1, infer(tensorComputation1, dimInfo, uniqueSets, redundancyMap)))
+    pprintTest((tensorComputation2, infer(tensorComputation1, dimInfo, uniqueSets, redundancyMap)))
+
     val newUniqueSets: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head1 -> infer1._1, head2 -> infer2._1), uniqueSets))((v1, v2) => v2)
     val newRedundancyMap: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head1 -> infer1._2, head2 -> infer2._2), redundancyMap))((v1, v2) => v2)
 
     val infer3: (Rule, Rule) = infer(tensorComputation3, dimInfo, newUniqueSets, newRedundancyMap)
     val infer4: (Rule, Rule) = infer(tensorComputation4, dimInfo, newUniqueSets, newRedundancyMap)
+
+    println(codeGen(tensorComputation3, dimInfo, newUniqueSets, newRedundancyMap))
+    println(codeGen(tensorComputation4, dimInfo, newUniqueSets, newRedundancyMap))
+
+    pprintTest((tensorComputation3, infer(tensorComputation1, dimInfo, newUniqueSets, newRedundancyMap)))
+    pprintTest((tensorComputation4, infer(tensorComputation1, dimInfo, newUniqueSets, newRedundancyMap)))
 
     val newUniqueSets2: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head3 -> infer3._1, head4 -> infer4._1), newUniqueSets))((v1, v2) => v2)
     val newRedundancyMap2: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head3 -> infer3._2, head4 -> infer4._2), newRedundancyMap))((v1, v2) => v2)
@@ -1844,6 +1910,8 @@ object Main extends App {
     pprintTest((tensorComputation2, infer2))
     pprintTest((tensorComputation3, infer3))
     pprintTest((tensorComputation4, infer4))
+
+    println(codeGen(tensorComputation, dimInfo, newUniqueSets2, newRedundancyMap2))
 
     (tensorComputation, infer(tensorComputation, dimInfo, newUniqueSets2, newRedundancyMap2))
   }
@@ -1920,11 +1988,19 @@ object Main extends App {
     val redundancyMap: Map[Exp, Rule] = Map(var1 -> var1RM)
 
     val infer1: (Rule, Rule) = infer(tensorComputation1, dimInfo, uniqueSets, redundancyMap)
+
+    println(codeGen(tensorComputation1, dimInfo, uniqueSets, redundancyMap))
+
+    pprintTest((tensorComputation1, infer(tensorComputation, dimInfo, uniqueSets, redundancyMap)))
     
     val newUniqueSets: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head1 -> infer1._1), uniqueSets))((v1, v2) => v2)
     val newRedundancyMap: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head1 -> infer1._2), redundancyMap))((v1, v2) => v2)
     
     val infer2: (Rule, Rule) = infer(tensorComputation2, dimInfo, newUniqueSets, newRedundancyMap)
+
+    println(codeGen(tensorComputation2, dimInfo, newUniqueSets, newRedundancyMap))
+
+    pprintTest((tensorComputation2, infer(tensorComputation, dimInfo, newUniqueSets, newRedundancyMap)))
 
     val newUniqueSets2: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head2 -> infer2._1), newUniqueSets))((v1, v2) => v2)
     val newRedundancyMap2: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head2 -> infer2._2), newRedundancyMap))((v1, v2) => v2)
@@ -1932,13 +2008,21 @@ object Main extends App {
     val infer3: (Rule, Rule) = infer(tensorComputation3, dimInfo, newUniqueSets2, newRedundancyMap2)
     val infer4: (Rule, Rule) = infer(tensorComputation4, dimInfo, newUniqueSets2, newRedundancyMap2)
 
+    println(codeGen(tensorComputation3, dimInfo, newUniqueSets2, newRedundancyMap2))
+    println(codeGen(tensorComputation4, dimInfo, newUniqueSets2, newRedundancyMap2))
+
+    pprintTest((tensorComputation3, infer(tensorComputation, dimInfo, newUniqueSets2, newRedundancyMap2)))
+    pprintTest((tensorComputation4, infer(tensorComputation, dimInfo, newUniqueSets2, newRedundancyMap2)))
+
     val newUniqueSets3: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head3 -> infer3._1, head4 -> infer4._1), newUniqueSets2))((v1, v2) => v2)
     val newRedundancyMap3: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head3 -> infer3._2, head4 -> infer4._2), newRedundancyMap2))((v1, v2) => v2)
+
+    println(codeGen(tensorComputation, dimInfo, newUniqueSets3, newRedundancyMap3))
 
     (tensorComputation, infer(tensorComputation, dimInfo, newUniqueSets3, newRedundancyMap3))
   }
 
-  // Self-outer product 3 -- check 
+  // Self-outer product 3 check: worked -- need to be checked inside covariance matrices to make sure -- manually checked
   def test11(): (Rule, (Rule, Rule)) = {
     val head: Access = Access("M", Seq("x".toVar, "y".toVar, "z".toVar), Tensor)
     val var1: Access = Access("A",  Seq("x".toVar), Tensor)
@@ -1981,10 +2065,12 @@ object Main extends App {
     val uniqueSets: Map[Exp, Rule] = Map(var1 -> var1US, var2 -> var2US, var3 -> var3US)
     val redundancyMap: Map[Exp, Rule] = Map(var1 -> var1RM, var2 -> var2RM, var3 -> var3RM)
 
+    println(codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap))
+
     (tensorComputation, infer(tensorComputation, dimInfo, uniqueSets, redundancyMap))
   }
 
-  // Self-outer product 4 -- check 
+  // Self-outer product 4 check: worked  -- need to be checked inside covariance matrices to make sure -- manually checked
   def test12(): (Rule, (Rule, Rule)) = {
     val head: Access = Access("M", Seq("x".toVar, "y".toVar, "z".toVar, "p".toVar), Tensor)
     val var1: Access = Access("A",  Seq("x".toVar), Tensor)
@@ -2037,6 +2123,8 @@ object Main extends App {
     val uniqueSets: Map[Exp, Rule] = Map(var1 -> var1US, var2 -> var2US, var3 -> var3US, var4 -> var4US)
     val redundancyMap: Map[Exp, Rule] = Map(var1 -> var1RM, var2 -> var2RM, var3 -> var3RM, var4 -> var4RM)
 
+    println(codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap))
+
     (tensorComputation, infer(tensorComputation, dimInfo, uniqueSets, redundancyMap))
   }
 
@@ -2045,16 +2133,17 @@ object Main extends App {
   // Kronecker product explanation in Fig 7. should have * in it (not +)!
   // pprintTest(test1())
   // pprintTest(test2())
-  pprintTest(test3())
+  // pprintTest(test3())
   // pprintTest(test4())
   // pprintTest(test5())
   // pprintTest(test6())
   // pprintTest(test7())
   // pprintTest(test8())
-  // pprintTest(test9())
+  pprintTest(test9())
   // pprintTest(test10())
   // pprintTest(test11())
   // pprintTest(test12())
+
   // println(Variable("a").equals(Variable("a")))
 
   // val a: Map[String, Seq[Int]] = Map("a" -> Seq(2))
