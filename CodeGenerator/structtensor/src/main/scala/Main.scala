@@ -51,7 +51,7 @@ case class ConstantInt(value: Int) extends Index with Dim {
   def cFormat(): String = value.toString
 }
 
-case class Arithmetic(op: String, index1: Index, index2: Index) extends Index {
+case class Arithmetic(op: String, index1: Index, index2: Index) extends Index with Dim {
   def prettyFormat(): String = s"(${index1.prettyFormat} $op ${index2.prettyFormat})"
   def cFormat(): String = s"(${index1.cFormat} $op ${index2.cFormat})"
 }
@@ -66,8 +66,8 @@ case class Access(name: String, vars: Seq[Variable], kind: AccessType) extends E
 }
 
 case class Comparison(op: String, index: Index, variable: Variable) extends Exp {
-  def prettyFormat(): String = s"(${index.prettyFormat} $op ${variable.prettyFormat})"
-  def cFormat(): String = s"(${index.cFormat} $op ${variable.cFormat})"
+  def prettyFormat(): String = if (!(!index.isInstanceOf[Variable] && op == "=")) s"(${index.prettyFormat} $op ${variable.prettyFormat})" else s"(${variable.prettyFormat} $op ${index.prettyFormat})"
+  def cFormat(): String = if (!(!index.isInstanceOf[Variable] && op == "=")) s"(${index.cFormat} $op ${variable.cFormat})" else s"(${variable.cFormat} $op ${index.cFormat})"
 }
 
 case class Prod(exps: Seq[Exp]) {
@@ -100,7 +100,7 @@ case class SoP(prods: Seq[Prod]) {
 case class Rule(head: Access, body: SoP) {
   def prettyFormat(): String = s"${head.prettyFormat} := ${body.prettyFormat}"
   def cFormat(): String = s"${head.cFormat} = ${body.cFormat}"
-  def cPeqFormat(): String = s"${head.cFormat} += ${body.cFormat}"
+  def cPeqFormat(): String = s"${head.cFormat} += ${body.cFormat};"
 }
 
 case class Interval(begin: Seq[Index], end: Seq[Index])
@@ -237,7 +237,7 @@ object Main extends App {
   }
 
   implicit class DimInfoOps(d: DimInfo) {
-    def toMap: Map[Access, Seq[Dim]] = Map[Access, Seq[Dim]](d.access -> d.dims)
+    def toAccessMap: Map[Access, Seq[Dim]] = Map[Access, Seq[Dim]](d.access -> d.dims)
     def toVarsMap: Map[Variable, Seq[Dim]] = (d.access.vars zip d.dims).foldLeft(Map.empty[Variable, Seq[Dim]])((acc, cur) => acc + (cur._1 -> Seq(cur._2)))
     def toComparisonVariableProdMap: Map[Variable, Prod] = (d.access.vars zip d.dims).foldLeft(Map.empty[Variable, Prod])((acc, cur) => 
     mergeMap(Seq(acc, Map(cur._1 -> Prod(Seq(Comparison("<=", ConstantInt(0), cur._1), Comparison(">", cur._2, cur._1))))))((v1, v2) => prodTimesProd(v1, v2)))
@@ -249,7 +249,7 @@ object Main extends App {
   }
 
   implicit class SeqDimInfoOps(d: Seq[DimInfo]) {
-    def toMap: Map[Access, Seq[Dim]] = d.foldLeft(Map.empty[Access, Seq[Dim]])((acc, cur) => mergeMap(Seq(acc, cur.toMap))((v1, v2) => v1 ++ v2))
+    def toAccessMap: Map[Access, Seq[Dim]] = d.foldLeft(Map.empty[Access, Seq[Dim]])((acc, cur) => mergeMap(Seq(acc, cur.toAccessMap))((v1, v2) => v1 ++ v2))
     def toVarsMap: Map[Variable, Seq[Dim]] = d.foldLeft(Map.empty[Variable, Seq[Dim]])((acc, cur) => mergeMap(Seq(acc, cur.toVarsMap))((v1, v2) => v1 ++ v2))
     def toComparisonVariableProdMap: Map[Variable, Prod] = d.foldLeft(Map.empty[Variable, Prod])((acc, cur) => mergeMap(Seq(acc, cur.toComparisonVariableProdMap))((v1, v2) => prodTimesProd(v1, v2)))
     def toComparisonAccessProdMap: Map[Access, Prod] = d.foldLeft(Map.empty[Access, Prod])((acc, cur) => mergeMap(Seq(acc, cur.toComparisonAccessProdMap))((v1, v2) => prodTimesProd(v1, v2)))
@@ -426,14 +426,21 @@ object Main extends App {
     val headUS: Access = Access(name.uniqueName, outVars, UniqueSet)
     val headRM: Access = Access(name.redundancyName, outVars.redundancyVarsInplace, RedundancyMap)
     val bounds: Map[Access, Prod] = dimInfo.toComparisonAccessProdMap
+    val dimMap: Map[Access, Seq[Dim]] = dimInfo.toAccessMap
     (e1, e2) match {
       case (Access(name1, vars1, Tensor), Access(name2, vars2, Tensor)) => { 
         val e1US: SoP = includeBoundaries(inp1US.body, bounds, e1.asInstanceOf[Access], UniqueSet) 
         val e2US: SoP = includeBoundaries(inp2US.body, bounds, e2.asInstanceOf[Access], UniqueSet) 
         val e1RM: SoP = includeBoundaries(inp1RM.body, bounds, e1.asInstanceOf[Access], RedundancyMap) 
         val e2RM: SoP = includeBoundaries(inp2RM.body, bounds, e2.asInstanceOf[Access], RedundancyMap) 
-        val bodyUS: SoP = concatSoP(Seq(e1US, SoPTimesSoP(e2US, SoP(Seq(Prod(e2Seq))))))
-        val bodyRM: SoP = concatSoP(Seq(e1RM, multSoP(Seq(e2RM, SoP(Seq(Prod(e2Seq))), SoP(Seq(Prod(replaceVarsWithRedundancyVars(e2Seq))))))))
+        val e1DimSeq: Seq[Dim] = dimMap.get(e1.asInstanceOf[Access]).getOrElse(Seq.empty)
+        val e2DimSeq: Seq[Dim] = dimMap.get(e2.asInstanceOf[Access]).getOrElse(Seq.empty)
+        val headDimSeq: Seq[Dim] = (e1DimSeq zip e2DimSeq).foldLeft(Seq.empty[Dim])((acc, cur) => acc :+ Arithmetic("+", cur._1, cur._2))
+        val headDimInfo: DimInfo = DimInfo(head, headDimSeq)
+        val headDimSoP: SoP = headDimInfo.toSoP
+        val headDimSoP2: SoP = SoP(Seq(Prod((outVars zip e1DimSeq).foldLeft(Seq.empty[Exp])((acc, varDim) => acc :+ Comparison("<=", varDim._2, varDim._1)))))
+        val bodyUS: SoP = concatSoP(Seq(e1US, multSoP(Seq(e2US, SoP(Seq(Prod(e2Seq))), headDimSoP, headDimSoP2))))
+        val bodyRM: SoP = concatSoP(Seq(e1RM, multSoP(Seq(e2RM, SoP(Seq(Prod(e2Seq))), SoP(Seq(Prod(replaceVarsWithRedundancyVars(e2Seq)))), headDimSoP, headDimSoP2))))
         return (Rule(headUS, bodyUS), Rule(headRM, bodyRM))
       }
     }
@@ -1073,6 +1080,7 @@ object Main extends App {
         val op: String = cur2._1
         val index: Index = cur2._2
         if (op != "=") acc2 ++ Seq((op, replaceVars(index, equalRepresentative)))
+        else if (op == "=" && !index.isInstanceOf[Variable]) acc2 ++ Seq((op, index))
         else acc2
       })
       mergeMap(Seq(acc, Map(replaceVars(variable, equalRepresentative).asInstanceOf[Variable] -> nonEqMap)))((v1, v2) => v1 ++ v2)
@@ -1099,7 +1107,7 @@ object Main extends App {
           if (varsAndRed.contains(indexVar) && !varsAndRed.slice(0, ind + 1).contains(indexVar)) 
             mergeMap(Seq(acc2, Map(indexVar -> Seq((opComplement(op), variable)))))((v1, v2) => v1 ++ v2)
           else mergeMap(Seq(acc2, Map(variable -> Seq((op, index)))))((v1, v2) => v1 ++ v2)
-        } else mergeMap(Seq(acc2, Map(variable -> Seq((op, index)))))((v1, v2) => v1 ++ v2)
+        } else mergeMap(Seq(acc2, Map(variable -> Seq((op, index)))))((v1, v2) => v1 ++ v2) // this part for arithmetics might cause problem. Ordering should change in a way that if there is an arithmetic based on next variables, we re-order variables properly and fix it.
       })
       mergeMap(Seq(acc, orderedMap))((v1, v2) => v1 ++ v2)
     })
@@ -1178,14 +1186,14 @@ object Main extends App {
     arith match {
       case Arithmetic("+", index, ConstantInt(n)) => {
         index match {
-          case Arithmetic("-", index2, ConstantInt(m)) => if (n != m) simplifyMath(Arithmetic("+", index2, ConstantInt(n - m))) else index2
+          case Arithmetic("-", index2, ConstantInt(m)) => if (n != m) simplifyMath(Arithmetic("+", index2, ConstantInt(n - m))) else if (index2.isInstanceOf[Arithmetic]) simplifyMath(index2.asInstanceOf[Arithmetic]) else index2
           case _ => arith
         }
       }
 
       case Arithmetic("-", index, ConstantInt(n)) => {
         index match {
-          case Arithmetic("+", index2, ConstantInt(m)) => if (n != m) simplifyMath(Arithmetic("+", index2, ConstantInt(m - n))) else index2
+          case Arithmetic("+", index2, ConstantInt(m)) => if (n != m) simplifyMath(Arithmetic("+", index2, ConstantInt(m - n))) else if (index2.isInstanceOf[Arithmetic]) simplifyMath(index2.asInstanceOf[Arithmetic]) else index2
           case _ => arith
         }
       }
@@ -1216,18 +1224,38 @@ object Main extends App {
     (areEquals, if (areEquals) interval.begin(begin) else "??".toVar, (begin, end))
   }
 
-  def codeGenRule(tensorComputation: Rule, variables: Seq[Variable], intervals: Seq[Map[Variable, Interval]], genType: AccessType): String = {
+  def getNoComparisonSoP(sop: SoP): SoP = {
+    SoP(sop.prods.foldLeft(Seq.empty[Prod])((acc, prod) => {
+      acc :+ Prod(prod.exps.foldLeft(Seq.empty[Exp])((acc2, exp) => {
+        exp match {
+          case Comparison(_, _, _) => acc2
+          case _ => acc2 :+ exp
+        }
+      }))
+    }))
+  }
+
+  def codeGenRule(tensorComputation: Rule, dimInfo: Seq[DimInfo], variables: Seq[Variable], intervals: Seq[Map[Variable, Interval]], genType: AccessType, codeMotion: Boolean = false): String = {
     val vars = if (genType == RedundancyMap) variables.redundancyVarsInplace else variables
+    val dimMap: Map[Access, Seq[Dim]] = dimInfo.toAccessMap
+    val dimVarMap: Map[Variable, Seq[Dim]] = dimInfo.toVarsMap
+    if (codeMotion) {
+      // get a access -> variable map for all head and body accesses
+    }
     intervals.foldLeft("")((acc, map) => {
       var cnt = 0
       val nestedLoops = vars.foldLeft("")((acc2, variable) => {
-        val interval = map.get(variable).get
+        val interval = map.get(variable).get // Interval(Seq(), Seq()) is output if there's no condition on the variable
         val (areEquals, index, (b, e)) = areBeginAndEndEqual(interval)
         val newInterval: Interval = if((b, e) == (-1, -1)) interval 
                           else Interval(interval.begin.zipWithIndex.filter(indexID => indexID._2 != b).map(indexID => indexID._1),
                                 interval.end.zipWithIndex.filter(indexID => indexID._2 != e).map(indexID => indexID._1))
-        val begin = if(newInterval.begin.size > 1) s"std::max({${getStringChain(newInterval.begin)}})" else if (newInterval.begin.size == 1) newInterval.begin(0).cFormat else ""
-        val end = if(newInterval.end.size > 1) s"std::min({${getStringChain(newInterval.end)}})" else if (newInterval.end.size == 1) newInterval.end(0).cFormat else ""
+        val newInterval2: Interval = if (tensorComputation.body.prods.length > 1) {
+          if (interval.begin.toSet == Set(ConstantInt(0).asInstanceOf[Index]) && interval.end.toSet == dimVarMap.get(variable).get.toSet) newInterval
+          else Interval(newInterval.begin.toSet.diff(Set(ConstantInt(0).asInstanceOf[Index])).toSeq, newInterval.end.toSet.diff(dimVarMap.get(variable).get.toSet).toSeq)
+        } else newInterval
+        val begin = if(newInterval2.begin.size > 1) s"std::max({${getStringChain(newInterval2.begin)}})" else if (newInterval2.begin.size == 1) newInterval2.begin(0).cFormat else ""
+        val end = if(newInterval2.end.size > 1) s"std::min({${getStringChain(newInterval2.end)}})" else if (newInterval2.end.size == 1) newInterval2.end(0).cFormat else ""
         val code = if(areEquals) {
           val init = s"int ${variable.cFormat} = ${index.cFormat};"
           val rest = if (begin != "" && end != "") s"if ($begin <= ${variable.cFormat} && ${variable.cFormat} < $end) {" 
@@ -1235,14 +1263,54 @@ object Main extends App {
           else if (begin == "" && end != "") s"if (${variable.cFormat} < $end) {" 
           else {
             cnt += 1
-            ""
-          } 
+            s""
+          }
           s"$init\n$rest"
-        } else s"for (int ${variable.cFormat} = $begin; ${variable.cFormat} < $end; ++${variable.cFormat}) {"
-        s"$acc2\n$code"
+        } else {
+            if (begin != "" && end != "") s"for (int ${variable.cFormat} = $begin; ${variable.cFormat} < $end; ++${variable.cFormat}) {"
+            else if (begin != "" && end == "") s"if ($begin = ${variable.cFormat}) {" 
+            else if (begin == "" && end != "") s"if (${variable.cFormat} = $end - 1) {" 
+            else {
+              cnt += 1
+              s""
+            }
+        }
+        val cm = if (codeMotion) {
+          // if current variable is equal to first element of each of the variables of accesses in the map, do code motion for it
+          // update the map in a way that previous variables that include code motion be removed and new variable with .slice(1, length) of variables be in it
+        } else ""
+        s"$acc2\n$code\n$cm"
       })
 
-      val body = if (genType == RedundancyMap) s"${tensorComputation.head.cFormat} = ${tensorComputation.head.cRedFormat}" else tensorComputation.cPeqFormat
+      val tcBody: SoP = getNoComparisonSoP(tensorComputation.body) // should handle empty body later (when the whole computation was comparison multiplications)
+      val body = if (genType == RedundancyMap) s"${tensorComputation.head.cFormat} = ${tensorComputation.head.cRedFormat};" else {
+        if (tcBody.prods.length == 1) tensorComputation.cPeqFormat
+        else tcBody.prods.foldLeft("")((acc, prod) => {
+          val conds = prod.exps.foldLeft("")((acc2, exp) => {
+            exp match {
+              case Access(name, vars, kind) => acc2 + (vars zip dimMap.get(exp.asInstanceOf[Access]).get).foldLeft("")((acc3, varDim) => {
+                val (flag, cond) = if (map.get(varDim._1).get == Interval(Seq(ConstantInt(0)), Seq(varDim._2))) (true, "")
+                else if (map.get(varDim._1).get != Interval(Seq(), Seq())) {
+                  val interval = map.get(varDim._1).get
+                  val isProdEmptyBegin = interval.begin.foldLeft(false)((acc, cur) => acc || isProdEmpty(Comparison("<=", cur, varDim._1), Comparison(">", varDim._2, varDim._1)))
+                  val isProdEmptyEnd = interval.end.foldLeft(false)((acc, cur) => acc || isProdEmpty(Comparison(">", cur, varDim._1), Comparison("<=", ConstantInt(0), varDim._1)))
+                  if (isProdEmptyBegin || isProdEmptyEnd) (false, "")
+                  else (false, s"$acc3 && 0 <= ${varDim._1.cFormat} && ${varDim._1.cFormat} < ${varDim._2.cFormat}")
+                }
+                else (false, "")
+                
+                if (flag == true) "remif"
+                else cond
+              })
+              case _ => s"$acc2"
+            }
+          })
+          if (conds == "remif") s"$acc\n${tensorComputation.head.cFormat} += ${prod.cFormat};" 
+          else if (conds.length < 5) s"$acc" 
+          else s"$acc\nif (${conds.substring(4, conds.length)}) {\n${tensorComputation.head.cFormat} += ${prod.cFormat};\n}" 
+        })
+      } // change wrt code motion and use the newest variables with the corresponding list to them
+      // val body = if (genType == RedundancyMap) s"${tensorComputation.head.cFormat} = ${tensorComputation.head.cRedFormat};" else tensorComputation.cPeqFormat
 
       val finalBrackets = vars.slice(cnt, vars.size).foldLeft("")((acc, _) => s"$acc}\n")
       
@@ -1336,7 +1404,7 @@ object Main extends App {
     // println(intervalsRM)
     // println("==================")
 
-    "void compute() {\n" + codeGenRule(tensorComputation, variables, intervalsUS, UniqueSet) + "\n}\n\n\nvoid reconstruct() {\n" + codeGenRule(tensorComputation, variables, intervalsRM, RedundancyMap) + "\n}\n"
+    "void compute() {\n" + codeGenRule(tensorComputation, dimInfo, variables, intervalsUS, UniqueSet) + "\n}\n\n\nvoid reconstruct() {\n" + codeGenRule(tensorComputation, dimInfo, variables, intervalsRM, RedundancyMap) + "\n}\n"
   }
 
   // Binary multiplication for 2 tensors check -- worked
@@ -2137,6 +2205,7 @@ object Main extends App {
     (tensorComputation, infer(tensorComputation, dimInfo, uniqueSets, redundancyMap))
   }
 
+  // Vector direct sum v1
   def test13(): (Rule, (Rule, Rule)) = {
     val head: Access = Access("M", Seq("x".toVar), Tensor)
     val var1: Access = Access("A",  Seq("x".toVar), Tensor)
@@ -2177,6 +2246,7 @@ object Main extends App {
     (tensorComputation, infer(tensorComputation, dimInfo, uniqueSets, redundancyMap))
   }
 
+  // Vector direct sum v2
   def test14(): (Rule, (Rule, Rule)) = {
     val head: Access = Access("M", Seq("x".toVar), Tensor)
     val var1: Access = Access("A",  Seq("x".toVar), Tensor)
@@ -2216,6 +2286,7 @@ object Main extends App {
     (tensorComputation, infer(tensorComputation, dimInfo, uniqueSets, redundancyMap))
   }
 
+  // Vector direct sum v3
   def test15(): (Rule, (Rule, Rule)) = {
     val head: Access = Access("M", Seq("p".toVar), Tensor)
     val var1: Access = Access("A",  Seq("x".toVar), Tensor)
@@ -2258,6 +2329,7 @@ object Main extends App {
     (tensorComputation, infer(tensorComputation, dimInfo, uniqueSets, redundancyMap))
   }
 
+  // Vector direct sum v4
   def test16(): (Rule, (Rule, Rule)) = {
     val head: Access = Access("M", Seq("p".toVar), Tensor)
     val var1: Access = Access("A",  Seq("x".toVar), Tensor)
@@ -2501,8 +2573,8 @@ object Main extends App {
   // pprintTest(test10())
   // pprintTest(test11())
   // pprintTest(test12())
-  pprintTest(test13())
-  // pprintTest(test14())
+  // pprintTest(test13())
+  pprintTest(test14())
   // pprintTest(test15())
   // pprintTest(test16())
 
