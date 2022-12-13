@@ -1966,49 +1966,11 @@ object Main extends App {
     val var2BodyRM: SoP = emptySoP()
     val var2RM: Rule = Rule(var2HeadRM, var2BodyRM)
 
-    // val var3HeadUS: Access = Access(in3Name.uniqueName,  in3SeqVar, UniqueSet)
-    // val var3BodyUS: SoP = emptySoP()
-    // val var3US: Rule = Rule(var3HeadUS, var3BodyUS)
-
-    // val var3HeadRM: Access = Access(in3Name.redundancyName,  in3SeqVar.redundancyVarsInplace, RedundancyMap)
-    // val var3BodyRM: SoP = emptySoP()
-    // val var3RM: Rule = Rule(var3HeadRM, var3BodyRM)
-
-    // val var4HeadUS: Access = Access(in4Name.uniqueName,  in4SeqVar, UniqueSet)
-    // val var4BodyUS: SoP = emptySoP()
-    // val var4US: Rule = Rule(var4HeadUS, var4BodyUS)
-
-    // val var4HeadRM: Access = Access(in4Name.redundancyName,  in4SeqVar.redundancyVarsInplace, RedundancyMap)
-    // val var4BodyRM: SoP = emptySoP()
-    // val var4RM: Rule = Rule(var4HeadRM, var4BodyRM)
-
-    // val var5HeadUS: Access = Access(in5Name.uniqueName,  in5SeqVar, UniqueSet)
-    // val var5BodyUS: SoP = emptySoP()
-    // val var5US: Rule = Rule(var5HeadUS, var5BodyUS)
-
-    // val var5HeadRM: Access = Access(in5Name.redundancyName,  in5SeqVar.redundancyVarsInplace, RedundancyMap)
-    // val var5BodyRM: SoP = emptySoP()
-    // val var5RM: Rule = Rule(var5HeadRM, var5BodyRM)
-
-    // val var6HeadUS: Access = Access(in6Name.uniqueName,  in6SeqVar, UniqueSet)
-    // val var6BodyUS: SoP = emptySoP()
-    // val var6US: Rule = Rule(var6HeadUS, var6BodyUS)
-
-    // val var6HeadRM: Access = Access(in6Name.redundancyName,  in6SeqVar.redundancyVarsInplace, RedundancyMap)
-    // val var6BodyRM: SoP = emptySoP()
-    // val var6RM: Rule = Rule(var6HeadRM, var6BodyRM)
-
     val uniqueSets: Map[Exp, Rule] = Map(var1 -> var1US, var2 -> var2US)
     val redundancyMap: Map[Exp, Rule] = Map(var1 -> var1RM, var2 -> var2RM)
 
     val infer1: (Rule, Rule) = infer(tensorComputation1, dimInfo, uniqueSets, redundancyMap)
     val infer2: (Rule, Rule) = infer(tensorComputation2, dimInfo, uniqueSets, redundancyMap)
-
-    // println(codeGen(tensorComputation1, dimInfo, uniqueSets, redundancyMap))
-    // println(codeGen(tensorComputation2, dimInfo, uniqueSets, redundancyMap))
-
-    // pprintTest((tensorComputation1, infer1))
-    // pprintTest((tensorComputation2, infer2))
 
     val newUniqueSets: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head1 -> infer1._1, head2 -> infer2._1), uniqueSets))((v1, v2) => v2)
     val newRedundancyMap: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head1 -> infer1._2, head2 -> infer2._2), redundancyMap))((v1, v2) => v2)
@@ -2016,23 +1978,11 @@ object Main extends App {
     val infer3: (Rule, Rule) = infer(tensorComputation3, dimInfo, newUniqueSets, newRedundancyMap)
     val infer4: (Rule, Rule) = infer(tensorComputation4, dimInfo, newUniqueSets, newRedundancyMap)
 
-    // println(codeGen(tensorComputation3, dimInfo, newUniqueSets, newRedundancyMap))
-    // println(codeGen(tensorComputation4, dimInfo, newUniqueSets, newRedundancyMap))
-
-    // pprintTest((tensorComputation3, infer3))
-    // pprintTest((tensorComputation4, infer4))
-
     val newUniqueSets2: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head3 -> infer3._1, head4 -> infer4._1), newUniqueSets))((v1, v2) => v2)
     val newRedundancyMap2: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head3 -> infer3._2, head4 -> infer4._2), newRedundancyMap))((v1, v2) => v2)
 
     val infer5: (Rule, Rule) = infer(tensorComputation5, dimInfo, newUniqueSets2, newRedundancyMap2)
     val infer6: (Rule, Rule) = infer(tensorComputation6, dimInfo, newUniqueSets2, newRedundancyMap2)
-
-    // println(codeGen(tensorComputation5, dimInfo, newUniqueSets2, newRedundancyMap2))
-    // println(codeGen(tensorComputation6, dimInfo, newUniqueSets2, newRedundancyMap2))
-
-    // pprintTest((tensorComputation5, infer5))
-    // pprintTest((tensorComputation6, infer6))
 
     val newUniqueSets3: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head5 -> infer5._1, head6 -> infer6._1), newUniqueSets2))((v1, v2) => v2)
     val newRedundancyMap3: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head5 -> infer5._2, head6 -> infer6._2), newRedundancyMap2))((v1, v2) => v2)
@@ -2040,35 +1990,17 @@ object Main extends App {
     val infer7: (Rule, Rule) = infer(tensorComputation7, dimInfo, newUniqueSets3, newRedundancyMap3)
     val infer8: (Rule, Rule) = infer(tensorComputation8, dimInfo, newUniqueSets3, newRedundancyMap3)
 
-    // println(codeGen(tensorComputation7, dimInfo, newUniqueSets3, newRedundancyMap3))
-    // println(codeGen(tensorComputation8, dimInfo, newUniqueSets3, newRedundancyMap3))
-
-    // pprintTest((tensorComputation7, infer7))
-    // pprintTest((tensorComputation8, infer8))
-
     val newUniqueSets4: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head7 -> infer7._1, head8 -> infer8._1), newUniqueSets3))((v1, v2) => v2)
     val newRedundancyMap4: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head7 -> infer7._2, head8 -> infer8._2), newRedundancyMap3))((v1, v2) => v2)
 
     val infer9: (Rule, Rule) = infer(tensorComputation9, dimInfo, newUniqueSets4, newRedundancyMap4)
     val infer10: (Rule, Rule) = infer(tensorComputation10, dimInfo, newUniqueSets4, newRedundancyMap4)
 
-    // println(codeGen(tensorComputation9, dimInfo, newUniqueSets4, newRedundancyMap4))
-    // println(codeGen(tensorComputation10, dimInfo, newUniqueSets4, newRedundancyMap4))
-
-    // pprintTest((tensorComputation9, infer9))
-    // pprintTest((tensorComputation10, infer10))
-
     val newUniqueSets5: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head9 -> infer9._1, head10 -> infer10._1), newUniqueSets4))((v1, v2) => v2)
     val newRedundancyMap5: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head9 -> infer9._2, head10 -> infer10._2), newRedundancyMap4))((v1, v2) => v2)
 
     val infer11: (Rule, Rule) = infer(tensorComputation11, dimInfo, newUniqueSets5, newRedundancyMap5)
     val infer12: (Rule, Rule) = infer(tensorComputation12, dimInfo, newUniqueSets5, newRedundancyMap5)
-
-    // println(codeGen(tensorComputation11, dimInfo, newUniqueSets5, newRedundancyMap5))
-    // println(codeGen(tensorComputation12, dimInfo, newUniqueSets5, newRedundancyMap5))
-
-    // pprintTest((tensorComputation11, infer11))
-    // pprintTest((tensorComputation12, infer12))
 
     val newUniqueSets6: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head11 -> infer11._1, head12 -> infer12._1), newUniqueSets5))((v1, v2) => v2)
     val newRedundancyMap6: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head11 -> infer11._2, head12 -> infer12._2), newRedundancyMap5))((v1, v2) => v2)
@@ -2401,8 +2333,8 @@ object Main extends App {
     val tensorComputation12: Rule = Rule(head12, body12)
     val tensorComputation: Rule = Rule(head, body)
 
-    val dim1: DimInfo = DimInfo(var1, Seq("x".toVar, "y".toVar))
-    val dim2: DimInfo = DimInfo(var2, Seq("m".toVar, "n".toVar))
+    val dim1: DimInfo = DimInfo(var1, Seq("m".toVar, "m".toVar))
+    val dim2: DimInfo = DimInfo(var2, Seq("n".toVar, "n".toVar))
     val dimInfo: Seq[DimInfo] = Seq(dim1, dim2)
 
 
@@ -2426,49 +2358,11 @@ object Main extends App {
     val var2BodyRM: SoP = emptySoP()
     val var2RM: Rule = Rule(var2HeadRM, var2BodyRM)
 
-    // val var3HeadUS: Access = Access(in3Name.uniqueName,  in3SeqVar, UniqueSet)
-    // val var3BodyUS: SoP = emptySoP()
-    // val var3US: Rule = Rule(var3HeadUS, var3BodyUS)
-
-    // val var3HeadRM: Access = Access(in3Name.redundancyName,  in3SeqVar.redundancyVarsInplace, RedundancyMap)
-    // val var3BodyRM: SoP = emptySoP()
-    // val var3RM: Rule = Rule(var3HeadRM, var3BodyRM)
-
-    // val var4HeadUS: Access = Access(in4Name.uniqueName,  in4SeqVar, UniqueSet)
-    // val var4BodyUS: SoP = emptySoP()
-    // val var4US: Rule = Rule(var4HeadUS, var4BodyUS)
-
-    // val var4HeadRM: Access = Access(in4Name.redundancyName,  in4SeqVar.redundancyVarsInplace, RedundancyMap)
-    // val var4BodyRM: SoP = emptySoP()
-    // val var4RM: Rule = Rule(var4HeadRM, var4BodyRM)
-
-    // val var5HeadUS: Access = Access(in5Name.uniqueName,  in5SeqVar, UniqueSet)
-    // val var5BodyUS: SoP = emptySoP()
-    // val var5US: Rule = Rule(var5HeadUS, var5BodyUS)
-
-    // val var5HeadRM: Access = Access(in5Name.redundancyName,  in5SeqVar.redundancyVarsInplace, RedundancyMap)
-    // val var5BodyRM: SoP = emptySoP()
-    // val var5RM: Rule = Rule(var5HeadRM, var5BodyRM)
-
-    // val var6HeadUS: Access = Access(in6Name.uniqueName,  in6SeqVar, UniqueSet)
-    // val var6BodyUS: SoP = emptySoP()
-    // val var6US: Rule = Rule(var6HeadUS, var6BodyUS)
-
-    // val var6HeadRM: Access = Access(in6Name.redundancyName,  in6SeqVar.redundancyVarsInplace, RedundancyMap)
-    // val var6BodyRM: SoP = emptySoP()
-    // val var6RM: Rule = Rule(var6HeadRM, var6BodyRM)
-
     val uniqueSets: Map[Exp, Rule] = Map(var1 -> var1US, var2 -> var2US)
     val redundancyMap: Map[Exp, Rule] = Map(var1 -> var1RM, var2 -> var2RM)
 
     val infer1: (Rule, Rule) = infer(tensorComputation1, dimInfo, uniqueSets, redundancyMap)
     val infer2: (Rule, Rule) = infer(tensorComputation2, dimInfo, uniqueSets, redundancyMap)
-
-    // println(codeGen(tensorComputation1, dimInfo, uniqueSets, redundancyMap))
-    // println(codeGen(tensorComputation2, dimInfo, uniqueSets, redundancyMap))
-
-    // pprintTest((tensorComputation1, infer1))
-    // pprintTest((tensorComputation2, infer2))
 
     val newUniqueSets: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head1 -> infer1._1, head2 -> infer2._1), uniqueSets))((v1, v2) => v2)
     val newRedundancyMap: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head1 -> infer1._2, head2 -> infer2._2), redundancyMap))((v1, v2) => v2)
@@ -2476,23 +2370,11 @@ object Main extends App {
     val infer3: (Rule, Rule) = infer(tensorComputation3, dimInfo, newUniqueSets, newRedundancyMap)
     val infer4: (Rule, Rule) = infer(tensorComputation4, dimInfo, newUniqueSets, newRedundancyMap)
 
-    // println(codeGen(tensorComputation3, dimInfo, newUniqueSets, newRedundancyMap))
-    // println(codeGen(tensorComputation4, dimInfo, newUniqueSets, newRedundancyMap))
-
-    // pprintTest((tensorComputation3, infer3))
-    // pprintTest((tensorComputation4, infer4))
-
     val newUniqueSets2: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head3 -> infer3._1, head4 -> infer4._1), newUniqueSets))((v1, v2) => v2)
     val newRedundancyMap2: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head3 -> infer3._2, head4 -> infer4._2), newRedundancyMap))((v1, v2) => v2)
 
     val infer5: (Rule, Rule) = infer(tensorComputation5, dimInfo, newUniqueSets2, newRedundancyMap2)
     val infer6: (Rule, Rule) = infer(tensorComputation6, dimInfo, newUniqueSets2, newRedundancyMap2)
-
-    // println(codeGen(tensorComputation5, dimInfo, newUniqueSets2, newRedundancyMap2))
-    // println(codeGen(tensorComputation6, dimInfo, newUniqueSets2, newRedundancyMap2))
-
-    // pprintTest((tensorComputation5, infer5))
-    // pprintTest((tensorComputation6, infer6))
 
     val newUniqueSets3: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head5 -> infer5._1, head6 -> infer6._1), newUniqueSets2))((v1, v2) => v2)
     val newRedundancyMap3: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head5 -> infer5._2, head6 -> infer6._2), newRedundancyMap2))((v1, v2) => v2)
@@ -2500,35 +2382,17 @@ object Main extends App {
     val infer7: (Rule, Rule) = infer(tensorComputation7, dimInfo, newUniqueSets3, newRedundancyMap3)
     val infer8: (Rule, Rule) = infer(tensorComputation8, dimInfo, newUniqueSets3, newRedundancyMap3)
 
-    // println(codeGen(tensorComputation7, dimInfo, newUniqueSets3, newRedundancyMap3))
-    // println(codeGen(tensorComputation8, dimInfo, newUniqueSets3, newRedundancyMap3))
-
-    // pprintTest((tensorComputation7, infer7))
-    // pprintTest((tensorComputation8, infer8))
-
     val newUniqueSets4: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head7 -> infer7._1, head8 -> infer8._1), newUniqueSets3))((v1, v2) => v2)
     val newRedundancyMap4: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head7 -> infer7._2, head8 -> infer8._2), newRedundancyMap3))((v1, v2) => v2)
 
     val infer9: (Rule, Rule) = infer(tensorComputation9, dimInfo, newUniqueSets4, newRedundancyMap4)
     val infer10: (Rule, Rule) = infer(tensorComputation10, dimInfo, newUniqueSets4, newRedundancyMap4)
 
-    // println(codeGen(tensorComputation9, dimInfo, newUniqueSets4, newRedundancyMap4))
-    // println(codeGen(tensorComputation10, dimInfo, newUniqueSets4, newRedundancyMap4))
-
-    // pprintTest((tensorComputation9, infer9))
-    // pprintTest((tensorComputation10, infer10))
-
     val newUniqueSets5: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head9 -> infer9._1, head10 -> infer10._1), newUniqueSets4))((v1, v2) => v2)
     val newRedundancyMap5: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head9 -> infer9._2, head10 -> infer10._2), newRedundancyMap4))((v1, v2) => v2)
 
     val infer11: (Rule, Rule) = infer(tensorComputation11, dimInfo, newUniqueSets5, newRedundancyMap5)
     val infer12: (Rule, Rule) = infer(tensorComputation12, dimInfo, newUniqueSets5, newRedundancyMap5)
-
-    // println(codeGen(tensorComputation11, dimInfo, newUniqueSets5, newRedundancyMap5))
-    // println(codeGen(tensorComputation12, dimInfo, newUniqueSets5, newRedundancyMap5))
-
-    // pprintTest((tensorComputation11, infer11))
-    // pprintTest((tensorComputation12, infer12))
 
     val newUniqueSets6: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head11 -> infer11._1, head12 -> infer12._1), newUniqueSets5))((v1, v2) => v2)
     val newRedundancyMap6: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head11 -> infer11._2, head12 -> infer12._2), newRedundancyMap5))((v1, v2) => v2)
@@ -2564,7 +2428,7 @@ object Main extends App {
     (tensorComputation, infer(tensorComputation, dimInfo, newUniqueSets6, newRedundancyMap6))
   }
 
-  // Vector direct - checked
+  // Vector direct sum - checked
   def test14(): (Rule, (Rule, Rule)) = {
     val head: Access = Access("M", Seq("x".toVar), Tensor)
     val var1: Access = Access("A",  Seq("x".toVar), Tensor)
