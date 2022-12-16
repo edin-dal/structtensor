@@ -965,16 +965,16 @@ object Main extends App {
     }))
   }
 
-  def codeGenRule(tensorComputation: Rule, dimInfo: Seq[DimInfo], variables: Seq[Variable], intervals: Seq[Map[Variable, Interval]], genType: AccessType, codeMotion: Boolean = false): String = {
+  def codeGenRule(tensorComputation: Rule, dimInfo: Seq[DimInfo], variables: Seq[Variable], intervals: Seq[Map[Variable, Interval]], genType: AccessType, codeMotion: Boolean = true): String = {
     val vars = if (genType == RedundancyMap) variables.redundancyVarsInplace else variables
     val dimMap: Map[Access, Seq[Dim]] = dimInfo.toAccessMap
     val dimVarMap: Map[Variable, Seq[Dim]] = dimInfo.toVarsMap
-    if (codeMotion) {
-      // get a access -> variable map for all head and body accesses
-    }
+    val tcBodya: SoP = getNoComparisonSoP(tensorComputation.body) 
+
     intervals.foldLeft("")((acc, map) => {
       var cnt = 0
-      val nestedLoops = vars.foldLeft("")((acc2, variable) => {
+      val (tc, nestedLoops): (Rule, String) = vars.zipWithIndex.foldLeft((Rule(tensorComputation.head, tcBodya), ""))((acc2, variableInd) => {
+        val variable: Variable = variableInd._1
         val interval = map.get(variable).get // Interval(Seq(), Seq()) is output if there's no condition on the variable
         val (areEquals, index, (b, e)) = areBeginAndEndEqual(interval)
         val newInterval: Interval = if((b, e) == (-1, -1)) interval // new interval without equal value
@@ -1012,18 +1012,43 @@ object Main extends App {
               s""
             }
         }
-        val cm = if (codeMotion) {
+        if (codeMotion) {
           // if current variable is equal to first element of each of the variables of accesses in the map, do code motion for it
           // update the map in a way that previous variables that include code motion be removed and new variable with .slice(1, length) of variables be in it
-        } else ""
-        s"$acc2\n$code\n$cm"
+          val tc: Rule = acc2._1
+          val (head, headCode): (Access, String) = if (variableInd._2 != vars.length - 1 || tc.body.prods.length > 1) {
+            if (tc.head.vars.length > 0 && tc.head.vars(0) == variable) {
+              val head = Access(getVar(s"CM_${tc.head.name}"), tc.head.vars.slice(1, tc.head.vars.length), tc.head.kind) 
+              val headCode = s"auto ${head.name} = ${tc.head.name}[${variable.cFormat}];\n"
+              (head, headCode)
+            } else (tc.head, "")
+          } else (tc.head, "")
+          
+          val (bodyProdSeq, bodyCode): (Seq[Prod], String) = if (variableInd._2 != vars.length - 1) {
+            tc.body.prods.foldLeft((Seq.empty[Prod], ""))((acc, prod) => {
+              val (newProd, cmCode): (Seq[Exp], String) = prod.exps.foldLeft((Seq.empty[Exp], ""))((acc2, exp) => {
+                val access: Access = exp.asInstanceOf[Access]
+                val (newAcc, accCode): (Access, String) = if (access.vars.length > 0 && access.vars(0) == variable) {
+                  val newAcc = Access(getVar(s"CM_${access.name}"), access.vars.slice(1, access.vars.length), access.kind)
+                  val accCode = s"auto ${newAcc.name} = ${access.name}[${variable.cFormat}];\n"
+                  (newAcc, accCode)
+                } else (access, "")
+                (acc2._1 :+ newAcc, s"${acc2._2}$accCode")
+              })
+              (acc._1 :+ Prod(newProd), s"${acc._2}$cmCode")
+            })
+          } else (tc.body.prods, "")
+          val body = SoP(bodyProdSeq)
+
+          val newTC: Rule = Rule(head, body)
+          (newTC, s"${acc2._2}\n$code\n$headCode\n$bodyCode")
+        } else (acc2._1, s"${acc2._2}\n$code")
       })
 
-      val tcBodya: SoP = getNoComparisonSoP(tensorComputation.body) 
       // why constants are not exp as well? Then I could replace the comparison below by ConstantInt(1) instead.
-      val tcBody: SoP = if (tcBodya == emptySoP()) SoP(Seq(Prod(Seq(Comparison("=", ConstantInt(0), getVar("rndVar").toVar))))) else tcBodya // if it's only comparison, then it was just a bunch of comparison multiplications so their value is only 1. Their ranges is inside unique set and redundancy maps already.
-      val body = if (genType == RedundancyMap) s"${tensorComputation.head.cFormat} = ${tensorComputation.head.cRedFormat};" else {
-        if (tcBody.prods.length == 1) s"${tensorComputation.head.cFormat} += ${tcBody.cFormat};"
+      val tcBody: SoP = if (tc.body == emptySoP()) SoP(Seq(Prod(Seq(Comparison("=", ConstantInt(0), getVar("rndVar").toVar))))) else tc.body // if it's only comparison, then it was just a bunch of comparison multiplications so their value is only 1. Their ranges is inside unique set and redundancy maps already.
+      val body = if (genType == RedundancyMap) s"${tc.head.cFormat} = ${tc.head.cRedFormat};" else {
+        if (tcBody.prods.length == 1) s"${tc.head.cFormat} += ${tcBody.cFormat};"
         else tcBody.prods.foldLeft("")((acc, prod) => {
           val conds = prod.exps.foldLeft("")((acc2, exp) => {
             exp match {
@@ -1049,9 +1074,9 @@ object Main extends App {
               case _ => s"$acc2"
             }
           })
-          if (conds == "remif") s"$acc\n${tensorComputation.head.cFormat} += ${prod.cFormat};" 
+          if (conds == "remif") s"$acc\n${tc.head.cFormat} += ${prod.cFormat};" 
           else if (conds.length < 5) s"$acc" 
-          else s"$acc\nif (${conds.substring(4, conds.length)}) {\n${tensorComputation.head.cFormat} += ${prod.cFormat};\n}" 
+          else s"$acc\nif (${conds.substring(4, conds.length)}) {\n${tc.head.cFormat} += ${prod.cFormat};\n}" 
         })
       } // change wrt code motion and use the newest variables with the corresponding list to them
       // val body = if (genType == RedundancyMap) s"${tensorComputation.head.cFormat} = ${tensorComputation.head.cRedFormat};" else tensorComputation.cPeqFormat
@@ -2491,7 +2516,7 @@ object Main extends App {
   // pprintTest(test12())
   // pprintTest(test13())
   // pprintTest(test14())
-  // pprintTest(selfprodMult(3))
+  pprintTest(selfprodMult(3))
   // pprintTest(selfprodMult(4))
   // pprintTest(selfprodMult(5))
   // pprintTest(selfprodMult(6))
