@@ -306,9 +306,23 @@ object Main extends App {
       }
       case (Comparison(op1, index1, variable1), Access(name2, vars2, Tensor)) => binMult(head, dimInfo, e2, e1, inp2US, inp2RM, inp1US, inp1RM)
       case (Comparison(op1, index1, variable1), Comparison(op2, index2, variable2)) => {
-        if (op1 == "<=" && op2 == "<" && variable1 == index2) { // I should put different conditions that are equivalent
-          val bodyUS: SoP = SoP(Seq(Prod(Seq(Comparison("=", index1, variable1)))))
-          val bodyRM: SoP = SoP(Seq(Prod(Seq(Comparison("<", index1, variable1), e2, Comparison("=", index1, variable1.redundancyVars))))) // inp1RM.head.vars.diff(Seq(variable1))??
+        val flag1: Boolean = op1 == "<=" && op2 == "<" && index2.isInstanceOf[Variable] && variable1 == index2.asInstanceOf[Variable]
+        val flag2: Boolean = op1 == "<=" && op2 == ">" && variable1 == variable2
+        val flag3: Boolean = op1 == ">=" && op2 == "<" && index1.isInstanceOf[Variable] && index2.isInstanceOf[Variable] && index1.asInstanceOf[Variable] == index2.asInstanceOf[Variable]
+        val flag4: Boolean = op1 == ">=" && op2 == ">" && index1.isInstanceOf[Variable] && index1.asInstanceOf[Variable] == variable2
+
+        val flag5: Boolean = op1 == "<" && op2 == "<=" && index1.isInstanceOf[Variable] && variable2 == index1.asInstanceOf[Variable]
+        val flag6: Boolean = op1 == ">" && op2 == "<=" && variable2 == variable1
+        val flag7: Boolean = op1 == "<" && op2 == ">=" && index2.isInstanceOf[Variable] && index1.isInstanceOf[Variable] && index2.asInstanceOf[Variable] == index1.asInstanceOf[Variable]
+        val flag8: Boolean = op1 == ">" && op2 == ">=" && index2.isInstanceOf[Variable] && index2.asInstanceOf[Variable] == variable1
+
+        if (flag1 || flag2 || flag3 || flag4 || flag5 || flag6 || flag7 || flag8) {
+          val variable: Variable = if (flag1 || flag2 || flag8) variable1 else if (flag3 || flag7) index1.asInstanceOf[Variable] else variable2
+          val indEq: Index = if (flag1 || flag2) index1 else if (flag3 || flag4) variable1 else if (flag5 || flag6) index2 else variable2
+          val indGt: Index = if (flag1 || flag3) variable2 else if (flag2 || flag4) index2 else if (flag5 || flag7) variable1 else index1
+          
+          val bodyUS: SoP = SoP(Seq(Prod(Seq(Comparison("=", indEq, variable)))))
+          val bodyRM: SoP = SoP(Seq(Prod(Seq(Comparison("<", indEq, variable), Comparison(">", indGt, variable), Comparison("=", indEq, variable.redundancyVars))))) // inp1RM.head.vars.diff(Seq(variable1))??
           return (Rule(headUS, bodyUS), Rule(headRM, bodyRM))
         } else {
           val bodyUS: SoP = concatSoP(Seq(SoPTimesSoP(inp1US.body, inp2US.body), SoPTimesSoP(inp1RM.body, inp2US.body), SoPTimesSoP(inp1US.body, inp2RM.body), SoP(Seq(Prod(Seq(e1, e2))))))
