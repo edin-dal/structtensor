@@ -1152,21 +1152,22 @@ object Main extends App {
               case Access(name, vars, kind) => {
                 val c = if (dimMap.contains(exp.asInstanceOf[Access])) {
                   (vars zip dimMap.get(exp.asInstanceOf[Access]).getOrElse(Seq.empty)).foldLeft("")((acc3, varDim) => {
-                  val (flag, cond) = if (map.get(varDim._1).get == Interval(Seq(ConstantInt(0)), Seq(varDim._2))) (true, "")
-                  else if (map.get(varDim._1).get != Interval(Seq(), Seq())) {
-                    val interval = map.get(varDim._1).get
-                    val isProdEmptyBegin = interval.begin.foldLeft(false)((isE, cur) => isE || isProdEmpty(Comparison("<=", cur, varDim._1), Comparison(">", varDim._2, varDim._1)))
-                    val isProdEmptyEnd = interval.end.foldLeft(false)((isE, cur) => isE || isProdEmpty(Comparison(">", cur, varDim._1), Comparison("<=", ConstantInt(0), varDim._1)))
-                    if (isProdEmptyBegin || isProdEmptyEnd) (false, "")
-                    else (false, s"$acc3 && 0 <= ${varDim._1.cFormat} && ${varDim._1.cFormat} < ${varDim._2.cFormat}")
-                  }
-                  else (false, "")
-                  
-                  if (flag == true) "remif"
-                  else cond
-                })} 
-                else "remif"
-                acc2 + c
+                    val (flag, cond) = if (map.get(varDim._1).get == Interval(Seq(ConstantInt(0)), Seq(varDim._2))) (true, "")
+                    else if (map.get(varDim._1).get != Interval(Seq(), Seq())) {
+                      val interval = map.get(varDim._1).get
+                      val isProdEmptyBegin = interval.begin.foldLeft(false)((isE, cur) => isE || isProdEmpty(Comparison("<=", cur, varDim._1), Comparison(">", varDim._2, varDim._1)))
+                      val isProdEmptyEnd = interval.end.foldLeft(false)((isE, cur) => isE || isProdEmpty(Comparison(">", cur, varDim._1), Comparison("<=", ConstantInt(0), varDim._1)))
+                      if (isProdEmptyBegin || isProdEmptyEnd) (false, "")
+                      else if (acc3 == "remif") (false, s" && 0 <= ${varDim._1.cFormat} && ${varDim._1.cFormat} < ${varDim._2.cFormat}")
+                      else (false, s"$acc3 && 0 <= ${varDim._1.cFormat} && ${varDim._1.cFormat} < ${varDim._2.cFormat}")
+                    }
+                    else (false, "")
+                    
+                    if (flag == true) "remif"
+                    else cond
+                  })
+                } else "remif"
+                if (acc2 == "" || acc2 == "remif") c else if (c == "remif") acc2 else acc2 + c
               }
               case _ => s"$acc2"
             }
@@ -2793,14 +2794,14 @@ object Main extends App {
   // pprintTest(test6())
   // pprintTest(test7())
   // pprintTest(test8())
-  // pprintTest(test8n())
+  pprintTest(test8n())
   // pprintTest(test9())
   // pprintTest(test9n())
   // pprintTest(test10())
   // pprintTest(test11())
   // pprintTest(test12())
   // pprintTest(test13())
-  pprintTest(test13n())
+  // pprintTest(test13n())
   // pprintTest(test14())
   // pprintTest(selfprodMult(3))
   // pprintTest(selfprodMult(4))
