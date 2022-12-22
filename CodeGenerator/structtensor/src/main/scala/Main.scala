@@ -59,7 +59,7 @@ case class Arithmetic(op: String, index1: Index, index2: Index) extends Index wi
 case class Access(name: String, vars: Seq[Variable], kind: AccessType) extends Exp {
   def prettyFormat(): String = {
     val pr = vars.foldLeft("")((acc, cur) => s"$acc, ${cur.prettyFormat}")
-    s"${name}(${pr.substring(2, pr.length)})"
+    if (pr == "") name else s"${name}(${pr.substring(2, pr.length)})"
   }
   def cFormat(): String = vars.foldLeft(name)((acc, cur) => s"$acc[${cur.cFormat}]")
   def cRedFormat(): String = vars.foldLeft(name)((acc, cur) => s"$acc[${cur.cFormat}p]")  // renames redundancy vars to a writable format in C
@@ -280,8 +280,8 @@ object Main extends App {
                           SoP(Seq(vectorizeComparisonMultiplication(">", vars1, vars2)))))))
               return (Rule(headUS, bodyUS), Rule(headRM, bodyRM))
             } else {
-              val bodyUS: SoP = SoPTimesSoP(e1US, e2US)
-              val bodyRM: SoP = concatSoP(Seq(SoPTimesSoP(e1RM, e2RM), 
+              val bodyUS: SoP = if(vars2.length == 0) e1US else if (vars1.length == 0) e2US else SoPTimesSoP(e1US, e2US)
+              val bodyRM: SoP = if(vars2.length == 0) e1RM else if (vars1.length == 0) e2RM else concatSoP(Seq(SoPTimesSoP(e1RM, e2RM), 
               SoPTimesSoP(SoPTimesSoP(e1US, SoP(Seq(vectorizeComparisonMultiplication("=", vars1, inp1RM.head.vars.diff(vars1))))), e2RM), 
               SoPTimesSoP(SoPTimesSoP(e2US, SoP(Seq(vectorizeComparisonMultiplication("=", vars2, inp2RM.head.vars.diff(vars2))))), e1RM)))
               return (Rule(headUS, bodyUS), Rule(headRM, bodyRM))
@@ -3214,6 +3214,142 @@ object Main extends App {
     (tensorComputation, infer(tensorComputation, dimInfo, uniqueSets, redundancyMap))
   }
 
+  def e2eConstructor(n: Int) = {
+    val indSeq: Seq[Int] = (0 to n - 1)
+    val xSeq: Seq[Variable] = indSeq.map(i => s"x$i".toVar)
+    val head: Access = Access(s"cont_degree$n", xSeq, Tensor)
+    val vars: Seq[Access] = xSeq.map(x => Access("cont_sum1", Seq(x), Tensor))
+    val prods: Prod = Prod(vars)
+    val body: SoP = SoP(Seq(prods))
+    val tensorComputation: Rule = Rule(head, body)
+    val dimInfo: Seq[DimInfo] = vars.map(v => DimInfo(v, Seq("CONT_SZ".toVar)))
+
+    val varHeadUS: Seq[Access] = xSeq.map(x => Access("cont_sum1".uniqueName, Seq(x), UniqueSet)) 
+    val varBodyUS: Seq[SoP] = dimInfo.map(dim => dim.toSoP)
+    val varUS: Seq[Rule] = (varHeadUS zip varBodyUS).map{case (head, body) => Rule(head, body)}
+
+    val varHeadRM: Seq[Access] = xSeq.map(x => Access("cont_sum1".redundancyName, Seq(x, x.redundancyVars), UniqueSet)) 
+    val varBodyRM: Seq[SoP] = dimInfo.map(dim => emptySoP())
+    val varRM: Seq[Rule] = (varHeadRM zip varBodyRM).map{case (head, body) => Rule(head, body)}
+
+    val uniqueSets: Map[Exp, Rule] = (vars zip varUS).map{case (v, r) => (v -> r)}.toMap
+    val redundancyMap: Map[Exp, Rule] = (vars zip varRM).map{case (v, r) => (v -> r)}.toMap
+
+    val inf: (Rule, Rule) = infer(tensorComputation, dimInfo, uniqueSets, redundancyMap)
+
+    val us: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head -> inf._1), uniqueSets))((v1, v2) => v1)
+    val rm: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head -> inf._2), redundancyMap))((v1, v2) => v1)
+    
+    (tensorComputation, dimInfo, us, rm)
+  }
+
+  def e2eAddition(n: Int, us: Map[Exp, Rule], rm: Map[Exp, Rule]) = {
+    val name = if (n == 0) "count" else if (n == 1) "cont_sum1" else s"cont_degree$n"
+    val indSeq: Seq[Int] = (0 to n - 1)
+    val xSeq: Seq[Variable] = indSeq.map(i => s"x$i".toVar)
+    val head: Access = Access(s"r.$name", xSeq, Tensor)
+    val var1: Access = Access(name,  xSeq, Tensor)
+    val var2: Access = Access(s"other.$name",  xSeq, Tensor)
+    val prods1: Prod = Prod(Seq(var1))
+    val prods2: Prod = Prod(Seq(var2))
+    val body: SoP = SoP(Seq(prods1, prods2))
+    val tensorComputation: Rule = Rule(head, body)
+
+    val dimSeq: Seq[Variable] = indSeq.map(i => "CONT_SZ".toVar)
+
+    val dim1: DimInfo = DimInfo(var1, dimSeq)
+    val dim2: DimInfo = DimInfo(var2, dimSeq)
+    val dimInfo: Seq[DimInfo] = Seq(dim1, dim2)
+
+
+    val var1HeadUS: Access = Access(name.uniqueName,  xSeq, UniqueSet)
+    val var1BodyUS: SoP = dim1.toSoP
+    val var1US: Rule = Rule(var1HeadUS, var1BodyUS)
+
+    val var1HeadRM: Access = Access(name.redundancyName,  xSeq.redundancyVarsInplace, RedundancyMap)
+    val var1BodyRM: SoP = emptySoP
+    val var1RM: Rule = Rule(var1HeadRM, var1BodyRM)
+
+    val var2HeadUS: Access = Access(s"other.$name".uniqueName,  xSeq, UniqueSet)
+    val var2BodyUS: SoP = dim2.toSoP
+    val var2US: Rule = Rule(var2HeadUS, var2BodyUS)
+
+    val var2HeadRM: Access = Access(s"other.$name".redundancyName,  xSeq.redundancyVarsInplace, RedundancyMap)
+    val var2BodyRM: SoP = emptySoP
+    val var2RM: Rule = Rule(var2HeadRM, var2BodyRM)
+
+    val uniqueSets: Map[Exp, Rule] = mergeMap(Seq(us, Map[Exp, Rule](var1 -> var1US, var2 -> var2US)))((v1, v2) => v1)
+    val redundancyMap: Map[Exp, Rule] = mergeMap(Seq(rm, Map[Exp, Rule](var1 -> var1RM, var2 -> var2RM)))((v1, v2) => v1)
+
+    val inf: (Rule, Rule) = infer(tensorComputation, dimInfo, uniqueSets, redundancyMap)
+
+    val usF: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head -> inf._1), uniqueSets))((v1, v2) => v1)
+    val rmF: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head -> inf._2), redundancyMap))((v1, v2) => v1)
+    
+    (tensorComputation, dimInfo, usF, rmF)
+  }
+
+  def e2eMultiplication(n: Int, us: Map[Exp, Rule], rm: Map[Exp, Rule]) = {
+    val degrees: Seq[Int] = (0 to n)
+    val outName: String = if (n == 0) "r.count" else if (n == 1) "r.cont_sum1" else s"r.cont_degree$n"
+    val (prods, dimInfo, newUS, newRM): (Seq[Prod], Seq[DimInfo], Map[Exp, Rule], Map[Exp, Rule]) = degrees.foldLeft((Seq.empty[Prod], Seq.empty[DimInfo], us, rm))((acc, i) => {
+      val (degA, degB): (Int, Int) = (n - i, i)
+      val nameA: String = if (degA == 0) "count" else if (degA == 1) "cont_sum1" else s"cont_degree$degA"
+      val nameB: String = if (degB == 0) "other.count" else if (degB == 1) "other.cont_sum1" else s"other.cont_degree$degB"
+      val xSeqA: Seq[Variable] = (0 to degA - 1).map(i => s"x$i".toVar)
+      val xSeqB: Seq[Variable] = (degA to n - 1).map(i => s"y$i".toVar)
+      val xSeqFakeB: Seq[Variable] = (0 to degB - 1).map(i => s"x$i".toVar)
+      val xMapB: Map[Variable, Variable] = mergeMap(Seq((xSeqFakeB zip xSeqB).toMap, Map[Variable, Variable]("CONT_SZ".toVar -> "CONT_SZ2".toVar)))((v1, v2) => v1)
+      val headFakeB: Access = Access(nameB, xSeqFakeB, Tensor)
+      val (bFakeUS, bFakeRM): (Rule, Rule) = (acc._3.getOrElse(headFakeB, emptyRule), acc._4.getOrElse(headFakeB, emptyRule))
+      val (bUS, bRM): (Rule, Rule) = if (degB != 0) (replaceVars(bFakeUS, xMapB), replaceVars(bFakeRM, xMapB)) else (bFakeUS, bFakeRM)
+      val headA: Access = Access(nameA, xSeqA, Tensor)
+      val headB: Access = Access(nameB, xSeqB, Tensor)
+      val newUS: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](headB -> bUS), acc._3))((v1, v2) => v1)
+      val newRM: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](headB -> bRM), acc._4))((v1, v2) => v1)
+      val dimSeqA: Seq[Variable] = xSeqA.map(i => "CONT_SZ".toVar)
+      val dimSeqB: Seq[Variable] = xSeqB.map(i => "CONT_SZ2".toVar)
+      val dimA: DimInfo = DimInfo(headA, dimSeqA)
+      val dimB: DimInfo = DimInfo(headB, dimSeqB)
+      val dimInfo: Seq[DimInfo] = Seq(dimA, dimB)
+      
+      val compSeqB: Seq[Variable] = (degA to n - 1).map(i => s"x$i".toVar)
+      val comp: Seq[Comparison] = (compSeqB zip xSeqB).map{case (x, y) => Comparison("=", Arithmetic("-", x, "CONT_SZ".toVar), y)}
+
+      (acc._1 :+ Prod(Seq(headA, headB) ++ comp), acc._2 ++ dimInfo, newUS, newRM)
+    })
+    val xSeq: Seq[Variable] = (0 to n - 1).map(i => s"x$i".toVar)
+    val head: Access = Access(outName, xSeq, Tensor)
+    val body = SoP(prods)
+    val tensorComputation: Rule = Rule(head, body)
+
+    val inf: (Rule, Rule) = infer(tensorComputation, dimInfo, newUS, newRM)
+
+    val usF: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head -> inf._1), newUS))((v1, v2) => v1)
+    val rmF: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head -> inf._2), newRM))((v1, v2) => v1)
+    
+    (tensorComputation, dimInfo, usF, rmF)
+  }
+
+  def e2eLR() = {
+    val (const_tensorComputation, const_dimInfo, const_uniqueSets, const_redundancyMap) = e2eConstructor(2)
+    // println(codeGen(const_tensorComputation, const_dimInfo, const_uniqueSets, const_redundancyMap))
+    // println("===========================================================")
+    val us2: Map[Exp, Rule] = const_uniqueSets.map{case (k, v) => (Access("other." + k.asInstanceOf[Access].name, k.asInstanceOf[Access].vars, k.asInstanceOf[Access].kind) -> v)}.toMap
+    val rm2: Map[Exp, Rule] = const_redundancyMap.map{case (k, v) => (Access("other." + k.asInstanceOf[Access].name, k.asInstanceOf[Access].vars, k.asInstanceOf[Access].kind) -> v)}.toMap
+    val us: Map[Exp, Rule] = mergeMap(Seq(const_uniqueSets, us2))((v1, v2) => v1)
+    val rm: Map[Exp, Rule] = mergeMap(Seq(const_redundancyMap, rm2))((v1, v2) => v1)
+
+    val (add_tensorComputation, add_dimInfo, add_uniqueSets, add_redundancyMap) = e2eAddition(2, us, rm)
+    // println(codeGen(add_tensorComputation, add_dimInfo, add_uniqueSets, add_redundancyMap))
+    // println("===========================================================")
+
+    val (mult_tensorComputation, mult_dimInfo, mult_uniqueSets, mult_redundancyMap) = e2eMultiplication(2, us, rm)
+    println(mult_tensorComputation.prettyFormat)
+    println(codeGen(mult_tensorComputation, mult_dimInfo, mult_uniqueSets, mult_redundancyMap))
+    println("===========================================================")
+  }
+
   // Chess Pattern is not implemented since it was just a unique set with no computation
   // none of vec(.), //, and || are explained in the paper in mathematical terms + don't know how to implement the code for this example
   // Kronecker product explanation in Fig 7. should have * in it (not +)!
@@ -3244,8 +3380,9 @@ object Main extends App {
   // pprintTest(selfprodAdd(4))
   // pprintTest(selfprodAdd(5))
   // pprintTest(selfprodAdd(6))
-  multiProg1()
+  // multiProg1()
   // multiProg2()
+  e2eLR()
 
   // println("TTM:")
   // pprintTest(ttm(""))
