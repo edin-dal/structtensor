@@ -597,9 +597,13 @@ object Main extends App {
     else (inpUSSeq(0), inpRMSeq(0), emptyDimInfo)
   }
 
+  def appendUniqueVars(v1: Seq[Variable], v2: Seq[Variable]): Seq[Variable] = v2.foldLeft(v1)((acc, cur) => if (v1.contains(cur)) acc else acc :+ cur)
+
   def infer(tensorComputation: Rule, dimInfo: Seq[DimInfo], uniqueSets: Map[Exp, Rule], redundancyMaps: Map[Exp, Rule]): (Rule, Rule, DimInfo) = {
     val prods: Seq[Prod] = tensorComputation.body.prods
     val head: Access = tensorComputation.head
+    val nonSizeVariables: Seq[Variable] = getVariables(tensorComputation)
+    // println(head.prettyFormat)
     if (prods.length == 1) {
       val exps: Seq[Exp] = prods(0).exps
       if (exps.length == 1) {
@@ -624,7 +628,7 @@ object Main extends App {
         }}
         val multInfers: Map[Access, (Rule, Rule, DimInfo)] = similarNameMap.foldLeft(Map.empty[Access, (Rule, Rule, DimInfo)])((acc, cur) => {
           val accessIdSeq: Seq[(Access, Int)] = cur._2
-          val varsSeq: Seq[Variable] = accessIdSeq.foldLeft(Seq.empty[Variable])((acc, eI) => acc ++ eI._1.vars)
+          val varsSeq: Seq[Variable] = accessIdSeq.foldLeft(Seq.empty[Variable])((acc, eI) => appendUniqueVars(acc, eI._1.vars).filter(v => nonSizeVariables.contains(v)))
           val head: Access = Access(getVar("head"), varsSeq, Tensor)
           val similarExps: Seq[Access] = accessIdSeq.map{case (access, id) => access}
           val inpUS: Seq[Rule] = similarExps.map(e => uniqueSets.getOrElse(e, emptyRule()))
@@ -651,7 +655,7 @@ object Main extends App {
         // else if (newExp.length > 2) or in other words else
         val n = newExps.length - 1
         val seqInd: Seq[Int] = 2 to n - 1
-        val startHead: Access = Access(getVar("head"), getAllVariables(newExps(0)) ++ getAllVariables(newExps(1)), Tensor)
+        val startHead: Access = Access(getVar("head"), appendUniqueVars(getAllVariables(newExps(0)), getAllVariables(newExps(1))).filter(v => nonSizeVariables.contains(v)), Tensor)
         val startSoP: SoP = SoP(Seq(Prod(Seq(newExps(0), newExps(1)))))
         val startTC: Rule = Rule(startHead, startSoP)
         val inf: (Rule, Rule, DimInfo) = infer(startTC, dimInfoSim, uniqueSetsSim, redundancyMapsSim)
@@ -666,7 +670,7 @@ object Main extends App {
           val rm: Map[Exp, Rule] = acc._3._2
           val di: Seq[DimInfo] = acc._3._3
           val e: Exp = newExps(i)
-          val head: Access = Access(getVar("head"), accTC.head.vars ++ getAllVariables(e), Tensor)
+          val head: Access = Access(getVar("head"), appendUniqueVars(accTC.head.vars, getAllVariables(e)).filter(v => nonSizeVariables.contains(v)), Tensor)
           val sop: SoP = SoP(Seq(Prod(Seq(accTC.head, e))))
           val tc: Rule = Rule(head, sop)
           val inf: (Rule, Rule, DimInfo) = infer(tc, di, us, rm)
@@ -711,7 +715,7 @@ object Main extends App {
         val us: Map[Exp, Rule] = acc._3._1
         val rm: Map[Exp, Rule] = acc._3._2
         val di: Seq[DimInfo] = acc._3._3
-        val allVars: Seq[Variable] = prod.exps.foldLeft(Seq.empty[Variable])((acc, e) => acc ++ getAllVariables(e))
+        val allVars: Seq[Variable] = prod.exps.foldLeft(Seq.empty[Variable])((acc, e) => appendUniqueVars(acc, getAllVariables(e)).filter(v => nonSizeVariables.contains(v)))
         val head: Access = Access(getVar("head"), allVars, Tensor)
         val sop: SoP = SoP(Seq(prod))
         val tc: Rule = Rule(head, sop)
@@ -724,7 +728,7 @@ object Main extends App {
       })
       val n = prods.length - 1
       val seqInd: Seq[Int] = 2 to n - 1
-      val startHead: Access = Access(getVar("head"), tcSeq(0).head.vars ++ tcSeq(1).head.vars, Tensor)
+      val startHead: Access = Access(getVar("head"), appendUniqueVars(tcSeq(0).head.vars, tcSeq(1).head.vars).filter(v => nonSizeVariables.contains(v)), Tensor)
       val startSoP: SoP = SoP(Seq(Prod(Seq(tcSeq(0).head)), Prod(Seq(tcSeq(1).head))))
       val startTC: Rule = Rule(startHead, startSoP)
       val inf: (Rule, Rule, DimInfo) = infer(startTC, newDimInfo, newUniqueSet, newRedundancyMap)
@@ -739,7 +743,7 @@ object Main extends App {
         val rm: Map[Exp, Rule] = acc._3._2
         val di: Seq[DimInfo] = acc._3._3
         val e: Access = tcSeq(i).head
-        val head: Access = Access(getVar("head"), accTC.head.vars ++ e.vars, Tensor)
+        val head: Access = Access(getVar("head"), appendUniqueVars(accTC.head.vars, e.vars).filter(v => nonSizeVariables.contains(v)), Tensor)
         val sop: SoP = SoP(Seq(Prod(Seq(accTC.head)), Prod(Seq(e))))
         val tc: Rule = Rule(head, sop)
         val inf: (Rule, Rule, DimInfo) = infer(tc, di, us, rm)
