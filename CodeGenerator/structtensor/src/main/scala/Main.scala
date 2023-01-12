@@ -389,6 +389,14 @@ object Main extends App {
     (inp1US, inp1RM, emptyDimInfo)
   }
 
+  def isSoPDisjoint(sop1: SoP, sop2: SoP): Boolean = {
+    val sop: SoP = SoPTimesSoP(sop1, sop2)
+    sop.prods.foldLeft(true)((acc, prod) => {
+      val isPEmpty = prod.exps.foldLeft(false)((acc2, exp) => acc2 || prod.exps.foldLeft(false)((acc3, exp2) => acc3 || isProdEmpty(exp, exp2)))
+      acc && isPEmpty
+    })
+  }
+
   def binAdd(head: Access, dimInfo: Seq[DimInfo], e1: Exp, e2: Exp, inp1US: Rule, inp1RM: Rule, inp2US: Rule, inp2RM: Rule): (Rule, Rule, DimInfo) = {
     val outVars: Seq[Variable] = head.vars
     val name: String = head.name
@@ -409,6 +417,13 @@ object Main extends App {
             println("binAddUS_SOPEQ: ", Rule(headUS, bodyUS).prettyFormat)
             println("binAddRM_SOPEQ: ", Rule(headRM, bodyRM).prettyFormat)
             println("binAddDimInfo_SOPEQ: ", outDimInfo)
+            return (Rule(headUS, bodyUS), Rule(headRM, bodyRM), outDimInfo)
+          } else if (isSoPDisjoint(e1US, e2US) && isSoPDisjoint(e1RM, e2RM)) {
+            val bodyUS: SoP = concatSoP(Seq(e1US, e2US))
+            val bodyRM: SoP = concatSoP(Seq(e1RM, e2RM))
+            println("binAddUS_SOP_Disjoint: ", Rule(headUS, bodyUS).prettyFormat)
+            println("binAddRM_SOP_Disjoint: ", Rule(headRM, bodyRM).prettyFormat)
+            println("binAddDimInfo_SOP_Disjoint: ", outDimInfo)
             return (Rule(headUS, bodyUS), Rule(headRM, bodyRM), outDimInfo)
           } else {
             val bodyUS: SoP = concatSoP(Seq(e1US, e2US, e1RM, e2RM))
