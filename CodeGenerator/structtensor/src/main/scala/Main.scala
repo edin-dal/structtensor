@@ -258,7 +258,41 @@ object Main extends App {
     def toComparisonProd: Prod = prodMult(d.foldLeft(Seq[Prod]())((acc, cur) => acc :+ cur.toComparisonProd))
   }
 
-  def getBinOpDimInfo(e1: Exp, e2: Exp, outAccess: Access, dimInfo: Seq[DimInfo]): DimInfo = {
+  def dimMin(dim1: Dim, dim2: Dim): Dim = {
+    (dim1, dim2) match {
+      case (Variable(name), Arithmetic(op, index1, index2)) => if (op == "+" && ((index1.isInstanceOf[Variable] && index1.asInstanceOf[Variable] == dim1) || (index2.isInstanceOf[Variable] && index2.asInstanceOf[Variable] == dim1))) dim1 else dim1 // this is just random else which is false
+      case (Arithmetic(op, index1, index2), Variable(name)) => dimMin(dim2, dim1)
+      case _ => dim1 // random output
+    }
+  }
+
+  def dimMax(dim1: Dim, dim2: Dim): Dim = {
+    (dim1, dim2) match {
+      case (Variable(name), Arithmetic(op, index1, index2)) => if (op == "+" && ((index1.isInstanceOf[Variable] && index1.asInstanceOf[Variable] == dim1) || (index2.isInstanceOf[Variable] && index2.asInstanceOf[Variable] == dim1))) dim2 else dim2 // this is just random else which is false
+      case (Arithmetic(op, index1, index2), Variable(name)) => dimMin(dim2, dim1)
+      case _ => dim1 // random output
+    }
+  }
+
+  def dimMin(dims: Seq[Dim]): Dim = {
+    if (dims.length == 0) return ConstantInt(0)
+    if (dims.length == 1) return dims(0)
+    if (dims.length == 2) return dimMin(dims(0), dims(1))
+    val dimMinFirst: Dim = dimMin(dims(0), dims(1))
+    val newDims: Seq[Dim] = Seq(dimMinFirst) ++ dims.slice(2, dims.length)
+    return dimMin(newDims)
+  }
+
+  def dimMax(dims: Seq[Dim]): Dim = {
+    if (dims.length == 0) return ConstantInt(0)
+    if (dims.length == 1) return dims(0)
+    if (dims.length == 2) return dimMax(dims(0), dims(1))
+    val dimMaxFirst: Dim = dimMax(dims(0), dims(1))
+    val newDims: Seq[Dim] = Seq(dimMaxFirst) ++ dims.slice(2, dims.length)
+    return dimMax(newDims)
+  }
+
+  def getBinOpDimInfo(e1: Exp, e2: Exp, outAccess: Access, dimInfo: Seq[DimInfo], multOrAdd: String): DimInfo = { // it doesn't work perfectly
     val accessMap: Map[Access, Seq[Dim]] = dimInfo.toAccessMap
     val inp1DimSeq: Seq[Dim] = if (e1.isInstanceOf[Access]) accessMap.getOrElse(e1.asInstanceOf[Access], Seq.empty[Dim]) else Seq.empty[Dim]
     val inp2DimSeq: Seq[Dim] = if (e2.isInstanceOf[Access]) accessMap.getOrElse(e2.asInstanceOf[Access], Seq.empty[Dim]) else Seq.empty[Dim]
@@ -268,7 +302,7 @@ object Main extends App {
     val outDim: Seq[Dim] = outVars.map(v => {
       val i1: Int = in1Vars.indexOf(v)
       val i2: Int = in2Vars.indexOf(v)
-      if (i1 == -1 && i2 == -1) Arithmetic("+", ConstantInt(1), v) else if (i2 == -1) inp1DimSeq(i1) else if (i1 == -1) inp2DimSeq(i2) else inp1DimSeq(i1)
+      if (i1 == -1 && i2 == -1) Arithmetic("+", ConstantInt(1), v) else if (i2 == -1) inp1DimSeq(i1) else if (i1 == -1) inp2DimSeq(i2) else if (multOrAdd == "mult") dimMin(inp1DimSeq(i1), inp2DimSeq(i2)) else if (multOrAdd == "add") dimMax(inp1DimSeq(i1), inp2DimSeq(i2)) else inp1DimSeq(i1) // else shouldn't happen normally
     })
     return DimInfo(outAccess, outDim)
   }
@@ -279,7 +313,7 @@ object Main extends App {
     val headUS: Access = Access(name.uniqueName, outVars, UniqueSet)
     val headRM: Access = Access(name.redundancyName, outVars.redundancyVarsInplace, RedundancyMap)
     val bounds: Map[Access, Prod] = dimInfo.toComparisonAccessProdMap
-    val outDimInfo: DimInfo = getBinOpDimInfo(e1, e2, head, dimInfo)
+    val outDimInfo: DimInfo = getBinOpDimInfo(e1, e2, head, dimInfo, "mult")
     (e1, e2) match {
       case (Access(name1, vars1, Tensor), Access(name2, vars2, Tensor)) => {
         if (vars1.union(vars2).toSet == head.vars.toSet) {
@@ -361,7 +395,7 @@ object Main extends App {
     val headUS: Access = Access(name.uniqueName, outVars, UniqueSet)
     val headRM: Access = Access(name.redundancyName, outVars.redundancyVarsInplace, RedundancyMap)
     val bounds: Map[Access, Prod] = dimInfo.toComparisonAccessProdMap
-    val outDimInfo: DimInfo = getBinOpDimInfo(e1, e2, head, dimInfo)
+    val outDimInfo: DimInfo = getBinOpDimInfo(e1, e2, head, dimInfo, "add")
     (e1, e2) match {
       case (Access(name1, vars1, Tensor), Access(name2, vars2, Tensor)) => { 
         val e1US: SoP = includeBoundaries(inp1US.body, bounds, e1.asInstanceOf[Access], UniqueSet) 
@@ -410,7 +444,7 @@ object Main extends App {
     val outDim: Seq[Dim] = outVars.map(v => {
       val i: Int = inVars.indexOf(v)
       val dimSeq: Seq[Dim] = varMap.getOrElse(v, Seq.empty[Dim])
-      if (i == -1 && dimSeq.length == 0) Arithmetic("+", ConstantInt(1), v) else if (i != -1) inpDimSeq(i) else dimSeq(0)
+      if (i == -1 && dimSeq.length == 0) Arithmetic("+", ConstantInt(1), v) else if (i != -1) inpDimSeq(i) else dimMax(dimSeq)
     })
     return DimInfo(outAccess, outDim)
   }
@@ -1266,7 +1300,8 @@ object Main extends App {
                           else Interval(interval.begin.zipWithIndex.filter(indexID => indexID._2 != b).map(indexID => indexID._1),
                                 interval.end.zipWithIndex.filter(indexID => indexID._2 != e).map(indexID => indexID._1))
         val newInterval2: Interval = if (tensorComputation.body.prods.length > 1) { // if there's an addition, remove dimension information from intervals so later we can use it in if for boundary checking
-          if (interval.begin.toSet != Set(ConstantInt(0).asInstanceOf[Index]) && interval.end.toSet != dimVarMap.get(variable).getOrElse(Seq.empty).toSet) 
+          if (interval.begin.toSet != Set(ConstantInt(0).asInstanceOf[Index]) && interval.end.toSet != dimVarMap.get(variable).getOrElse(Seq.empty).toSet &&
+          newInterval.begin.toSet.diff(Set(ConstantInt(0).asInstanceOf[Index])).toSeq.length > 0 && newInterval.end.toSet.diff(dimVarMap.get(variable).getOrElse(Seq.empty[Dim]).toSet).toSeq.length > 0) // : This thing malfunctions for some reason -> new conditions to fix it -> I need to fix the if else checks properly now we have too many of them
             Interval(newInterval.begin.toSet.diff(Set(ConstantInt(0).asInstanceOf[Index])).toSeq, newInterval.end.toSet.diff(dimVarMap.get(variable).getOrElse(Seq.empty[Dim]).toSet).toSeq)
           else newInterval
         } else newInterval
@@ -1286,7 +1321,7 @@ object Main extends App {
             if (begin != "" && end != "") s"for (int ${variable.cFormat} = $begin; ${variable.cFormat} < $end; ++${variable.cFormat}) {"
             else if (begin != "" && end == "") {
               cnt += 1
-              s"int ${variable.cFormat} = $begin;" 
+              s"int ${variable.cFormat} = $begin; // WTF?" 
             }
             else if (begin == "" && end != "") {
               cnt += 1
