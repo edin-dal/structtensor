@@ -494,7 +494,7 @@ object Main extends App {
     false
   }
 
-  def isAppend(exps: Seq[Exp], dimInfo: Seq[DimInfo], outAccess: Access): Boolean = {
+  def isShift(exps: Seq[Exp], dimInfo: Seq[DimInfo], outAccess: Access): Boolean = {
     val e: Exp = exps(0)
     val flag: Boolean = exps.slice(1, exps.length).foldLeft(e.isInstanceOf[Access])((acc, cur) => acc && cur.isInstanceOf[Comparison])
     val accessMap: Map[Access, Seq[Dim]] = dimInfo.toAccessMap
@@ -532,7 +532,7 @@ object Main extends App {
     })
   }
 
-  def append(head: Access, dimInfo: Seq[DimInfo], e: Exp, eSeq: Seq[Comparison], inpUS: Rule, inpRM: Rule): (Rule, Rule, DimInfo) = {
+  def shift(head: Access, dimInfo: Seq[DimInfo], e: Exp, eSeq: Seq[Comparison], inpUS: Rule, inpRM: Rule): (Rule, Rule, DimInfo) = {
     val outVars: Seq[Variable] = head.vars
     val name: String = head.name
     val headUS: Access = Access(name.uniqueName, outVars, UniqueSet)
@@ -706,11 +706,11 @@ object Main extends App {
     // println("!@#$%^&*(@!#$%^&*(!@#$%^&*()!@#$%^&*(!@#$%^&*(")
     if (prods.length == 1) {
       val exps: Seq[Exp] = prods(0).exps
-      if (isAppend(exps, dimInfo, head)) {
+      if (isShift(exps, dimInfo, head)) {
         val e: Exp = exps(0)
         val inpUS: Rule = uniqueSets.getOrElse(e, emptyRule())
         val inpRM: Rule = redundancyMaps.getOrElse(e, emptyRule())
-        return append(head, dimInfo, e.asInstanceOf[Access], exps.slice(1, exps.length).map(elem => elem.asInstanceOf[Comparison]), inpUS, inpRM)
+        return shift(head, dimInfo, e.asInstanceOf[Access], exps.slice(1, exps.length).map(elem => elem.asInstanceOf[Comparison]), inpUS, inpRM)
       }
       else if (exps.length == 1) {
         val e: Exp = exps(0)
@@ -833,7 +833,7 @@ object Main extends App {
             val realSomeVars: Seq[Variable] = allVars2.filter(v => !someVars.contains(v))
             val vars: Seq[Variable] = appendUniqueVars(allVars, realSomeVars)
             val head: Access = Access(getVar("head"), vars, Tensor)
-            if (isAppend(prod.exps.slice(i, prod.exps.length), di, head)) (true, head, i)
+            if (isShift(prod.exps.slice(i, prod.exps.length), di, head)) (true, head, i)
             else a
           } else a
         })
@@ -1285,6 +1285,7 @@ object Main extends App {
   }
 
   def codeGenRule(tensorComputation: Rule, dimInfo: Seq[DimInfo], variables: Seq[Variable], intervals: Seq[Map[Variable, Interval]], genType: AccessType, codeMotion: Boolean = false): String = {
+    // we should make sure that all the variables that are in the right hand side of an addition, we have a condition over them or we don't add them at all. Look at e2eLRDimInfo3.txt, first for loop, for this!
     val vars = if (genType == RedundancyMap) variables.redundancyVarsInplace else variables
     val dimMap: Map[Access, Seq[Dim]] = dimInfo.toAccessMap
     val dimVarMap: Map[Variable, Seq[Dim]] = dimInfo.toVarsMap
