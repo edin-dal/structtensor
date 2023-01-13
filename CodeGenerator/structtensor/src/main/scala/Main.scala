@@ -262,6 +262,8 @@ object Main extends App {
     (dim1, dim2) match {
       case (Variable(name), Arithmetic(op, index1, index2)) => if (op == "+" && ((index1.isInstanceOf[Variable] && index1.asInstanceOf[Variable] == dim1) || (index2.isInstanceOf[Variable] && index2.asInstanceOf[Variable] == dim1))) dim1 else dim1 // this is just random else which is false
       case (Arithmetic(op, index1, index2), Variable(name)) => dimMin(dim2, dim1)
+      case (ConstantInt(0), _) => dim1
+      case (_, ConstantInt(0)) => dim2
       case _ => dim1 // random output
     }
   }
@@ -270,6 +272,8 @@ object Main extends App {
     (dim1, dim2) match {
       case (Variable(name), Arithmetic(op, index1, index2)) => if (op == "+" && ((index1.isInstanceOf[Variable] && index1.asInstanceOf[Variable] == dim1) || (index2.isInstanceOf[Variable] && index2.asInstanceOf[Variable] == dim1))) dim2 else dim2 // this is just random else which is false
       case (Arithmetic(op, index1, index2), Variable(name)) => dimMin(dim2, dim1)
+      case (ConstantInt(0), _) => dim2
+      case (_, ConstantInt(0)) => dim1
       case _ => dim1 // random output
     }
   }
@@ -336,9 +340,6 @@ object Main extends App {
               val bodyRM: SoP = if(vars2.length == 0) e1RM else if (vars1.length == 0) e2RM else concatSoP(Seq(SoPTimesSoP(e1RM, e2RM), 
               SoPTimesSoP(SoPTimesSoP(e1US, SoP(Seq(vectorizeComparisonMultiplication("=", vars1, inp1RM.head.vars.diff(vars1))))), e2RM), 
               SoPTimesSoP(SoPTimesSoP(e2US, SoP(Seq(vectorizeComparisonMultiplication("=", vars2, inp2RM.head.vars.diff(vars2))))), e1RM)))
-              println("binMultUS: ", Rule(headUS, bodyUS).prettyFormat)
-              println("binMultRM: ", Rule(headRM, bodyRM).prettyFormat)
-              println("binMultDimInfo: ", outDimInfo)
               return (Rule(headUS, bodyUS), Rule(headRM, bodyRM), outDimInfo)
             }
           } else {
@@ -414,23 +415,14 @@ object Main extends App {
           if (isSoPEquals(e1US, e2US) && isSoPEquals(e1RM, e2RM)) {
             val bodyUS: SoP = e1US
             val bodyRM: SoP = e1RM
-            println("binAddUS_SOPEQ: ", Rule(headUS, bodyUS).prettyFormat)
-            println("binAddRM_SOPEQ: ", Rule(headRM, bodyRM).prettyFormat)
-            println("binAddDimInfo_SOPEQ: ", outDimInfo)
             return (Rule(headUS, bodyUS), Rule(headRM, bodyRM), outDimInfo)
           } else if (isSoPDisjoint(e1US, e2US) && isSoPDisjoint(e1RM, e2RM)) {
             val bodyUS: SoP = concatSoP(Seq(e1US, e2US))
             val bodyRM: SoP = concatSoP(Seq(e1RM, e2RM))
-            println("binAddUS_SOP_Disjoint: ", Rule(headUS, bodyUS).prettyFormat)
-            println("binAddRM_SOP_Disjoint: ", Rule(headRM, bodyRM).prettyFormat)
-            println("binAddDimInfo_SOP_Disjoint: ", outDimInfo)
             return (Rule(headUS, bodyUS), Rule(headRM, bodyRM), outDimInfo)
           } else {
             val bodyUS: SoP = concatSoP(Seq(e1US, e2US, e1RM, e2RM))
             val bodyRM: SoP = SoP(Seq())
-            println("binAddUS_SOPNEQ: ", Rule(headUS, bodyUS).prettyFormat)
-            println("binAddRM_SOPNEQ: ", Rule(headRM, bodyRM).prettyFormat)
-            println("binAddDimInfo_SOPNEQ: ", outDimInfo)
             return (Rule(headUS, bodyUS), Rule(headRM, bodyRM), outDimInfo)
           }
         } else { // a fake else
@@ -555,24 +547,17 @@ object Main extends App {
     val bounds: Map[Access, Prod] = dimInfo.toComparisonAccessProdMap
     val dimMap: Map[Access, Seq[Dim]] = dimInfo.toAccessMap
     val minusVarMap: Map[Variable, Dim] = eSeq.map(comp => comp.index.asInstanceOf[Arithmetic].index1.asInstanceOf[Variable] -> comp.index.asInstanceOf[Arithmetic].index2.asInstanceOf[Dim]).toMap
-    // println(minusVarMap)
     e match {
       case (Access(name, vars, Tensor)) => { 
         val eUS: SoP = includeBoundaries(inpUS.body, bounds, e.asInstanceOf[Access], UniqueSet) 
         val eRM: SoP = includeBoundaries(inpRM.body, bounds, e.asInstanceOf[Access], RedundancyMap) 
         val eDimSeq: Seq[Dim] = dimMap.get(e.asInstanceOf[Access]).getOrElse(Seq.empty)
         val headDimSeq: Seq[Dim] = (outVars zip eDimSeq).map{case (v, d) => if (minusVarMap.contains(v)) Arithmetic("+", d, minusVarMap.get(v).get) else d}
-        // println(outVars)
-        // println(headDimSeq)
         val headDimInfo: DimInfo = DimInfo(head, headDimSeq)
         val headDimSoP: SoP = headDimInfo.toSoP
         val headDimSoP2: SoP = SoP(Seq(Prod((outVars zip headDimSeq).foldLeft(Seq.empty[Exp])((acc, varDim) => if (varDim._2.isInstanceOf[Arithmetic]) acc :+ Comparison("<=", varDim._2.asInstanceOf[Arithmetic].index2, varDim._1) else acc))))
-        // println(headDimSoP2.prettyFormat)
         val bodyUS: SoP = multSoP(Seq(eUS, SoP(Seq(Prod(eSeq))), headDimSoP, headDimSoP2))
         val bodyRM: SoP = multSoP(Seq(eRM, SoP(Seq(Prod(eSeq))), SoP(Seq(Prod(replaceVarsWithRedundancyVars(eSeq)))), headDimSoP, headDimSoP2))
-        println("appendUS: ", Rule(headUS, bodyUS).prettyFormat)
-        println("appendRM: ", Rule(headRM, bodyRM).prettyFormat)
-        println("appendDimInfo: ", headDimInfo)
         return (Rule(headUS, bodyUS), Rule(headRM, bodyRM), headDimInfo)
       }
     }
@@ -714,11 +699,7 @@ object Main extends App {
     val prods: Seq[Prod] = tensorComputation.body.prods
     val head: Access = tensorComputation.head
     val nonSizeVariables: Seq[Variable] = getVariables(tensorComputation)
-    // println("!@#$%^&*(@!#$%^&*(!@#$%^&*()!@#$%^&*(!@#$%^&*(")
-    // println("US:", uniqueSets)
-    // println("RM:", redundancyMaps)
-    println(tensorComputation.prettyFormat)
-    // println("!@#$%^&*(@!#$%^&*(!@#$%^&*()!@#$%^&*(!@#$%^&*(")
+    // println(tensorComputation.prettyFormat)
     if (prods.length == 1) {
       val exps: Seq[Exp] = prods(0).exps
       if (isShift(exps, dimInfo, head)) {
@@ -1217,7 +1198,7 @@ object Main extends App {
 
   def getIntervals(variables: Seq[Variable], fixedConditionOrder: Map[Variable, Seq[(String, Index)]]): Map[Variable, Interval] = {
     val varsAndRed = variables.redundancyVarsInplace
-    varsAndRed.foldLeft(Map.empty[Variable, Interval])((acc, variable) => {
+    val res: Map[Variable, Interval] = varsAndRed.foldLeft(Map.empty[Variable, Interval])((acc, variable) => {
       val condSeq: Seq[(String, Index)] = fixedConditionOrder.getOrElse(variable, Seq())
       val (begin, end): (Seq[Index], Seq[Index]) = condSeq.foldLeft((Seq.empty[Index], Seq.empty[Index]))((acc2, cur2) => {
         val op: String = cur2._1
@@ -1234,6 +1215,7 @@ object Main extends App {
       })
       mergeMap(Seq(acc, Map(variable -> Interval(begin, end))))((v1, v2) => Interval(v1.begin ++ v2.begin, v1.end ++ v2.end))
     })
+    res.filter{case (k, v) => !(v.begin.length == 0 || v.end.length == 0)}
   }
 
   def getIntervals(variables: Seq[Variable], fixedConditionOrder: Seq[Map[Variable, Seq[(String, Index)]]]): Seq[Map[Variable, Interval]] = {
@@ -1297,6 +1279,69 @@ object Main extends App {
         }
       }))
     }))
+  }
+
+  def removeNonLHSVars(lhsVars: Seq[Variable], fixedConditionOrderMap: Map[Variable, Seq[(String, Index)]]): Map[Variable, Seq[(String, Index)]] = {
+    // we lose information like x0 <= y0 <= y1 <= x1 if y0 and y1 are not in lhs vars
+    // it only supports the special case of creating covariance matrix for linear/polynomial regression
+    val rhsEQVarsMap: Map[Variable, Index] = fixedConditionOrderMap.foldLeft(Map.empty[Variable, Index])((acc, cur) => {
+      val variable = cur._1
+      val condSeq: Seq[(String, Index)] = cur._2
+      if (lhsVars.contains(variable)) acc else {
+        val eq: Seq[(String, Index)] = condSeq.filter(cond => cond._1 == "=")
+        if (eq.length > 0) mergeMap(Seq(acc, Map(variable -> eq(0)._2)))((v1, v2) => v2)
+        else acc
+      }
+    })
+
+    val newVarMapNEQ: Map[Variable, Seq[(String, Index)]] = fixedConditionOrderMap.filter(e => !rhsEQVarsMap.keySet.contains(e._1))
+    val newVarMapEQ: Map[Variable, Seq[(String, Index)]] = fixedConditionOrderMap.filter(e => rhsEQVarsMap.keySet.contains(e._1))
+    
+    val replacedVarNEQ: Map[Variable, Seq[(String, Index)]] = newVarMapNEQ.foldLeft(Map.empty[Variable, Seq[(String, Index)]])((acc, cur) => {
+      val variable = cur._1
+      val condSeq: Seq[(String, Index)] = cur._2
+      val newCondSeq: Seq[(String, Index)] = condSeq.foldLeft(Seq.empty[(String, Index)])((acc2, cond) => {
+        val op: String = cond._1
+        val index: Index = cond._2
+        if (index.isInstanceOf[Variable] && rhsEQVarsMap.keySet.contains(index.asInstanceOf[Variable])) acc2 :+ (op, rhsEQVarsMap.get(index.asInstanceOf[Variable]).get)
+        else acc2 :+ cond
+      })
+      mergeMap(Seq(acc, Map(variable -> newCondSeq)))((v1, v2) => v1 ++ v2)
+    })
+
+    val replacedVarEQ: Map[Variable, Seq[(String, Index)]] = newVarMapEQ.foldLeft(replacedVarNEQ)((acc, cur) => {
+      val variable = cur._1
+      val condSeq: Seq[(String, Index)] = cur._2
+      val newCondMap: Map[Variable, Seq[(String, Index)]] = condSeq.foldLeft(Map.empty[Variable, Seq[(String, Index)]])((acc2, cond) => {
+        val op: String = cond._1
+        val index: Index = cond._2
+        if (index.isInstanceOf[Variable] && replacedVarNEQ.keySet.contains(index.asInstanceOf[Variable])) {
+          val newVar: Variable = index.asInstanceOf[Variable]
+          val newOp: String = opComplement(op)
+          val newIndex: Index = rhsEQVarsMap.get(variable).get
+          mergeMap(Seq(acc2, Map(newVar -> Seq((newOp, newIndex)))))((v1, v2) => v1 ++ v2)
+        } else if (index.isInstanceOf[Variable] && rhsEQVarsMap.keySet.contains(index.asInstanceOf[Variable])) {
+          val repVar1: Index = rhsEQVarsMap.get(variable).get
+          val repVar2: Index = rhsEQVarsMap.get(index.asInstanceOf[Variable]).get
+          (repVar1, repVar2) match {
+            case (Arithmetic(op1, index11, index12), Arithmetic(op2, index21, index22)) => {
+              if (index11.isInstanceOf[Variable] && index21.isInstanceOf[Variable] && replacedVarNEQ.keySet.contains(index11.asInstanceOf[Variable]) && replacedVarNEQ.keySet.contains(index21.asInstanceOf[Variable]) && index12 == index22 && op1 == op2) {
+                mergeMap(Seq(acc2, Map(index11.asInstanceOf[Variable] -> Seq((op, index21.asInstanceOf[Variable])))))((v1, v2) => v1 ++ v2)
+              } else acc2
+            }
+            case _ => acc2
+          }
+
+        } else acc2
+      })
+      mergeMap(Seq(acc, newCondMap))((v1, v2) => v1 ++ v2)
+    })
+
+    replacedVarEQ
+  }
+
+  def removeNonLHSVars(lhsVars: Seq[Variable], fixedConditionOrderMap: Seq[Map[Variable, Seq[(String, Index)]]]): Seq[Map[Variable, Seq[(String, Index)]]] = {
+    fixedConditionOrderMap.map(e => removeNonLHSVars(lhsVars, e))
   }
 
   def codeGenRule(tensorComputation: Rule, dimInfo: Seq[DimInfo], variables: Seq[Variable], intervals: Seq[Map[Variable, Interval]], genType: AccessType, codeMotion: Boolean = false): String = {
@@ -1427,6 +1472,7 @@ object Main extends App {
   def codeGen(tensorComputation: Rule, dimInfo: Seq[DimInfo], uniqueSets: Map[Exp, Rule], redundancyMaps: Map[Exp, Rule]): String = {
     val variables: Seq[Variable] = getVariables(tensorComputation)
     val (outUS, outRM, outDI) = infer(tensorComputation, dimInfo, uniqueSets, redundancyMaps)
+    val allDimVars: Seq[Variable] = dimInfo.toVarsMap.values.foldLeft(Seq.empty[Dim])((acc, dimSeq) => acc ++ dimSeq).foldLeft(Seq.empty[Variable])((acc, d) => acc ++ getVariables(d))
     
     val variableConditionMapUS: Seq[Map[Variable, Seq[(String, Index)]]] = getVariableConditionMap(variables, outUS)
     val variableConditionMapRM: Seq[Map[Variable, Seq[(String, Index)]]] = getVariableConditionMap(variables, outRM)
@@ -1449,8 +1495,11 @@ object Main extends App {
     val fixedConditionOrderUS: Seq[Map[Variable, Seq[(String, Index)]]] = fixConditionOrder(variables, distinctConditionMapUS)
     val fixedConditionOrderRM: Seq[Map[Variable, Seq[(String, Index)]]] = fixConditionOrder(variables, distinctConditionMapRM)
 
-    val intervalsUS: Seq[Map[Variable, Interval]] = getIntervals(variables, fixedConditionOrderUS)
-    val intervalsRM: Seq[Map[Variable, Interval]] = getIntervals(variables, fixedConditionOrderRM)
+    val removedNonLHSVarsUS: Seq[Map[Variable, Seq[(String, Index)]]] = removeNonLHSVars(tensorComputation.head.vars, fixedConditionOrderUS)
+    val removedNonLHSVarsRM: Seq[Map[Variable, Seq[(String, Index)]]] = removeNonLHSVars(tensorComputation.head.vars.redundancyVarsInplace, fixedConditionOrderRM)
+
+    val intervalsUS: Seq[Map[Variable, Interval]] = getIntervals(variables, removedNonLHSVarsUS)
+    val intervalsRM: Seq[Map[Variable, Interval]] = getIntervals(variables, removedNonLHSVarsRM)
 
     // println("variables:")
     // println(variables)
@@ -1505,13 +1554,19 @@ object Main extends App {
     // println("------------------")
     // println("fixedConditionOrderRM")
     // println(fixedConditionOrderRM)
-    // println("==================")
-    // println("intervalsUS")
-    // println(intervalsUS)
-    // println("------------------")
-    // println("intervalsRM")
-    // println(intervalsRM)
-    // println("==================")
+    println("==================")
+    println("removedNonLHSVarsUS")
+    println(removedNonLHSVarsUS)
+    println("------------------")
+    println("removedNonLHSVarsRM")
+    println(removedNonLHSVarsRM)
+    println("==================")
+    println("intervalsUS")
+    println(intervalsUS)
+    println("------------------")
+    println("intervalsRM")
+    println(intervalsRM)
+    println("==================")
 
     "void compute() {\n" + codeGenRule(tensorComputation, dimInfo :+ outDI, variables, intervalsUS, UniqueSet) + "\n}\n\n\nvoid reconstruct() {\n" + codeGenRule(tensorComputation, dimInfo :+ outDI, variables, intervalsRM, RedundancyMap) + "\n}\n"
   }
@@ -3639,10 +3694,6 @@ object Main extends App {
     // println("===========================================================")
 
     val (mult_tensorComputation, mult_dimInfo, mult_uniqueSets, mult_redundancyMap) = e2eMultiplication(2, us, rm)
-    println("##########################")
-    println("Dim_Info:", mult_dimInfo)
-    println("newUS:", mult_uniqueSets)
-    println("newRM:", mult_redundancyMap)
     println(mult_tensorComputation.prettyFormat)
     println(codeGen(mult_tensorComputation, mult_dimInfo, mult_uniqueSets, mult_redundancyMap))
     println("===========================================================")
