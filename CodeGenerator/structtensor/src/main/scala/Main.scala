@@ -1391,7 +1391,7 @@ object Main extends App {
     })
   }
 
-  def codeGenRule(tensorComputation: Rule, dimInfo: Seq[DimInfo], variables: Seq[Variable], intervals: Seq[Map[Variable, Interval]], equalityVarMap: Seq[Map[Variable, Index]], genType: AccessType, codeMotion: Boolean = false): String = {
+  def codeGenRule(tensorComputation: Rule, dimInfo: Seq[DimInfo], variables: Seq[Variable], intervals: Seq[Map[Variable, Interval]], equalityVarMap: Seq[Map[Variable, Index]], genType: AccessType, codeMotion: Boolean = true): String = {
     // we should make sure that all the variables that are in the right hand side of an addition, we have a condition over them or we don't add them at all. Look at e2eLRDimInfo3.txt, first for loop, for this!
     val vars = if (genType == RedundancyMap) variables.redundancyVarsInplace else variables
     val dimMap: Map[Access, Seq[Dim]] = dimInfo.toAccessMap
@@ -1403,7 +1403,7 @@ object Main extends App {
       val map: Map[Variable, Interval] = mapEqVar._1
       val eqVar: Map[Variable, Index] = mapEqVar._2
       var cnt = 0
-      val (tc, nestedLoops): (Rule, String) = vars.zipWithIndex.foldLeft((Rule(tensorComputation.head, tcBodya), ""))((acc2, variableInd) => {
+      val (tc, nestedLoops, di): (Rule, String, Seq[DimInfo]) = vars.zipWithIndex.foldLeft((Rule(tensorComputation.head, tcBodya), "", dimInfo))((acc2, variableInd) => {
         val variable: Variable = variableInd._1
         val interval = map.getOrElse(variable, Interval(Seq(), Seq()))
         val (areEquals, index, (b, e)) = areBeginAndEndEqual(interval)
@@ -1448,33 +1448,61 @@ object Main extends App {
           // if current variable is equal to first element of each of the variables of accesses in the map, do code motion for it
           // update the map in a way that previous variables that include code motion be removed and new variable with .slice(1, length) of variables be in it
           val tc: Rule = acc2._1
+          val di: Seq[DimInfo] = acc2._3
+          val diMap: Map[Access, Seq[Dim]] = di.toAccessMap
+
           val (head, headCode): (Access, String) = if (variableInd._2 != vars.length - 1 || tc.body.prods.length > 1) {
             if (tc.head.vars.length > 0 && tc.head.vars(0) == variable) {
-              val head = Access(getVar(s"CM_${tc.head.name}"), tc.head.vars.slice(1, tc.head.vars.length), tc.head.kind) 
+              val head = Access(getVar(s"cm"), tc.head.vars.slice(1, tc.head.vars.length), tc.head.kind) 
               val headCode = s"auto ${head.name} = ${tc.head.name}[${variable.cFormat(eqVar)}];\n"
               (head, headCode)
             } else (tc.head, "")
           } else (tc.head, "")
+
+          val allVars: Set[Variable] = tc.head.vars.toSet ++ eqVar.keySet
           
-          val (bodyProdSeq, bodyCode): (Seq[Prod], String) = if (variableInd._2 != vars.length - 1) {
-            tc.body.prods.foldLeft((Seq.empty[Prod], ""))((acc, prod) => {
-              val (newProd, cmCode): (Seq[Exp], String) = prod.exps.foldLeft((Seq.empty[Exp], ""))((acc2, exp) => {
-                val access: Access = exp.asInstanceOf[Access]
-                val (newAcc, accCode): (Access, String) = if (access.vars.length > 0 && access.vars(0) == variable) {
-                  val newAcc = Access(getVar(s"CM_${access.name}"), access.vars.slice(1, access.vars.length), access.kind)
-                  val accCode = s"auto ${newAcc.name} = ${access.name}[${variable.cFormat(eqVar)}];\n"
-                  (newAcc, accCode)
-                } else (access, "")
-                (acc2._1 :+ newAcc, s"${acc2._2}$accCode")
+          val (bodyProdSeq, bodyCode, newDI): (Seq[Prod], String, Seq[DimInfo]) = if (variableInd._2 != vars.length - 1) {
+            tc.body.prods.foldLeft((Seq.empty[Prod], "", di))((acc4, prod) => {
+              val allRHSVars: Set[Variable] = prod.exps.foldLeft(Set.empty[Variable])((accRHS, exp) => {
+                exp match {
+                  case Access(name, vars, kind) => accRHS ++ vars.toSet
+                  case _ => accRHS
+                }
               })
-              (acc._1 :+ Prod(newProd), s"${acc._2}$cmCode")
+              val di: Seq[DimInfo] = acc4._3
+              val diMap: Map[Access, Seq[Dim]] = di.toAccessMap
+
+              val (newProd, cmCode, newDI): (Seq[Exp], String, Seq[DimInfo]) = if (allRHSVars.subsetOf(allVars)) {
+                prod.exps.foldLeft((Seq.empty[Exp], "", Seq.empty[DimInfo]))((acc3, exp) => {
+                  val access: Access = exp.asInstanceOf[Access]
+                  val (newAcc, accCode, newDI): (Access, String, Seq[DimInfo]) = if (access.vars.length > 0 && access.vars(0) == variable) {
+                    val newAcc = Access(getVar(s"cm"), access.vars.slice(1, access.vars.length), access.kind)
+                    val newDims: Seq[Dim] = if (diMap.contains(access)) diMap.get(access).get.slice(1, access.vars.length) else Seq.empty[Dim]
+                    val newDI: Seq[DimInfo] = if (newDims.length > 0) Seq(DimInfo(newAcc, newDims)) else Seq.empty[DimInfo]
+
+                    val conds: String = if (diMap.contains(access)) {
+                      (access.vars zip diMap.get(access).get).foldLeft("")((acc5, varDim) => {
+                        val v: Variable = varDim._1
+                        val d: Dim = varDim._2
+                        if (acc5 != "" ) s"$acc5 && 0 <= ${v.cFormat(eqVar)} && ${v.cFormat(eqVar)} < ${d.cFormat(eqVar)}" else s"0 <= ${v.cFormat(eqVar)} && ${v.cFormat(eqVar)} < ${d.cFormat(eqVar)}"
+                      })
+                    } else ""
+
+                    val accCode = if (conds == "") s"auto ${newAcc.name} = ${access.name}[${variable.cFormat(eqVar)}];\n" else s"auto ${newAcc.name} = ($conds) ? ${access.name}[${variable.cFormat(eqVar)}] : 0;\n"
+                    (newAcc, accCode, newDI)
+                  } else (access, "", Seq.empty[DimInfo])
+                  (acc3._1 :+ newAcc, s"${acc3._2}$accCode", acc3._3 ++ newDI)
+                })
+              } else (Seq.empty[Exp], "", Seq.empty[DimInfo])
+              
+              if (!(newProd == Seq.empty[Exp] && cmCode == "")) (acc4._1 :+ Prod(newProd), s"${acc4._2}$cmCode", acc4._3 ++ newDI) else acc4
             })
-          } else (tc.body.prods, "")
+          } else (tc.body.prods, "", di)
           val body = SoP(bodyProdSeq)
 
           val newTC: Rule = Rule(head, body)
-          (newTC, s"${acc2._2}\n$code\n$headCode\n$bodyCode")
-        } else (acc2._1, s"${acc2._2}\n$code")
+          (newTC, s"${acc2._2}\n$code\n$headCode\n$bodyCode", newDI)
+        } else (acc2._1, s"${acc2._2}\n$code", acc2._3)
       })
 
       // why constants are not exp as well? Then I could replace the comparison below by ConstantInt(1) instead.
