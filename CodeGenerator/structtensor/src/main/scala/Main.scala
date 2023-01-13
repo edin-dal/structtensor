@@ -1,11 +1,13 @@
 sealed trait Exp {
   def prettyFormat(): String
   def cFormat(): String
+  def cFormat(m: Map[Variable, Index]): String
 }
 
 sealed trait Index {
   def prettyFormat(): String
   def cFormat(): String
+  def cFormat(m: Map[Variable, Index]): String
 }
 
 sealed trait Dim extends Index
@@ -18,42 +20,54 @@ sealed trait AccessType {
 case object Tensor extends AccessType {
   def prettyFormat(): String = "T"
   def cFormat(): String = "T"
+  def cFormat(m: Map[Variable, Index]): String = cFormat
 }
 
 case object CompressedTensor extends AccessType {
   def prettyFormat(): String = "C"
   def cFormat(): String = "C"
+  def cFormat(m: Map[Variable, Index]): String = cFormat
 }
 
 case object UniqueSet extends AccessType {
   def prettyFormat(): String = "U"
   def cFormat(): String = "U"
+  def cFormat(m: Map[Variable, Index]): String = cFormat
 }
 
 case object RedundancyMap extends AccessType {
   def prettyFormat(): String = "R"
   def cFormat(): String = "R"
+  def cFormat(m: Map[Variable, Index]): String = cFormat
 }
 
 
 case class Variable(name: String) extends Index with Dim {
   def prettyFormat(): String = name
   def cFormat(): String = if (name.endsWith("'")) name.substring(0, name.size - 1) + "p" else name // renames redundancy vars to a writable format in C
+  def cFormat(m: Map[Variable, Index]): String = if (m.keySet.contains(this)) m.get(this).get.cFormat(m) else cFormat
 }
 
 case class ConstantDouble(value: Double) extends Index {
   def prettyFormat(): String = value.toString
   def cFormat(): String = value.toString
+  def cFormat(m: Map[Variable, Index]): String = cFormat
 }
 
 case class ConstantInt(value: Int) extends Index with Dim {
   def prettyFormat(): String = value.toString
   def cFormat(): String = value.toString
+  def cFormat(m: Map[Variable, Index]): String = cFormat
 }
 
 case class Arithmetic(op: String, index1: Index, index2: Index) extends Index with Dim {
   def prettyFormat(): String = s"(${index1.prettyFormat} $op ${index2.prettyFormat})"
   def cFormat(): String = s"(${index1.cFormat} $op ${index2.cFormat})"
+  def cFormat(m: Map[Variable, Index]): String = {
+    val ind1: String = if (index1.isInstanceOf[Variable] && m.keySet.contains(index1.asInstanceOf[Variable])) m.get(index1.asInstanceOf[Variable]).get.cFormat(m) else index1.cFormat
+    val ind2: String = if (index2.isInstanceOf[Variable] && m.keySet.contains(index2.asInstanceOf[Variable])) m.get(index2.asInstanceOf[Variable]).get.cFormat(m) else index2.cFormat
+    s"($ind1 $op $ind2)"
+  }
 }
 
 case class Access(name: String, vars: Seq[Variable], kind: AccessType) extends Exp {
@@ -63,11 +77,13 @@ case class Access(name: String, vars: Seq[Variable], kind: AccessType) extends E
   }
   def cFormat(): String = vars.foldLeft(name)((acc, cur) => s"$acc[${cur.cFormat}]")
   def cRedFormat(): String = vars.foldLeft(name)((acc, cur) => s"$acc[${cur.cFormat}p]")  // renames redundancy vars to a writable format in C
+  def cFormat(m: Map[Variable, Index]): String = vars.foldLeft(name)((acc, cur) => s"$acc[${cur.cFormat(m)}]")
 }
 
 case class Comparison(op: String, index: Index, variable: Variable) extends Exp {
   def prettyFormat(): String = if (!(!index.isInstanceOf[Variable] && op == "=")) s"(${index.prettyFormat} $op ${variable.prettyFormat})" else s"(${variable.prettyFormat} $op ${index.prettyFormat})"
   def cFormat(): String = if (!(!index.isInstanceOf[Variable] && op == "=")) s"(${index.cFormat} $op ${variable.cFormat})" else s"(${variable.cFormat} $op ${index.cFormat})"
+  def cFormat(m: Map[Variable, Index]): String = if (!(!index.isInstanceOf[Variable] && op == "=")) s"(${index.cFormat(m)} $op ${variable.cFormat(m)})" else s"(${variable.cFormat(m)} $op ${index.cFormat(m)})"
 }
 
 case class Prod(exps: Seq[Exp]) {
@@ -78,6 +94,11 @@ case class Prod(exps: Seq[Exp]) {
   } 
   def cFormat(): String = {
     val pr = exps.foldLeft("")((acc, cur) => s"$acc * ${cur.cFormat}")
+    if (exps.length == 0) "∅"
+    else s"(${pr.substring(3, pr.length)})"
+  } 
+  def cFormat(m: Map[Variable, Index]): String = {
+    val pr = exps.foldLeft("")((acc, cur) => s"$acc * ${cur.cFormat(m)}")
     if (exps.length == 0) "∅"
     else s"(${pr.substring(3, pr.length)})"
   } 
@@ -95,12 +116,19 @@ case class SoP(prods: Seq[Prod]) {
     if (prods.length == 0) "∅"
     else s"(${pr.substring(3, pr.length)})"
   }
+  def cFormat(m: Map[Variable, Index]): String = {
+    val pr = prods.foldLeft("")((acc, cur) => s"$acc + ${cur.cFormat(m)}")
+    if (prods.length == 0) "∅"
+    else s"(${pr.substring(3, pr.length)})"
+  }
 }
 
 case class Rule(head: Access, body: SoP) {
   def prettyFormat(): String = s"${head.prettyFormat} := ${body.prettyFormat}"
-  def cFormat(): String = s"${head.cFormat} = ${body.cFormat}"
+  def cFormat(): String = s"${head.cFormat} = ${body.cFormat};"
   def cPeqFormat(): String = s"${head.cFormat} += ${body.cFormat};"
+  def cFormat(m: Map[Variable, Index]): String = s"${head.cFormat(m)} = ${body.cFormat(m)};"
+  def cPeqFormat(m: Map[Variable, Index]): String = s"${head.cFormat(m)} += ${body.cFormat(m)};"
 }
 
 case class Interval(begin: Seq[Index], end: Seq[Index])
@@ -1272,16 +1300,32 @@ object Main extends App {
 
   def getNoComparisonSoP(sop: SoP): SoP = {
     SoP(sop.prods.foldLeft(Seq.empty[Prod])((acc, prod) => {
-      acc :+ Prod(prod.exps.foldLeft(Seq.empty[Exp])((acc2, exp) => {
+      val expSeq: Seq[Exp] = prod.exps.foldLeft(Seq.empty[Exp])((acc2, exp) => {
         exp match {
           case Comparison(_, _, _) => acc2
           case _ => acc2 :+ exp
         }
-      }))
+      })
+      if (expSeq.length == 0) acc
+      else acc :+ Prod(expSeq)
     }))
   }
 
-  def removeNonLHSVars(lhsVars: Seq[Variable], fixedConditionOrderMap: Map[Variable, Seq[(String, Index)]]): Map[Variable, Seq[(String, Index)]] = {
+  def getNoComparisonButEQSoP(sop: SoP): SoP = {
+    SoP(sop.prods.foldLeft(Seq.empty[Prod])((acc, prod) => {
+      val expSeq: Seq[Exp] = prod.exps.foldLeft(Seq.empty[Exp])((acc2, exp) => {
+        exp match {
+          case Comparison("=", _, _) => acc2 :+ exp
+          case Comparison(_, _, _) => acc2
+          case _ => acc2 :+ exp
+        }
+      })
+      if (expSeq.length == 0) acc
+      else acc :+ Prod(expSeq)
+    }))
+  }
+
+  def removeNonLHSEQVars(lhsVars: Seq[Variable], fixedConditionOrderMap: Map[Variable, Seq[(String, Index)]]): (Map[Variable, Seq[(String, Index)]], Map[Variable, Index]) = {
     // we lose information like x0 <= y0 <= y1 <= x1 if y0 and y1 are not in lhs vars
     // it only supports the special case of creating covariance matrix for linear/polynomial regression
     val rhsEQVarsMap: Map[Variable, Index] = fixedConditionOrderMap.foldLeft(Map.empty[Variable, Index])((acc, cur) => {
@@ -1337,35 +1381,42 @@ object Main extends App {
       mergeMap(Seq(acc, newCondMap))((v1, v2) => v1 ++ v2)
     })
 
-    replacedVarEQ
+    (replacedVarEQ, rhsEQVarsMap)
   }
 
-  def removeNonLHSVars(lhsVars: Seq[Variable], fixedConditionOrderMap: Seq[Map[Variable, Seq[(String, Index)]]]): Seq[Map[Variable, Seq[(String, Index)]]] = {
-    fixedConditionOrderMap.map(e => removeNonLHSVars(lhsVars, e))
+  def removeNonLHSEQVars(lhsVars: Seq[Variable], fixedConditionOrderMap: Seq[Map[Variable, Seq[(String, Index)]]]): (Seq[Map[Variable, Seq[(String, Index)]]], Seq[Map[Variable, Index]]) = {
+    fixedConditionOrderMap.foldLeft((Seq.empty[Map[Variable, Seq[(String, Index)]]], Seq.empty[Map[Variable, Index]]))((acc, e) => {
+      val (m1, m2): (Map[Variable, Seq[(String, Index)]], Map[Variable, Index]) = removeNonLHSEQVars(lhsVars, e)
+      (acc._1 :+ m1, acc._2 :+ m2)
+    })
   }
 
-  def codeGenRule(tensorComputation: Rule, dimInfo: Seq[DimInfo], variables: Seq[Variable], intervals: Seq[Map[Variable, Interval]], genType: AccessType, codeMotion: Boolean = false): String = {
+  def codeGenRule(tensorComputation: Rule, dimInfo: Seq[DimInfo], variables: Seq[Variable], intervals: Seq[Map[Variable, Interval]], equalityVarMap: Seq[Map[Variable, Index]], genType: AccessType, codeMotion: Boolean = false): String = {
     // we should make sure that all the variables that are in the right hand side of an addition, we have a condition over them or we don't add them at all. Look at e2eLRDimInfo3.txt, first for loop, for this!
     val vars = if (genType == RedundancyMap) variables.redundancyVarsInplace else variables
     val dimMap: Map[Access, Seq[Dim]] = dimInfo.toAccessMap
     val dimVarMap: Map[Variable, Seq[Dim]] = dimInfo.toVarsMap
     val tcBodya: SoP = getNoComparisonSoP(tensorComputation.body) 
+    val tcBodyEQ: SoP = getNoComparisonButEQSoP(tensorComputation.body)
 
-    intervals.foldLeft("")((acc, map) => {
+    (intervals zip equalityVarMap).foldLeft("")((acc, mapEqVar) => {
+      val map: Map[Variable, Interval] = mapEqVar._1
+      val eqVar: Map[Variable, Index] = mapEqVar._2
       var cnt = 0
       val (tc, nestedLoops): (Rule, String) = vars.zipWithIndex.foldLeft((Rule(tensorComputation.head, tcBodya), ""))((acc2, variableInd) => {
         val variable: Variable = variableInd._1
-        val interval = map.get(variable).get // Interval(Seq(), Seq()) is output if there's no condition on the variable
+        val interval = map.getOrElse(variable, Interval(Seq(), Seq()))
         val (areEquals, index, (b, e)) = areBeginAndEndEqual(interval)
         val newInterval: Interval = if((b, e) == (-1, -1)) interval // new interval without equal value
                           else Interval(interval.begin.zipWithIndex.filter(indexID => indexID._2 != b).map(indexID => indexID._1),
                                 interval.end.zipWithIndex.filter(indexID => indexID._2 != e).map(indexID => indexID._1))
-        val newInterval2: Interval = if (tensorComputation.body.prods.length > 1) { // if there's an addition, remove dimension information from intervals so later we can use it in if for boundary checking
-          if (interval.begin.toSet != Set(ConstantInt(0).asInstanceOf[Index]) && interval.end.toSet != dimVarMap.get(variable).getOrElse(Seq.empty).toSet &&
-          newInterval.begin.toSet.diff(Set(ConstantInt(0).asInstanceOf[Index])).toSeq.length > 0 && newInterval.end.toSet.diff(dimVarMap.get(variable).getOrElse(Seq.empty[Dim]).toSet).toSeq.length > 0) // : This thing malfunctions for some reason -> new conditions to fix it -> I need to fix the if else checks properly now we have too many of them
-            Interval(newInterval.begin.toSet.diff(Set(ConstantInt(0).asInstanceOf[Index])).toSeq, newInterval.end.toSet.diff(dimVarMap.get(variable).getOrElse(Seq.empty[Dim]).toSet).toSeq)
-          else newInterval
-        } else newInterval
+        // val newInterval2: Interval = if (tensorComputation.body.prods.length > 1) { // if there's an addition, remove dimension information from intervals so later we can use it in if for boundary checking
+        //   if (interval.begin.toSet != Set(ConstantInt(0).asInstanceOf[Index]) && interval.end.toSet != dimVarMap.get(variable).getOrElse(Seq.empty).toSet &&
+        //   newInterval.begin.toSet.diff(Set(ConstantInt(0).asInstanceOf[Index])).toSeq.length > 0 && newInterval.end.toSet.diff(dimVarMap.get(variable).getOrElse(Seq.empty[Dim]).toSet).toSeq.length > 0) // : This thing malfunctions for some reason -> new conditions to fix it -> I need to fix the if else checks properly now we have too many of them
+        //     Interval(newInterval.begin.toSet.diff(Set(ConstantInt(0).asInstanceOf[Index])).toSeq, newInterval.end.toSet.diff(dimVarMap.get(variable).getOrElse(Seq.empty[Dim]).toSet).toSeq)
+        //   else newInterval
+        // } else newInterval
+        val newInterval2: Interval = newInterval
         val begin = if(newInterval2.begin.size > 1) s"std::max({${getStringChain(newInterval2.begin)}})" else if (newInterval2.begin.size == 1) newInterval2.begin(0).cFormat else ""
         val end = if(newInterval2.end.size > 1) s"std::min({${getStringChain(newInterval2.end)}})" else if (newInterval2.end.size == 1) newInterval2.end(0).cFormat else ""
         val code = if(areEquals) {
@@ -1382,7 +1433,7 @@ object Main extends App {
             if (begin != "" && end != "") s"for (int ${variable.cFormat} = $begin; ${variable.cFormat} < $end; ++${variable.cFormat}) {"
             else if (begin != "" && end == "") {
               cnt += 1
-              s"int ${variable.cFormat} = $begin; // WTF?" 
+              s"int ${variable.cFormat} = $begin;" 
             }
             else if (begin == "" && end != "") {
               cnt += 1
@@ -1390,7 +1441,7 @@ object Main extends App {
             } 
             else {
               cnt += 1
-              s""
+              ""
             }
         }
         if (codeMotion) {
@@ -1400,7 +1451,7 @@ object Main extends App {
           val (head, headCode): (Access, String) = if (variableInd._2 != vars.length - 1 || tc.body.prods.length > 1) {
             if (tc.head.vars.length > 0 && tc.head.vars(0) == variable) {
               val head = Access(getVar(s"CM_${tc.head.name}"), tc.head.vars.slice(1, tc.head.vars.length), tc.head.kind) 
-              val headCode = s"auto ${head.name} = ${tc.head.name}[${variable.cFormat}];\n"
+              val headCode = s"auto ${head.name} = ${tc.head.name}[${variable.cFormat(eqVar)}];\n"
               (head, headCode)
             } else (tc.head, "")
           } else (tc.head, "")
@@ -1411,7 +1462,7 @@ object Main extends App {
                 val access: Access = exp.asInstanceOf[Access]
                 val (newAcc, accCode): (Access, String) = if (access.vars.length > 0 && access.vars(0) == variable) {
                   val newAcc = Access(getVar(s"CM_${access.name}"), access.vars.slice(1, access.vars.length), access.kind)
-                  val accCode = s"auto ${newAcc.name} = ${access.name}[${variable.cFormat}];\n"
+                  val accCode = s"auto ${newAcc.name} = ${access.name}[${variable.cFormat(eqVar)}];\n"
                   (newAcc, accCode)
                 } else (access, "")
                 (acc2._1 :+ newAcc, s"${acc2._2}$accCode")
@@ -1428,37 +1479,37 @@ object Main extends App {
 
       // why constants are not exp as well? Then I could replace the comparison below by ConstantInt(1) instead.
       val tcBody: SoP = if (tc.body == emptySoP()) SoP(Seq(Prod(Seq(Comparison("=", ConstantInt(0), getVar("rndVar").toVar))))) else tc.body // if it's only comparison, then it was just a bunch of comparison multiplications so their value is only 1. Their ranges is inside unique set and redundancy maps already.
+      val allVars: Set[Variable] = tc.head.vars.toSet ++ eqVar.keySet
       val body = if (genType == RedundancyMap) s"${tc.head.cFormat} = ${tc.head.cRedFormat};" else {
-        if (tcBody.prods.length == 1) s"${tc.head.cFormat} += ${tcBody.cFormat};"
+        if (tcBody.prods.length == 1) s"${tc.head.cFormat(eqVar)} += ${tcBody.cFormat(eqVar)};"
         else tcBody.prods.foldLeft("")((acc, prod) => {
-          val conds = prod.exps.foldLeft("")((acc2, exp) => {
+          val allRHSVars: Set[Variable] = prod.exps.foldLeft(Set.empty[Variable])((acc2, exp) => {
             exp match {
-              case Access(name, vars, kind) => {
-                val c = if (dimMap.contains(exp.asInstanceOf[Access])) {
-                  (vars zip dimMap.get(exp.asInstanceOf[Access]).getOrElse(Seq.empty)).foldLeft("")((acc3, varDim) => {
-                    val (flag, cond) = if (map.get(varDim._1).get == Interval(Seq(ConstantInt(0)), Seq(varDim._2))) (true, "")
-                    else if (map.get(varDim._1).get != Interval(Seq(), Seq())) {
-                      val interval = map.get(varDim._1).get
-                      val isProdEmptyBegin = interval.begin.foldLeft(false)((isE, cur) => isE || isProdEmpty(Comparison("<=", cur, varDim._1), Comparison(">", varDim._2, varDim._1)))
-                      val isProdEmptyEnd = interval.end.foldLeft(false)((isE, cur) => isE || isProdEmpty(Comparison(">", cur, varDim._1), Comparison("<=", ConstantInt(0), varDim._1)))
-                      if (isProdEmptyBegin || isProdEmptyEnd) (false, "")
-                      else if (acc3 == "remif") (false, s" && 0 <= ${varDim._1.cFormat} && ${varDim._1.cFormat} < ${varDim._2.cFormat}")
-                      else (false, s"$acc3 && 0 <= ${varDim._1.cFormat} && ${varDim._1.cFormat} < ${varDim._2.cFormat}")
-                    }
-                    else (false, "")
-                    
-                    if (flag == true) "remif"
-                    else cond
-                  })
-                } else "remif"
-                if (acc2 == "" || acc2 == "remif") c else if (c == "remif") acc2 else acc2 + c
-              }
-              case _ => s"$acc2"
+              case Access(name, vars, kind) => acc2 ++ vars.toSet
+              case _ => acc2
             }
           })
-          if (conds == "remif") s"$acc\n${tc.head.cFormat} += ${prod.cFormat};" 
-          else if (conds.length < 5) s"$acc" 
-          else s"$acc\nif (${conds.substring(4, conds.length)}) {\n${tc.head.cFormat} += ${prod.cFormat};\n}" 
+          if (allRHSVars.subsetOf(allVars)) {
+            val conds: String = prod.exps.foldLeft("")((acc2, exp) => {
+              exp match {
+                case Access(name, vars, kind) => {
+                  val access: Access = exp.asInstanceOf[Access]
+                  val conds: String = if (dimMap.contains(access)) {
+                    (vars zip dimMap.get(access).get).foldLeft("")((acc3, varDim) => {
+                      val v: Variable = varDim._1
+                      val d: Dim = varDim._2
+                      if (acc3 != "" ) s"$acc3 && 0 <= ${v.cFormat(eqVar)} && ${v.cFormat(eqVar)} < ${d.cFormat(eqVar)}" else s"0 <= ${v.cFormat(eqVar)} && ${v.cFormat(eqVar)} < ${d.cFormat(eqVar)}"
+                    })
+                  } else ""
+                  if(acc2 == "") conds else if (conds == "") acc2 else s"$acc2 && $conds"
+                }
+                case _ => acc2
+              }
+            })
+            if (conds != "") {
+              s"$acc\nif ($conds) {\n${tc.head.cFormat(eqVar)} += ${prod.cFormat(eqVar)};\n}"
+            } else s"$acc\n${tc.head.cFormat(eqVar)} += ${prod.cFormat(eqVar)};\n"
+          } else acc
         })
       } // change wrt code motion and use the newest variables with the corresponding list to them
       // val body = if (genType == RedundancyMap) s"${tensorComputation.head.cFormat} = ${tensorComputation.head.cRedFormat};" else tensorComputation.cPeqFormat
@@ -1495,8 +1546,8 @@ object Main extends App {
     val fixedConditionOrderUS: Seq[Map[Variable, Seq[(String, Index)]]] = fixConditionOrder(variables, distinctConditionMapUS)
     val fixedConditionOrderRM: Seq[Map[Variable, Seq[(String, Index)]]] = fixConditionOrder(variables, distinctConditionMapRM)
 
-    val removedNonLHSVarsUS: Seq[Map[Variable, Seq[(String, Index)]]] = removeNonLHSVars(tensorComputation.head.vars, fixedConditionOrderUS)
-    val removedNonLHSVarsRM: Seq[Map[Variable, Seq[(String, Index)]]] = removeNonLHSVars(tensorComputation.head.vars.redundancyVarsInplace, fixedConditionOrderRM)
+    val (removedNonLHSVarsUS, equalityVarMapUS): (Seq[Map[Variable, Seq[(String, Index)]]], Seq[Map[Variable, Index]]) = removeNonLHSEQVars(tensorComputation.head.vars, fixedConditionOrderUS)
+    val (removedNonLHSVarsRM, equalityVarMapRM): (Seq[Map[Variable, Seq[(String, Index)]]], Seq[Map[Variable, Index]]) = removeNonLHSEQVars(tensorComputation.head.vars.redundancyVarsInplace, fixedConditionOrderRM)
 
     val intervalsUS: Seq[Map[Variable, Interval]] = getIntervals(variables, removedNonLHSVarsUS)
     val intervalsRM: Seq[Map[Variable, Interval]] = getIntervals(variables, removedNonLHSVarsRM)
@@ -1568,7 +1619,7 @@ object Main extends App {
     println(intervalsRM)
     println("==================")
 
-    "void compute() {\n" + codeGenRule(tensorComputation, dimInfo :+ outDI, variables, intervalsUS, UniqueSet) + "\n}\n\n\nvoid reconstruct() {\n" + codeGenRule(tensorComputation, dimInfo :+ outDI, variables, intervalsRM, RedundancyMap) + "\n}\n"
+    "void compute() {\n" + codeGenRule(tensorComputation, dimInfo :+ outDI, variables, intervalsUS, equalityVarMapUS, UniqueSet) + "\n}\n\n\nvoid reconstruct() {\n" + codeGenRule(tensorComputation, dimInfo :+ outDI, variables, intervalsRM, equalityVarMapRM, RedundancyMap) + "\n}\n"
   }
 
   def getAllVariables(sop: SoP): Seq[Variable] = sop.prods.foldLeft(Seq.empty[Variable])((acc, prod) => acc ++ prod.exps.foldLeft(Seq.empty[Variable])((acc2, exp) => acc2 ++ getAllVariables(exp)))
