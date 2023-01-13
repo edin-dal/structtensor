@@ -292,17 +292,17 @@ object Main extends App {
       case (Arithmetic(op, index1, index2), Variable(name)) => dimMin(dim2, dim1)
       case (ConstantInt(0), _) => dim1
       case (_, ConstantInt(0)) => dim2
-      case _ => dim1 // random output
+      case _ if (dim1 == dim2) => dim1
     }
   }
 
   def dimMax(dim1: Dim, dim2: Dim): Dim = {
     (dim1, dim2) match {
       case (Variable(name), Arithmetic(op, index1, index2)) => if (op == "+" && ((index1.isInstanceOf[Variable] && index1.asInstanceOf[Variable] == dim1) || (index2.isInstanceOf[Variable] && index2.asInstanceOf[Variable] == dim1))) dim2 else dim2 // this is just random else which is false
-      case (Arithmetic(op, index1, index2), Variable(name)) => dimMin(dim2, dim1)
+      case (Arithmetic(op, index1, index2), Variable(name)) => dimMax(dim2, dim1)
       case (ConstantInt(0), _) => dim2
       case (_, ConstantInt(0)) => dim1
-      case _ => dim1 // random output
+      case _ if (dim1 == dim2) => dim1
     }
   }
 
@@ -1391,7 +1391,83 @@ object Main extends App {
     })
   }
 
-  def codeGenRule(tensorComputation: Rule, dimInfo: Seq[DimInfo], variables: Seq[Variable], intervals: Seq[Map[Variable, Interval]], equalityVarMap: Seq[Map[Variable, Index]], genType: AccessType, codeMotion: Boolean = true): String = {
+  def indexMin(i1: Index, i2: Index): Seq[Index] = {
+    (i1, i2) match {
+      case (Variable(name), Arithmetic(op, index1, index2)) => if (op == "+" && ((index1.isInstanceOf[Variable] && index1.asInstanceOf[Variable] == i1) || (index2.isInstanceOf[Variable] && index2.asInstanceOf[Variable] == i1))) Seq(i1) else Seq(i1, i2)
+      case (Arithmetic(op, index1, index2), Variable(name)) => indexMin(i2, i1)
+      case (ConstantInt(0), _) => Seq(i1)
+      case (_, ConstantInt(0)) => Seq(i2)
+      case _ if (i1 == i2) => Seq(i1)
+      case _ => Seq(i1, i2)
+    }
+  }
+
+  def indexMax(i1: Index, i2: Index): Seq[Index] = {
+    (i1, i2) match {
+      case (Variable(name), Arithmetic(op, index1, index2)) => if (op == "+" && ((index1.isInstanceOf[Variable] && index1.asInstanceOf[Variable] == i1) || (index2.isInstanceOf[Variable] && index2.asInstanceOf[Variable] == i1))) Seq(i2) else Seq(i1, i2)
+      case (Arithmetic(op, index1, index2), Variable(name)) => indexMax(i2, i1)
+      case (ConstantInt(0), _) => Seq(i2)
+      case (_, ConstantInt(0)) => Seq(i1)
+      case _ if (i1 == i2) => Seq(i1)
+      case _ => Seq(i1, i2)
+    }
+  }
+
+  def indexMin(inds: Seq[Index]): Seq[Index] = {
+    if (inds.length == 0) return Seq(ConstantInt(0))
+    if (inds.length == 1) return Seq(inds(0))
+    if (inds.length == 2) return indexMin(inds(0), inds(1))
+
+    
+    val i2: Int = inds.zipWithIndex.slice(1, inds.length).foldLeft(-1)((acc2, indI2) => {
+      val index2: Index = indI2._1
+      val i2: Int = indI2._2
+      if (acc2 != -1) acc2
+      else {
+        val res: Seq[Index] = indexMin(inds(0), index2)
+        if (res.length == 1) i2 else acc2
+      }
+    })
+    if (i2 == -1) Seq(inds(0)) ++ indexMin(inds.slice(1, inds.length)) else indexMin(inds(0), inds(i2)) ++ indexMin(inds.zipWithIndex.slice(1, inds.length).filter(e => e._2 != i2).map(e => e._1))
+  }
+
+  def indexMax(inds: Seq[Index]): Seq[Index] = {
+    if (inds.length == 0) return Seq(ConstantInt(0))
+    if (inds.length == 1) return Seq(inds(0))
+    if (inds.length == 2) return indexMax(inds(0), inds(1))
+
+
+    val i2: Int = inds.zipWithIndex.slice(1, inds.length).foldLeft(-1)((acc2, indI2) => {
+      val index2: Index = indI2._1
+      val i2: Int = indI2._2
+      if (acc2 != -1) acc2
+      else {
+        val res: Seq[Index] = indexMax(inds(0), index2)
+        if (res.length == 1) i2 else acc2
+      }
+    })
+    if (i2 == -1) Seq(inds(0)) ++ indexMax(inds.slice(1, inds.length)) else indexMax(inds(0), inds(i2)) ++ indexMin(inds.zipWithIndex.slice(1, inds.length).filter(e => e._2 != i2).map(e => e._1))
+  }
+
+  def simplifyIndexSeq(indexSeq: Seq[Index], m: String): Seq[Index] = {
+    if (m == "min") indexMin(indexSeq)
+    else if (m == "max") indexMax(indexSeq)
+    else indexSeq
+  }
+
+  def simplifyIntervals(interval: Map[Variable, Interval]): Map[Variable, Interval] = {
+    interval.map{case(v, i) => {
+      val b: Seq[Index] = i.begin
+      val e: Seq[Index] = i.end
+      val newB: Seq[Index] = simplifyIndexSeq(b, "max")
+      val newE: Seq[Index] = simplifyIndexSeq(e, "min")
+      (v -> Interval(newB, newE))
+    }}.toMap
+  }
+
+  def simplifyIntervals(intervals: Seq[Map[Variable, Interval]]): Seq[Map[Variable, Interval]] = intervals.map(i => simplifyIntervals(i))
+
+  def codeGenRule(tensorComputation: Rule, dimInfo: Seq[DimInfo], variables: Seq[Variable], intervals: Seq[Map[Variable, Interval]], equalityVarMap: Seq[Map[Variable, Index]], genType: AccessType, codeMotion: Boolean = false): String = {
     // we should make sure that all the variables that are in the right hand side of an addition, we have a condition over them or we don't add them at all. Look at e2eLRDimInfo3.txt, first for loop, for this!
     val vars = if (genType == RedundancyMap) variables.redundancyVarsInplace else variables
     val dimMap: Map[Access, Seq[Dim]] = dimInfo.toAccessMap
@@ -1410,12 +1486,6 @@ object Main extends App {
         val newInterval: Interval = if((b, e) == (-1, -1)) interval // new interval without equal value
                           else Interval(interval.begin.zipWithIndex.filter(indexID => indexID._2 != b).map(indexID => indexID._1),
                                 interval.end.zipWithIndex.filter(indexID => indexID._2 != e).map(indexID => indexID._1))
-        // val newInterval2: Interval = if (tensorComputation.body.prods.length > 1) { // if there's an addition, remove dimension information from intervals so later we can use it in if for boundary checking
-        //   if (interval.begin.toSet != Set(ConstantInt(0).asInstanceOf[Index]) && interval.end.toSet != dimVarMap.get(variable).getOrElse(Seq.empty).toSet &&
-        //   newInterval.begin.toSet.diff(Set(ConstantInt(0).asInstanceOf[Index])).toSeq.length > 0 && newInterval.end.toSet.diff(dimVarMap.get(variable).getOrElse(Seq.empty[Dim]).toSet).toSeq.length > 0) // : This thing malfunctions for some reason -> new conditions to fix it -> I need to fix the if else checks properly now we have too many of them
-        //     Interval(newInterval.begin.toSet.diff(Set(ConstantInt(0).asInstanceOf[Index])).toSeq, newInterval.end.toSet.diff(dimVarMap.get(variable).getOrElse(Seq.empty[Dim]).toSet).toSeq)
-        //   else newInterval
-        // } else newInterval
         val newInterval2: Interval = newInterval
         val begin = if(newInterval2.begin.size > 1) s"std::max({${getStringChain(newInterval2.begin)}})" else if (newInterval2.begin.size == 1) newInterval2.begin(0).cFormat else ""
         val end = if(newInterval2.end.size > 1) s"std::min({${getStringChain(newInterval2.end)}})" else if (newInterval2.end.size == 1) newInterval2.end(0).cFormat else ""
@@ -1580,6 +1650,9 @@ object Main extends App {
     val intervalsUS: Seq[Map[Variable, Interval]] = getIntervals(variables, removedNonLHSVarsUS)
     val intervalsRM: Seq[Map[Variable, Interval]] = getIntervals(variables, removedNonLHSVarsRM)
 
+    val intervalsSimplifiedUS: Seq[Map[Variable, Interval]] = simplifyIntervals(intervalsUS)
+    val intervalsSimplifiedRM: Seq[Map[Variable, Interval]] = simplifyIntervals(intervalsRM)
+
     // println("variables:")
     // println(variables)
     // println("==================")
@@ -1633,21 +1706,27 @@ object Main extends App {
     // println("------------------")
     // println("fixedConditionOrderRM")
     // println(fixedConditionOrderRM)
+    // println("==================")
+    // println("removedNonLHSVarsUS")
+    // println(removedNonLHSVarsUS)
+    // println("------------------")
+    // println("removedNonLHSVarsRM")
+    // println(removedNonLHSVarsRM)
+    // println("==================")
+    // println("intervalsUS")
+    // println(intervalsUS)
+    // println("------------------")
+    // println("intervalsRM")
+    // println(intervalsRM)
     println("==================")
-    println("removedNonLHSVarsUS")
-    println(removedNonLHSVarsUS)
+    println("intervalsSimplifiedUS")
+    println(intervalsSimplifiedUS)
     println("------------------")
-    println("removedNonLHSVarsRM")
-    println(removedNonLHSVarsRM)
-    println("==================")
-    println("intervalsUS")
-    println(intervalsUS)
-    println("------------------")
-    println("intervalsRM")
-    println(intervalsRM)
+    println("intervalsSimplifiedRM")
+    println(intervalsSimplifiedRM)
     println("==================")
 
-    "void compute() {\n" + codeGenRule(tensorComputation, dimInfo :+ outDI, variables, intervalsUS, equalityVarMapUS, UniqueSet) + "\n}\n\n\nvoid reconstruct() {\n" + codeGenRule(tensorComputation, dimInfo :+ outDI, variables, intervalsRM, equalityVarMapRM, RedundancyMap) + "\n}\n"
+    "void compute() {\n" + codeGenRule(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedUS, equalityVarMapUS, UniqueSet) + "\n}\n\n\nvoid reconstruct() {\n" + codeGenRule(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedRM, equalityVarMapRM, RedundancyMap) + "\n}\n"
   }
 
   def getAllVariables(sop: SoP): Seq[Variable] = sop.prods.foldLeft(Seq.empty[Variable])((acc, prod) => acc ++ prod.exps.foldLeft(Seq.empty[Variable])((acc2, exp) => acc2 ++ getAllVariables(exp)))
