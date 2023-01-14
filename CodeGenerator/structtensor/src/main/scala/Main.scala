@@ -1467,7 +1467,7 @@ object Main extends App {
 
   def simplifyIntervals(intervals: Seq[Map[Variable, Interval]]): Seq[Map[Variable, Interval]] = intervals.map(i => simplifyIntervals(i))
 
-  def codeGenRule(tensorComputation: Rule, dimInfo: Seq[DimInfo], variables: Seq[Variable], intervals: Seq[Map[Variable, Interval]], equalityVarMap: Seq[Map[Variable, Index]], genType: AccessType, codeMotion: Boolean = false): String = {
+  def codeGenRule(tensorComputation: Rule, dimInfo: Seq[DimInfo], variables: Seq[Variable], intervals: Seq[Map[Variable, Interval]], equalityVarMap: Seq[Map[Variable, Index]], genType: AccessType, codeMotion: Boolean = true): String = {
     // we should make sure that all the variables that are in the right hand side of an addition, we have a condition over them or we don't add them at all. Look at e2eLRDimInfo3.txt, first for loop, for this!
     val vars = if (genType == RedundancyMap) variables.redundancyVarsInplace else variables
     val dimMap: Map[Access, Seq[Dim]] = dimInfo.toAccessMap
@@ -1580,15 +1580,17 @@ object Main extends App {
       val allVars: Set[Variable] = tc.head.vars.toSet ++ eqVar.keySet
       val body = if (genType == RedundancyMap) s"${tc.head.cFormat} = ${tc.head.cRedFormat};" else {
         if (tcBody.prods.length == 1) s"${tc.head.cFormat(eqVar)} += ${tcBody.cFormat(eqVar)};"
-        else tcBody.prods.foldLeft("")((acc, prod) => {
-          val allRHSVars: Set[Variable] = prod.exps.foldLeft(Set.empty[Variable])((acc2, exp) => {
+        else (tcBody.prods zip tcBodya.prods).foldLeft("")((acc, prodAProd) => {
+          val prod: Prod = prodAProd._1
+          val aProd: Prod = prodAProd._2
+          val allRHSVars: Set[Variable] = aProd.exps.foldLeft(Set.empty[Variable])((acc2, exp) => {
             exp match {
               case Access(name, vars, kind) => acc2 ++ vars.toSet
               case _ => acc2
             }
           })
           if (allRHSVars.subsetOf(allVars)) {
-            val conds: String = prod.exps.foldLeft("")((acc2, exp) => {
+            val conds: String = aProd.exps.foldLeft("")((acc2, exp) => {
               exp match {
                 case Access(name, vars, kind) => {
                   val access: Access = exp.asInstanceOf[Access]
@@ -1596,15 +1598,27 @@ object Main extends App {
                     (vars zip dimMap.get(access).get).foldLeft("")((acc3, varDim) => {
                       val v: Variable = varDim._1
                       val d: Dim = varDim._2
-                      if (acc3 != "" ) s"$acc3 && 0 <= ${v.cFormat(eqVar)} && ${v.cFormat(eqVar)} < ${d.cFormat(eqVar)}" else s"0 <= ${v.cFormat(eqVar)} && ${v.cFormat(eqVar)} < ${d.cFormat(eqVar)}"
+                      val b: Seq[Index] = if (map.contains(v)) map.get(v).get.begin else Seq.empty[Index]
+                      val e: Seq[Index] = if (map.contains(v)) map.get(v).get.end else Seq.empty[Index]
+                      val fb: Boolean = b.foldLeft(false)((acc, beginInd) => {
+                        val res: Seq[Index] = indexMin(beginInd, d)
+                        if (res.length == 1 && res(0) == d) acc || true else acc
+                      })
+                      val fe: Boolean = e.foldLeft(false)((acc, endInd) => {
+                        val res: Seq[Index] = indexMin(endInd, d)
+                        if (res.length == 1 && res(0) == endInd && res(0) != d) acc || true else acc
+                      })
+                      if (fb) "NOT!HAPPENING!" else if (fe) {
+                        if (acc3 != "" ) s"$acc3 && ${v.cFormat(eqVar)} < ${d.cFormat(eqVar)}" else s"${v.cFormat(eqVar)} < ${d.cFormat(eqVar)}"
+                      } else acc3
                     })
                   } else ""
-                  if(acc2 == "") conds else if (conds == "") acc2 else s"$acc2 && $conds"
+                  if (acc2 == "") conds else if (conds == "") acc2 else s"$acc2 && $conds"
                 }
                 case _ => acc2
               }
             })
-            if (conds != "") {
+            if (conds.contains("NOT!HAPPENING!")) acc else if (conds != "") {
               s"$acc\nif ($conds) {\n${tc.head.cFormat(eqVar)} += ${prod.cFormat(eqVar)};\n}"
             } else s"$acc\n${tc.head.cFormat(eqVar)} += ${prod.cFormat(eqVar)};\n"
           } else acc
