@@ -1467,7 +1467,7 @@ object Main extends App {
 
   def simplifyIntervals(intervals: Seq[Map[Variable, Interval]]): Seq[Map[Variable, Interval]] = intervals.map(i => simplifyIntervals(i))
 
-  def codeGenRule(tensorComputation: Rule, dimInfo: Seq[DimInfo], variables: Seq[Variable], intervals: Seq[Map[Variable, Interval]], equalityVarMap: Seq[Map[Variable, Index]], genType: AccessType, codeMotion: Boolean = true): String = {
+  def codeGenRule(tensorComputation: Rule, dimInfo: Seq[DimInfo], variables: Seq[Variable], intervals: Seq[Map[Variable, Interval]], equalityVarMap: Seq[Map[Variable, Index]], genType: AccessType, codeMotion: Boolean = false): String = {
     // we should make sure that all the variables that are in the right hand side of an addition, we have a condition over them or we don't add them at all. Look at e2eLRDimInfo3.txt, first for loop, for this!
     val vars = if (genType == RedundancyMap) variables.redundancyVarsInplace else variables
     val dimMap: Map[Access, Seq[Dim]] = dimInfo.toAccessMap
@@ -1551,14 +1551,22 @@ object Main extends App {
                     val newDI: Seq[DimInfo] = if (newDims.length > 0) Seq(DimInfo(newAcc, newDims)) else Seq.empty[DimInfo]
 
                     val conds: String = if (diMap.contains(access)) {
-                      (access.vars zip diMap.get(access).get).foldLeft("")((acc5, varDim) => {
-                        val v: Variable = varDim._1
-                        val d: Dim = varDim._2
-                        if (acc5 != "" ) s"$acc5 && 0 <= ${v.cFormat(eqVar)} && ${v.cFormat(eqVar)} < ${d.cFormat(eqVar)}" else s"0 <= ${v.cFormat(eqVar)} && ${v.cFormat(eqVar)} < ${d.cFormat(eqVar)}"
+                      val v: Variable = variable
+                      val d: Dim = diMap.get(access).get(0)
+                      val b: Seq[Index] = if (map.contains(v)) map.get(v).get.begin else Seq.empty[Index]
+                      val e: Seq[Index] = if (map.contains(v)) map.get(v).get.end else Seq.empty[Index]
+                      val fb: Boolean = b.foldLeft(false)((acc, beginInd) => {
+                        val res: Seq[Index] = indexMin(beginInd, d)
+                        if (res.length == 1 && res(0) == d) acc || true else acc
                       })
+                      val fe: Boolean = e.foldLeft(false)((acc, endInd) => {
+                        val res: Seq[Index] = indexMin(endInd, d)
+                        if (res.length == 1 && res(0) == endInd && res(0) != d) acc || true else acc
+                      })
+                      if (fb) "NOT!HAPPENING!" else if (fe) s"${v.cFormat(eqVar)} < ${d.cFormat(eqVar)}" else ""
                     } else ""
 
-                    val accCode = if (conds == "") s"auto ${newAcc.name} = ${access.name}[${variable.cFormat(eqVar)}];\n" else s"auto ${newAcc.name} = ($conds) ? ${access.name}[${variable.cFormat(eqVar)}] : 0;\n"
+                    val accCode = if (conds.contains("NOT!HAPPENING!")) "" else if (conds == "") s"auto ${newAcc.name} = ${access.name}[${variable.cFormat(eqVar)}];\n" else s"auto ${newAcc.name} = ($conds) ? ${access.name}[${variable.cFormat(eqVar)}] : 0;\n"
                     (newAcc, accCode, newDI)
                   } else (access, "", Seq.empty[DimInfo])
                   (acc3._1 :+ newAcc, s"${acc3._2}$accCode", acc3._3 ++ newDI)
