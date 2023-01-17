@@ -76,7 +76,6 @@ case class Access(name: String, vars: Seq[Variable], kind: AccessType) extends E
     if (pr == "") name else s"${name}(${pr.substring(2, pr.length)})"
   }
   def cFormat(): String = vars.foldLeft(name)((acc, cur) => s"$acc[${cur.cFormat}]")
-  def cRedFormat(): String = vars.foldLeft(name)((acc, cur) => s"$acc[${cur.cFormat}p]")  // renames redundancy vars to a writable format in C
   def cFormat(m: Map[Variable, Index]): String = vars.foldLeft(name)((acc, cur) => s"$acc[${cur.cFormat(m)}]")
 }
 
@@ -1104,7 +1103,7 @@ object Main extends App {
     }
   }
 
-  def unifyEqualVariableConditionMap(variables: Seq[Variable], variableConditionMap: Map[Variable, Seq[(String, Index)]]): Map[Variable, Seq[(String, Index)]] = {
+  def unifyEqualVariableConditionMap(variables: Seq[Variable], variableConditionMap: Map[Variable, Seq[(String, Index)]]): (Map[Variable, Seq[(String, Index)]], Map[Variable, Variable]) = {
     val varsAndRed = variables.redundancyVarsInplace
     val equalityMap: Map[Variable, Set[Variable]] = varsAndRed.foldLeft(Map.empty[Variable, Set[Variable]])((acc, cur) => {
       val condSeq: Seq[(String, Index)] = variableConditionMap.getOrElse(cur, Seq())
@@ -1159,11 +1158,14 @@ object Main extends App {
       mergeMap(Seq(acc, Map(replaceVars(variable, equalRepresentative).asInstanceOf[Variable] -> nonEqMap)))((v1, v2) => v1 ++ v2)
     })
 
-    newVariableConditionMap
+    (newVariableConditionMap, equalRepresentative.filter{case(k, v) => k != v})
   }
 
-  def unifyEqualVariableConditionMap(variables: Seq[Variable], variableConditionMaps: Seq[Map[Variable, Seq[(String, Index)]]]): Seq[Map[Variable, Seq[(String, Index)]]] = {
-    variableConditionMaps.foldLeft(Seq.empty[Map[Variable, Seq[(String, Index)]]])((acc, cur) => acc :+ unifyEqualVariableConditionMap(variables, cur))
+  def unifyEqualVariableConditionMap(variables: Seq[Variable], variableConditionMaps: Seq[Map[Variable, Seq[(String, Index)]]]): (Seq[Map[Variable, Seq[(String, Index)]]], Seq[Map[Variable, Variable]]) = {
+    variableConditionMaps.foldLeft((Seq.empty[Map[Variable, Seq[(String, Index)]]], Seq.empty[Map[Variable, Variable]]))((acc, cur) => {
+      val res = unifyEqualVariableConditionMap(variables, cur)
+      (acc._1 :+ res._1, acc._2 :+ res._2)
+    })
   }
 
   def fixConditionOrder(variables: Seq[Variable], unifiedVariableConditionMap: Map[Variable, Seq[(String, Index)]]): Map[Variable, Seq[(String, Index)]] = {
@@ -1213,18 +1215,32 @@ object Main extends App {
     }
   }
 
+  def isComparisonTrivial(comp: Comparison): Boolean = {
+    val op: String = comp.op
+    val index: Index = comp.index
+    val variable: Variable = comp.variable
+    if (index.isInstanceOf[Arithmetic]) {
+      val arith: Arithmetic = index.asInstanceOf[Arithmetic]
+      if (op == ">" && arith.op == "+" && ((arith.index1.isInstanceOf[Variable] && arith.index1.asInstanceOf[Variable] == variable) || (arith.index2.isInstanceOf[Variable] && arith.index2.asInstanceOf[Variable] == variable))) return true
+    }
+    false
+  }
+
   def simplify(rule: Rule): Rule = {
     val prodSeqNoEmpty = rule.body.prods.foldLeft(Seq.empty[Prod])((acc, prod) => {
       val isPEmpty = prod.exps.foldLeft(false)((acc2, exp) => acc2 || prod.exps.foldLeft(false)((acc3, exp2) => acc3 || isProdEmpty(exp, exp2)))
       if (isPEmpty) acc
-      else acc :+ prod
+      else {
+        val expSeq: Seq[Exp] = prod.exps.foldLeft(Seq.empty[Exp])((acc2, exp) => if (exp.isInstanceOf[Comparison] && isComparisonTrivial(exp.asInstanceOf[Comparison])) acc2 else acc2 :+ exp)
+        if (expSeq.isEmpty) acc else acc :+ Prod(expSeq)
+      }
     })
     // here it just removes products that end up in emptySet + understands that (emptySet + e = e)
     // we don't have (x >= y) * (x <= y) = (x = y). For this we might need to go through unifyEqualVariableConditionMap and simplify multiple rounds.
     Rule(rule.head, SoP(prodSeqNoEmpty))
   }
 
-  def getIntervals(variables: Seq[Variable], fixedConditionOrder: Map[Variable, Seq[(String, Index)]]): Map[Variable, Interval] = {
+  def getIntervals(variables: Seq[Variable], fixedConditionOrder: Map[Variable, Seq[(String, Index)]], eqVarMap: Map[Variable, Index]): Map[Variable, Interval] = {
     val varsAndRed = variables.redundancyVarsInplace
     val res: Map[Variable, Interval] = varsAndRed.foldLeft(Map.empty[Variable, Interval])((acc, variable) => {
       val condSeq: Seq[(String, Index)] = fixedConditionOrder.getOrElse(variable, Seq())
@@ -1236,7 +1252,7 @@ object Main extends App {
           case "<=" => (Seq(index), Seq())
           case ">" => (Seq(), Seq(index))
           case ">=" => (Seq(), Seq(Arithmetic("+", index, ConstantInt(1))))
-          case "=" => (Seq(index), Seq(Arithmetic("+", index, ConstantInt(1))))
+          case "=" => if (eqVarMap.contains(variable)) (Seq(), Seq()) else (Seq(index), Seq(Arithmetic("+", index, ConstantInt(1))))
           case _ => (Seq(), Seq())
         }
         (acc2._1 ++ b, acc2._2 ++ e)
@@ -1246,8 +1262,8 @@ object Main extends App {
     res.filter{case (k, v) => !(v.begin.length == 0 || v.end.length == 0)}
   }
 
-  def getIntervals(variables: Seq[Variable], fixedConditionOrder: Seq[Map[Variable, Seq[(String, Index)]]]): Seq[Map[Variable, Interval]] = {
-    fixedConditionOrder.foldLeft(Seq.empty[Map[Variable, Interval]])((acc, cur) => acc :+ getIntervals(variables, cur))
+  def getIntervals(variables: Seq[Variable], fixedConditionOrder: Seq[Map[Variable, Seq[(String, Index)]]], eqVarMap: Seq[Map[Variable, Index]]): Seq[Map[Variable, Interval]] = {
+    (fixedConditionOrder zip eqVarMap).foldLeft(Seq.empty[Map[Variable, Interval]])((acc, cur) => acc :+ getIntervals(variables, cur._1, cur._2))
   }
 
   def getStringChain(indexSeq: Seq[Index]): String = {
@@ -1338,6 +1354,8 @@ object Main extends App {
       }
     })
 
+    // println("rhsEQVarsMap", rhsEQVarsMap)
+
     val newVarMapNEQ: Map[Variable, Seq[(String, Index)]] = fixedConditionOrderMap.filter(e => !rhsEQVarsMap.keySet.contains(e._1))
     val newVarMapEQ: Map[Variable, Seq[(String, Index)]] = fixedConditionOrderMap.filter(e => rhsEQVarsMap.keySet.contains(e._1))
     
@@ -1353,6 +1371,8 @@ object Main extends App {
       mergeMap(Seq(acc, Map(variable -> newCondSeq)))((v1, v2) => v1 ++ v2)
     })
 
+    // println("replacedVarNEQ", replacedVarNEQ)
+
     val replacedVarEQ: Map[Variable, Seq[(String, Index)]] = newVarMapEQ.foldLeft(replacedVarNEQ)((acc, cur) => {
       val variable = cur._1
       val condSeq: Seq[(String, Index)] = cur._2
@@ -1363,7 +1383,7 @@ object Main extends App {
           val newVar: Variable = index.asInstanceOf[Variable]
           val newOp: String = opComplement(op)
           val newIndex: Index = rhsEQVarsMap.get(variable).get
-          mergeMap(Seq(acc2, Map(newVar -> Seq((newOp, newIndex)))))((v1, v2) => v1 ++ v2)
+          if (newIndex.isInstanceOf[Variable] && newIndex.asInstanceOf[Variable] == newVar) acc2 else mergeMap(Seq(acc2, Map(newVar -> Seq((newOp, newIndex)))))((v1, v2) => v1 ++ v2)
         } else if (index.isInstanceOf[Variable] && rhsEQVarsMap.keySet.contains(index.asInstanceOf[Variable])) {
           val repVar1: Index = rhsEQVarsMap.get(variable).get
           val repVar2: Index = rhsEQVarsMap.get(index.asInstanceOf[Variable]).get
@@ -1428,7 +1448,7 @@ object Main extends App {
         if (res.length == 1) i2 else acc2
       }
     })
-    if (i2 == -1) Seq(inds(0)) ++ indexMin(inds.slice(1, inds.length)) else indexMin(inds(0), inds(i2)) ++ indexMin(inds.zipWithIndex.slice(1, inds.length).filter(e => e._2 != i2).map(e => e._1))
+    if (i2 == -1) Seq(inds(0)) ++ indexMin(inds.slice(1, inds.length)) else indexMin(indexMin(inds(0), inds(i2)) ++ inds.zipWithIndex.slice(1, inds.length).filter(e => e._2 != i2).map(e => e._1))
   }
 
   def indexMax(inds: Seq[Index]): Seq[Index] = {
@@ -1446,7 +1466,7 @@ object Main extends App {
         if (res.length == 1) i2 else acc2
       }
     })
-    if (i2 == -1) Seq(inds(0)) ++ indexMax(inds.slice(1, inds.length)) else indexMax(inds(0), inds(i2)) ++ indexMin(inds.zipWithIndex.slice(1, inds.length).filter(e => e._2 != i2).map(e => e._1))
+    if (i2 == -1) Seq(inds(0)) ++ indexMax(inds.slice(1, inds.length)) else indexMax(indexMax(inds(0), inds(i2)) ++ inds.zipWithIndex.slice(1, inds.length).filter(e => e._2 != i2).map(e => e._1))
   }
 
   def simplifyIndexSeq(indexSeq: Seq[Index], m: String): Seq[Index] = {
@@ -1466,6 +1486,22 @@ object Main extends App {
   }
 
   def simplifyIntervals(intervals: Seq[Map[Variable, Interval]]): Seq[Map[Variable, Interval]] = intervals.map(i => simplifyIntervals(i))
+
+  def getSoPFromInterval(intervals: Seq[Map[Variable, Interval]], eqVarMap: Seq[Map[Variable, Index]]): SoP = {
+    SoP((intervals zip eqVarMap).map{case(m, vm) => {
+        val c1: Seq[Comparison] = m.foldLeft(Seq.empty[Comparison])((acc, cur) => {
+          val v: Variable = cur._1
+          val i: Interval = cur._2
+          val b: Seq[Index] = i.begin
+          val e: Seq[Index] = i.end
+          val s1: Seq[Comparison] = b.map(l => Comparison("<=", l, v))
+          val s2: Seq[Comparison] = e.map(u => Comparison(">", u, v))
+          acc ++ s1 ++ s2
+        })
+        val c2: Seq[Comparison] = vm.foldLeft(Seq.empty[Comparison])((acc, cur) => acc :+ Comparison("=", cur._2, cur._1))
+        Prod(c1 ++ c2)
+    }})
+  }
 
   def codeGenRule(tensorComputation: Rule, dimInfo: Seq[DimInfo], variables: Seq[Variable], intervals: Seq[Map[Variable, Interval]], equalityVarMap: Seq[Map[Variable, Index]], genType: AccessType, codeMotion: Boolean = false): String = {
     // we should make sure that all the variables that are in the right hand side of an addition, we have a condition over them or we don't add them at all. Look at e2eLRDimInfo3.txt, first for loop, for this!
@@ -1586,7 +1622,7 @@ object Main extends App {
       // why constants are not exp as well? Then I could replace the comparison below by ConstantInt(1) instead.
       val tcBody: SoP = if (tc.body == emptySoP()) SoP(Seq(Prod(Seq(Comparison("=", ConstantInt(0), getVar("rndVar").toVar))))) else tc.body // if it's only comparison, then it was just a bunch of comparison multiplications so their value is only 1. Their ranges is inside unique set and redundancy maps already.
       val allVars: Set[Variable] = tc.head.vars.toSet ++ eqVar.keySet
-      val body = if (genType == RedundancyMap) s"${tc.head.cFormat} = ${tc.head.cRedFormat};" else {
+      val body = if (genType == RedundancyMap) s"${tc.head.cFormat(eqVar)} = ${Access(tc.head.name, tc.head.vars.redundancyVars, tc.head.kind).cFormat(eqVar)};" else {
         if (tcBody.prods.length == 1) s"${tc.head.cFormat(eqVar)} += ${tcBody.cFormat(eqVar)};"
         else (tcBody.prods zip tcBodya.prods).foldLeft("")((acc, prodAProd) => {
           val prod: Prod = prodAProd._1
@@ -1648,8 +1684,8 @@ object Main extends App {
     val variableConditionMapUS: Seq[Map[Variable, Seq[(String, Index)]]] = getVariableConditionMap(variables, outUS)
     val variableConditionMapRM: Seq[Map[Variable, Seq[(String, Index)]]] = getVariableConditionMap(variables, outRM)
 
-    val unifiedVariableConditionMapUS: Seq[Map[Variable, Seq[(String, Index)]]] = unifyEqualVariableConditionMap(variables, variableConditionMapUS)
-    val unifiedVariableConditionMapRM: Seq[Map[Variable, Seq[(String, Index)]]] = unifyEqualVariableConditionMap(variables, variableConditionMapRM)
+    val (unifiedVariableConditionMapUS, eqRepsUS): (Seq[Map[Variable, Seq[(String, Index)]]], Seq[Map[Variable, Variable]]) = unifyEqualVariableConditionMap(variables, variableConditionMapUS)
+    val (unifiedVariableConditionMapRM, eqRepsRM): (Seq[Map[Variable, Seq[(String, Index)]]], Seq[Map[Variable, Variable]]) = unifyEqualVariableConditionMap(variables, variableConditionMapRM)
 
     val unifiedOutUS: Rule = Rule(outUS.head, getSoP(unifiedVariableConditionMapUS))
     val unifiedOutRM: Rule = Rule(outRM.head, getSoP(unifiedVariableConditionMapRM))
@@ -1669,11 +1705,17 @@ object Main extends App {
     val (removedNonLHSVarsUS, equalityVarMapUS): (Seq[Map[Variable, Seq[(String, Index)]]], Seq[Map[Variable, Index]]) = removeNonLHSEQVars(tensorComputation.head.vars, fixedConditionOrderUS)
     val (removedNonLHSVarsRM, equalityVarMapRM): (Seq[Map[Variable, Seq[(String, Index)]]], Seq[Map[Variable, Index]]) = removeNonLHSEQVars(tensorComputation.head.vars.redundancyVarsInplace, fixedConditionOrderRM)
 
-    val intervalsUS: Seq[Map[Variable, Interval]] = getIntervals(variables, removedNonLHSVarsUS)
-    val intervalsRM: Seq[Map[Variable, Interval]] = getIntervals(variables, removedNonLHSVarsRM)
+    val eqVarMapUS: Seq[Map[Variable, Index]] = (eqRepsUS zip equalityVarMapUS).map{case(e1, e2) => mergeMap(Seq(e1, e2))((v1, v2) => v1)}
+    val eqVarMapRM: Seq[Map[Variable, Index]] = (eqRepsRM zip equalityVarMapRM).map{case(e1, e2) => mergeMap(Seq(e1, e2))((v1, v2) => v1)}
+
+    val intervalsUS: Seq[Map[Variable, Interval]] = getIntervals(variables, removedNonLHSVarsUS, eqVarMapUS)
+    val intervalsRM: Seq[Map[Variable, Interval]] = getIntervals(variables, removedNonLHSVarsRM, eqVarMapRM)
 
     val intervalsSimplifiedUS: Seq[Map[Variable, Interval]] = simplifyIntervals(intervalsUS)
     val intervalsSimplifiedRM: Seq[Map[Variable, Interval]] = simplifyIntervals(intervalsRM)
+
+    val finalUS: Rule = Rule(outUS.head, getSoPFromInterval(intervalsSimplifiedUS, eqVarMapUS))
+    val finalRM: Rule = Rule(outRM.head, getSoPFromInterval(intervalsSimplifiedRM, eqVarMapRM))
 
     // println("variables:")
     // println(variables)
@@ -1710,13 +1752,13 @@ object Main extends App {
     // println("------------------")
     // println("distinctOutRM")
     // pprint(distinctOutRM)
-    println("==================")
-    println("simplifiedOutUS")
-    pprint(simplifiedOutUS)
-    println("------------------")
-    println("simplifiedOutRM")
-    pprint(simplifiedOutRM)
-    println("==================")
+    // println("==================")
+    // println("simplifiedOutUS")
+    // pprint(simplifiedOutUS)
+    // println("------------------")
+    // println("simplifiedOutRM")
+    // pprint(simplifiedOutRM)
+    // println("==================")
     // println("distinctConditionMapUS")
     // println(distinctConditionMapUS)
     // println("------------------")
@@ -1740,15 +1782,21 @@ object Main extends App {
     // println("------------------")
     // println("intervalsRM")
     // println(intervalsRM)
+    // println("==================")
+    // println("intervalsSimplifiedUS")
+    // println(intervalsSimplifiedUS)
+    // println("------------------")
+    // println("intervalsSimplifiedRM")
+    // println(intervalsSimplifiedRM)
     println("==================")
-    println("intervalsSimplifiedUS")
-    println(intervalsSimplifiedUS)
+    println("finalUS")
+    pprint(finalUS)
     println("------------------")
-    println("intervalsSimplifiedRM")
-    println(intervalsSimplifiedRM)
+    println("finalRM")
+    pprint(finalRM)
     println("==================")
 
-    "void compute() {\n" + codeGenRule(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedUS, equalityVarMapUS, UniqueSet) + "\n}\n\n\nvoid reconstruct() {\n" + codeGenRule(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedRM, equalityVarMapRM, RedundancyMap) + "\n}\n"
+    "void compute() {\n" + codeGenRule(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedUS, eqVarMapUS, UniqueSet) + "\n}\n\n\nvoid reconstruct() {\n" + codeGenRule(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedRM, eqVarMapRM, RedundancyMap) + "\n}\n"
   }
 
   def getAllVariables(sop: SoP): Seq[Variable] = sop.prods.foldLeft(Seq.empty[Variable])((acc, prod) => acc ++ prod.exps.foldLeft(Seq.empty[Variable])((acc2, exp) => acc2 ++ getAllVariables(exp)))
