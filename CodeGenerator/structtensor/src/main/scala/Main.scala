@@ -348,10 +348,10 @@ object Main extends App {
     (e1, e2) match {
       case (Access(name1, vars1, Tensor), Access(name2, vars2, Tensor)) => {
         if (vars1.union(vars2).toSet == head.vars.toSet) {
-          val e1US: SoP = includeBoundaries(inp1US.body, bounds, e1.asInstanceOf[Access], UniqueSet) 
-          val e2US: SoP = includeBoundaries(inp2US.body, bounds, e2.asInstanceOf[Access], UniqueSet) 
-          val e1RM: SoP = includeBoundaries(inp1RM.body, bounds, e1.asInstanceOf[Access], RedundancyMap) 
-          val e2RM: SoP = includeBoundaries(inp2RM.body, bounds, e2.asInstanceOf[Access], RedundancyMap) 
+          val e1US: SoP = inp1US.body // includeBoundaries(inp1US.body, bounds, e1.asInstanceOf[Access], UniqueSet) 
+          val e2US: SoP = inp2US.body // includeBoundaries(inp2US.body, bounds, e2.asInstanceOf[Access], UniqueSet) 
+          val e1RM: SoP = inp1RM.body // includeBoundaries(inp1RM.body, bounds, e1.asInstanceOf[Access], RedundancyMap) 
+          val e2RM: SoP = inp2RM.body // includeBoundaries(inp2RM.body, bounds, e2.asInstanceOf[Access], RedundancyMap) 
           if (isIntersectEmpty(vars1, vars2)) {
             if (name1 == name2) {
               val bodyUS: SoP = multSoP(Seq(e1US, e2US, SoP(Seq(vectorizeComparisonMultiplication("<=", vars1, vars2)))))
@@ -381,8 +381,8 @@ object Main extends App {
         }
       }
       case (Access(name1, vars1, Tensor), Comparison(op2, index2, variable2)) => {
-        val e1US: SoP = includeBoundaries(inp1US.body, bounds, e1.asInstanceOf[Access], UniqueSet)
-        val e1RM: SoP = includeBoundaries(inp1RM.body, bounds, e1.asInstanceOf[Access], RedundancyMap)
+        val e1US: SoP = inp1US.body // includeBoundaries(inp1US.body, bounds, e1.asInstanceOf[Access], UniqueSet)
+        val e1RM: SoP = inp1RM.body // includeBoundaries(inp1RM.body, bounds, e1.asInstanceOf[Access], RedundancyMap)
         val bodyUS: SoP = SoPTimesSoP(e1US, SoP(Seq(Prod(Seq(e2)))))
         val bodyRM: SoP = SoPTimesSoP(e1RM, SoP(Seq(Prod(Seq(e2)))))
         return project(head, dimInfo, e1, Rule(headUS, bodyUS), Rule(headRM, bodyRM))
@@ -434,10 +434,10 @@ object Main extends App {
     val outDimInfo: DimInfo = getBinOpDimInfo(e1, e2, head, dimInfo, "add")
     (e1, e2) match {
       case (Access(name1, vars1, Tensor), Access(name2, vars2, Tensor)) => { 
-        val e1US: SoP = includeBoundaries(inp1US.body, bounds, e1.asInstanceOf[Access], UniqueSet) 
-        val e2US: SoP = includeBoundaries(inp2US.body, bounds, e2.asInstanceOf[Access], UniqueSet) 
-        val e1RM: SoP = includeBoundaries(inp1RM.body, bounds, e1.asInstanceOf[Access], RedundancyMap) 
-        val e2RM: SoP = includeBoundaries(inp2RM.body, bounds, e2.asInstanceOf[Access], RedundancyMap) 
+        val e1US: SoP = inp1US.body // includeBoundaries(inp1US.body, bounds, e1.asInstanceOf[Access], UniqueSet)
+        val e2US: SoP = inp2US.body // includeBoundaries(inp2US.body, bounds, e2.asInstanceOf[Access], UniqueSet)
+        val e1RM: SoP = inp1RM.body // includeBoundaries(inp1RM.body, bounds, e1.asInstanceOf[Access], RedundancyMap)
+        val e2RM: SoP = inp2RM.body // includeBoundaries(inp2RM.body, bounds, e2.asInstanceOf[Access], RedundancyMap)
         if (vars1.toSet == vars2.toSet) {
           if (isSoPEquals(e1US, e2US) && isSoPEquals(e1RM, e2RM)) {
             val bodyUS: SoP = e1US
@@ -492,8 +492,8 @@ object Main extends App {
     e match {
       case Access(nameE, varsE, Tensor) => {
         val outDimInfo: DimInfo = getProjectDimInfo(e.asInstanceOf[Access], head, dimInfo)
-        val eUS: SoP = includeBoundaries(inp1US.body, bounds, e.asInstanceOf[Access], UniqueSet) 
-        val eRM: SoP = includeBoundaries(inp1RM.body, bounds, e.asInstanceOf[Access], RedundancyMap) 
+        val eUS: SoP = inp1US.body // includeBoundaries(inp1US.body, bounds, e.asInstanceOf[Access], UniqueSet) 
+        val eRM: SoP = inp1RM.body // includeBoundaries(inp1RM.body, bounds, e.asInstanceOf[Access], RedundancyMap) 
         if (varsE.toSet.subsetOf(outVars.toSet)) return (Rule(headUS, eUS), Rule(headRM, eRM), outDimInfo)
         else if(outVars.toSet.subsetOf(varsE.toSet)) {
           val bodyUS: SoP = concatSoP(Seq(eUS, eRM))
@@ -576,8 +576,8 @@ object Main extends App {
     val minusVarMap: Map[Variable, Dim] = eSeq.map(comp => comp.index.asInstanceOf[Arithmetic].index1.asInstanceOf[Variable] -> comp.index.asInstanceOf[Arithmetic].index2.asInstanceOf[Dim]).toMap
     e match {
       case (Access(name, vars, Tensor)) => { 
-        val eUS: SoP = includeBoundaries(inpUS.body, bounds, e.asInstanceOf[Access], UniqueSet) 
-        val eRM: SoP = includeBoundaries(inpRM.body, bounds, e.asInstanceOf[Access], RedundancyMap) 
+        val eUS: SoP = inpUS.body // includeBoundaries(inpUS.body, bounds, e.asInstanceOf[Access], UniqueSet) 
+        val eRM: SoP = inpRM.body // includeBoundaries(inpRM.body, bounds, e.asInstanceOf[Access], RedundancyMap) 
         val eDimSeq: Seq[Dim] = dimMap.get(e.asInstanceOf[Access]).getOrElse(Seq.empty)
         val headDimSeq: Seq[Dim] = (outVars zip eDimSeq).map{case (v, d) => if (minusVarMap.contains(v)) Arithmetic("+", d, minusVarMap.get(v).get) else d}
         val headDimInfo: DimInfo = DimInfo(head, headDimSeq)
@@ -600,10 +600,10 @@ object Main extends App {
     val dimMap: Map[Access, Seq[Dim]] = dimInfo.toAccessMap
     (e1, e2) match {
       case (Access(name1, vars1, Tensor), Access(name2, vars2, Tensor)) => { 
-        val e1US: SoP = includeBoundaries(inp1US.body, bounds, e1.asInstanceOf[Access], UniqueSet) 
-        val e2US: SoP = includeBoundaries(inp2US.body, bounds, e2.asInstanceOf[Access], UniqueSet) 
-        val e1RM: SoP = includeBoundaries(inp1RM.body, bounds, e1.asInstanceOf[Access], RedundancyMap) 
-        val e2RM: SoP = includeBoundaries(inp2RM.body, bounds, e2.asInstanceOf[Access], RedundancyMap) 
+        val e1US: SoP = inp1US.body // includeBoundaries(inp1US.body, bounds, e1.asInstanceOf[Access], UniqueSet) 
+        val e2US: SoP = inp2US.body // includeBoundaries(inp2US.body, bounds, e2.asInstanceOf[Access], UniqueSet) 
+        val e1RM: SoP = inp1RM.body // includeBoundaries(inp1RM.body, bounds, e1.asInstanceOf[Access], RedundancyMap) 
+        val e2RM: SoP = inp2RM.body // includeBoundaries(inp2RM.body, bounds, e2.asInstanceOf[Access], RedundancyMap) 
         val e1DimSeq: Seq[Dim] = dimMap.get(e1.asInstanceOf[Access]).getOrElse(Seq.empty)
         val e2DimSeq: Seq[Dim] = dimMap.get(e2.asInstanceOf[Access]).getOrElse(Seq.empty)
         val headDimSeq: Seq[Dim] = (e1DimSeq zip e2DimSeq).foldLeft(Seq.empty[Dim])((acc, cur) => acc :+ Arithmetic("+", cur._1, cur._2))
@@ -666,8 +666,8 @@ object Main extends App {
       val eAccessSeq: Seq[Access] = eSeq.map(e => e.asInstanceOf[Access])
       val nameSeq: Seq[String] = eAccessSeq.map(e => e.name)
       val varsSeq: Seq[Seq[Variable]] = eAccessSeq.map(e => e.vars)
-      val eUS: Seq[SoP] = (inpUSSeq zip eAccessSeq).map{case (r, e) => includeBoundaries(r.body, bounds, e, UniqueSet)}
-      val eRM: Seq[SoP] = (inpRMSeq zip eAccessSeq).map{case (r, e) => includeBoundaries(r.body, bounds, e, RedundancyMap)}
+      val eUS: Seq[SoP] = (inpUSSeq zip eAccessSeq).map{case (r, e) => r.body} // includeBoundaries(r.body, bounds, e, UniqueSet)}
+      val eRM: Seq[SoP] = (inpRMSeq zip eAccessSeq).map{case (r, e) => r.body} // includeBoundaries(r.body, bounds, e, RedundancyMap)}
       val outDimInfo: DimInfo = getSelfProdDimInfo(eAccessSeq, head, dimInfo)
       val n: Int = eUS.length - 1
       val indSeq: Seq[Int] = (0 to n)
@@ -985,7 +985,7 @@ object Main extends App {
         val tDI: DimInfo = DimInfo(tHead, newDimInfo.toAccessMap(tHead))
         return (tUS, tRM, tDI)
       }
-      val n = prods.length - 1
+      val n = tcSeq.length - 1
       val seqInd: Seq[Int] = 2 to n - 1
       val startHead: Access = if (n > 1)  Access(getVar("head"), appendUniqueVars(tcSeq(0).head.vars, tcSeq(1).head.vars).filter(v => nonSizeVariables.contains(v)), Tensor) else head
       val startSoP: SoP = SoP(Seq(Prod(Seq(tcSeq(0).head)), Prod(Seq(tcSeq(1).head))))
@@ -1805,8 +1805,11 @@ object Main extends App {
     val eqVarMapUS: Seq[Map[Variable, Index]] = (eqRepsUS zip equalityVarMapUS).map{case(e1, e2) => mergeMap(Seq(e1, e2))((v1, v2) => v1)}
     val eqVarMapRM: Seq[Map[Variable, Index]] = (eqRepsRM zip equalityVarMapRM).map{case(e1, e2) => mergeMap(Seq(e1, e2))((v1, v2) => v1)}
 
-    val intervalsUS: Seq[Map[Variable, Interval]] = getIntervals(variables, removedNonLHSVarsUS, eqVarMapUS)
-    val intervalsRM: Seq[Map[Variable, Interval]] = getIntervals(variables, removedNonLHSVarsRM, eqVarMapRM)
+    val fixedConditionOrderUS2: Seq[Map[Variable, Seq[(String, Index)]]] = fixConditionOrder(variables, removedNonLHSVarsUS)
+    val fixedConditionOrderRM2: Seq[Map[Variable, Seq[(String, Index)]]] = fixConditionOrder(variables, removedNonLHSVarsRM)
+
+    val intervalsUS: Seq[Map[Variable, Interval]] = getIntervals(variables, fixedConditionOrderUS2, eqVarMapUS)
+    val intervalsRM: Seq[Map[Variable, Interval]] = getIntervals(variables, fixedConditionOrderRM2, eqVarMapRM)
 
     val intervalsSimplifiedUS: Seq[Map[Variable, Interval]] = simplifyIntervals(intervalsUS)
     val intervalsSimplifiedRM: Seq[Map[Variable, Interval]] = simplifyIntervals(intervalsRM)
@@ -3455,7 +3458,7 @@ object Main extends App {
     (tensorComputation, infer(tensorComputation, dimInfo, uniqueSets, redundancyMap))
   }
 
-  // same computation test
+  // same computation test - checked
   def test18(): (Rule, (Rule, Rule, DimInfo)) = {
     val head: Access = Access("M", Seq("x0".toVar, "x1".toVar), Tensor)
     val var1: Access = Access("A",  Seq("x0".toVar), Tensor)
@@ -4033,27 +4036,30 @@ object Main extends App {
       val (degA, degB): (Int, Int) = (n - i, i)
       val nameA: String = if (degA == 0) "count" else if (degA == 1) "cont_sum1" else s"cont_degree$degA"
       val nameB: String = if (degB == 0) "other.count" else if (degB == 1) "other.cont_sum1" else s"other.cont_degree$degB"
-      val xSeqA: Seq[Variable] = (0 to degA - 1).map(i => s"x$i".toVar)
-      val xSeqB: Seq[Variable] = (degA to n - 1).map(i => s"y$i".toVar)
-      val xSeqFakeB: Seq[Variable] = (0 to degB - 1).map(i => s"x$i".toVar)
-      val xMapB: Map[Variable, Variable] = mergeMap(Seq((xSeqFakeB zip xSeqB).toMap, Map[Variable, Variable]("CONT_SZ".toVar -> "CONT_SZ2".toVar)))((v1, v2) => v1)
-      val headFakeB: Access = Access(nameB, xSeqFakeB, Tensor)
-      val (bFakeUS, bFakeRM): (Rule, Rule) = (acc._3.getOrElse(headFakeB, emptyRule), acc._4.getOrElse(headFakeB, emptyRule))
-      val (bUS, bRM): (Rule, Rule) = if (degB != 0) (replaceVars(bFakeUS, xMapB), replaceVars(bFakeRM, xMapB)) else (bFakeUS, bFakeRM)
-      val headA: Access = Access(nameA, xSeqA, Tensor)
-      val headB: Access = Access(nameB, xSeqB, Tensor)
-      val newUS: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](headB -> bUS), acc._3))((v1, v2) => v1)
-      val newRM: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](headB -> bRM), acc._4))((v1, v2) => v1)
-      val dimSeqA: Seq[Variable] = xSeqA.map(i => "CONT_SZ".toVar)
-      val dimSeqB: Seq[Variable] = xSeqB.map(i => "CONT_SZ2".toVar)
-      val dimA: DimInfo = DimInfo(headA, dimSeqA)
-      val dimB: DimInfo = DimInfo(headB, dimSeqB)
-      val dimInfo: Seq[DimInfo] = Seq(dimA, dimB)
-      
-      val compSeqB: Seq[Variable] = (degA to n - 1).map(i => s"x$i".toVar)
-      val comp: Seq[Comparison] = (compSeqB zip xSeqB).map{case (x, y) => Comparison("=", Arithmetic("-", x, "CONT_SZ".toVar), y)}
+      (0 to n - 1).combinations(degA).foldLeft(acc)((acc2, xIndSeq) => {
+        val yIndSeq: Seq[Int] = (0 to n - 1).filter(i => !xIndSeq.contains(i)).toSeq
+        val xSeqA: Seq[Variable] = (0 to degA - 1).map(i => s"x${xIndSeq(i)}".toVar)
+        val xSeqB: Seq[Variable] = (0 to degB - 1).map(i => s"y${yIndSeq(i)}".toVar)
+        val xSeqFakeB: Seq[Variable] = (0 to degB - 1).map(i => s"x$i".toVar)
+        val xMapB: Map[Variable, Variable] = mergeMap(Seq((xSeqFakeB zip xSeqB).toMap, Map[Variable, Variable]("CONT_SZ".toVar -> "CONT_SZ2".toVar)))((v1, v2) => v1)
+        val headFakeB: Access = Access(nameB, xSeqFakeB, Tensor)
+        val (bFakeUS, bFakeRM): (Rule, Rule) = (acc2._3.getOrElse(headFakeB, emptyRule), acc2._4.getOrElse(headFakeB, emptyRule))
+        val (bUS, bRM): (Rule, Rule) = if (degB != 0) (replaceVars(bFakeUS, xMapB), replaceVars(bFakeRM, xMapB)) else (bFakeUS, bFakeRM)
+        val headA: Access = Access(nameA, xSeqA, Tensor)
+        val headB: Access = Access(nameB, xSeqB, Tensor)
+        val newUS: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](headB -> bUS), acc2._3))((v1, v2) => v1)
+        val newRM: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](headB -> bRM), acc2._4))((v1, v2) => v1)
+        val dimSeqA: Seq[Variable] = xSeqA.map(i => "CONT_SZ".toVar)
+        val dimSeqB: Seq[Variable] = xSeqB.map(i => "CONT_SZ2".toVar)
+        val dimA: DimInfo = DimInfo(headA, dimSeqA)
+        val dimB: DimInfo = DimInfo(headB, dimSeqB)
+        val dimInfo: Seq[DimInfo] = Seq(dimA, dimB)
+        
+        val compSeqB: Seq[Variable] = (0 to degB - 1).map(i => s"x${yIndSeq(i)}".toVar)
+        val comp: Seq[Comparison] = (compSeqB zip xSeqB).map{case (x, y) => Comparison("=", Arithmetic("-", x, "CONT_SZ".toVar), y)}
 
-      (acc._1 :+ Prod(Seq(headA, headB) ++ comp), acc._2 ++ dimInfo, newUS, newRM)
+        (acc2._1 :+ Prod(Seq(headA, headB) ++ comp), acc2._2 ++ dimInfo, newUS, newRM)
+      })
     })
     val xSeq: Seq[Variable] = (0 to n - 1).map(i => s"x$i".toVar)
     val head: Access = Access(outName, xSeq, Tensor)
@@ -4088,6 +4094,35 @@ object Main extends App {
     println("===========================================================")
   }
 
+  def e2ePRk(k: Int) = {
+    val allDegs = (2 to 2 * k)
+    val (const_tensorComputation, const_dimInfo, const_uniqueSets, const_redundancyMap) = allDegs.foldLeft((Seq.empty[Rule], Seq.empty[Seq[DimInfo]], Seq.empty[Map[Exp, Rule]], Seq.empty[Map[Exp, Rule]]))((acc, d) => {
+      val res = e2eConstructor(d)
+      (acc._1 :+ res._1, acc._2 :+ res._2, acc._3 :+ res._3, acc._4 :+ res._4)
+    })
+    (0 to const_tensorComputation.length - 1).foldLeft()((acc, i) => println(codeGen(const_tensorComputation(i), const_dimInfo(i), const_uniqueSets(i), const_redundancyMap(i))))
+    println("===========================================================")
+    val us2: Seq[Map[Exp, Rule]] = const_uniqueSets.map(m => m.map{case (k, v) => (Access("other." + k.asInstanceOf[Access].name, k.asInstanceOf[Access].vars, k.asInstanceOf[Access].kind) -> v)}.toMap)
+    val rm2: Seq[Map[Exp, Rule]] = const_redundancyMap.map(m => m.map{case (k, v) => (Access("other." + k.asInstanceOf[Access].name, k.asInstanceOf[Access].vars, k.asInstanceOf[Access].kind) -> v)}.toMap)
+    val us: Seq[Map[Exp, Rule]] = (const_uniqueSets zip us2).map{case(c, n) => mergeMap(Seq(c, n))((v1, v2) => v1)}
+    val rm: Seq[Map[Exp, Rule]] = (const_redundancyMap zip rm2).map{case(c, n) => mergeMap(Seq(c, n))((v1, v2) => v1)}
+
+    val (add_tensorComputation, add_dimInfo, add_uniqueSets, add_redundancyMap) = allDegs.foldLeft((Seq.empty[Rule], Seq.empty[Seq[DimInfo]], Seq.empty[Map[Exp, Rule]], Seq.empty[Map[Exp, Rule]]))((acc, d) => {
+      val res = e2eAddition(d, us(d - 2), rm(d - 2))
+      (acc._1 :+ res._1, acc._2 :+ res._2, acc._3 :+ res._3, acc._4 :+ res._4)
+    })
+    (0 to add_tensorComputation.length - 1).foldLeft()((acc, i) => println(codeGen(add_tensorComputation(i), add_dimInfo(i), add_uniqueSets(i), add_redundancyMap(i))))
+    println("===========================================================")
+
+    val (mult_tensorComputation, mult_dimInfo, mult_uniqueSets, mult_redundancyMap) = allDegs.foldLeft((Seq.empty[Rule], Seq.empty[Seq[DimInfo]], Seq.empty[Map[Exp, Rule]], Seq.empty[Map[Exp, Rule]]))((acc, d) => {
+      val res = e2eMultiplication(d, us(d - 2), rm(d - 2))
+      (acc._1 :+ res._1, acc._2 :+ res._2, acc._3 :+ res._3, acc._4 :+ res._4)
+    })
+    mult_tensorComputation.foldLeft()((_, cur) => println(cur.prettyFormat))
+    (0 to mult_tensorComputation.length - 1).foldLeft()((acc, i) => println(codeGen(mult_tensorComputation(i), mult_dimInfo(i), mult_uniqueSets(i), mult_redundancyMap(i))))
+    println("===========================================================")
+  }
+
   // Chess Pattern is not implemented since it was just a unique set with no computation
   // none of vec(.), //, and || are explained in the paper in mathematical terms + don't know how to implement the code for this example
   // Kronecker product explanation in Fig 7. should have * in it (not +)!
@@ -4111,7 +4146,7 @@ object Main extends App {
   // pprintTest(test15())
   // pprintTest(test16())
   // pprintTest(test17())
-  pprintTest(test18())
+  // pprintTest(test18())
   // pprintTest(selfprodMult(3))
   // pprintTest(selfprodMult(4))
   // pprintTest(selfprodMult(5))
@@ -4123,6 +4158,8 @@ object Main extends App {
   // multiProg1()
   // multiProg2()
   // e2eLR()
+  // e2ePRk(1)
+  e2ePRk(2)
 
   // println("TTM:")
   // pprintTest(ttm(""))
