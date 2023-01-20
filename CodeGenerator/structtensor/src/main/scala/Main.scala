@@ -529,6 +529,7 @@ object Main extends App {
   }
 
   def isShift(exps: Seq[Exp], dimInfo: Seq[DimInfo], outAccess: Access): Boolean = {
+    if (exps.length == 1) return false
     val e: Exp = exps(0)
     val flag: Boolean = exps.slice(1, exps.length).foldLeft(e.isInstanceOf[Access])((acc, cur) => acc && cur.isInstanceOf[Comparison])
     val accessMap: Map[Access, Seq[Dim]] = dimInfo.toAccessMap
@@ -4102,6 +4103,41 @@ object Main extends App {
     (tensorComputation, diF, usF, rmF)
   }
 
+  def e2ePlusEqual(n: Int, us: Map[Exp, Rule], rm: Map[Exp, Rule]) = {
+    val name = if (n == 0) "count" else if (n == 1) "cont_sum1" else s"cont_degree$n"
+    val indSeq: Seq[Int] = (0 to n - 1)
+    val xSeq: Seq[Variable] = indSeq.map(i => s"x$i".toVar)
+    val head: Access = Access(name, xSeq, Tensor)
+    val var2: Access = Access(s"other.$name",  xSeq, Tensor)
+    val prods2: Prod = Prod(Seq(var2))
+    val body: SoP = SoP(Seq(prods2))
+    val tensorComputation: Rule = Rule(head, body)
+
+    val dimSeq: Seq[Variable] = indSeq.map(i => "CONT_SZ".toVar)
+
+    val dim2: DimInfo = DimInfo(var2, dimSeq)
+    val dimInfo: Seq[DimInfo] = Seq(dim2)
+
+    val var2HeadUS: Access = Access(s"other.$name".uniqueName,  xSeq, UniqueSet)
+    val var2BodyUS: SoP = dim2.toSoP
+    val var2US: Rule = Rule(var2HeadUS, var2BodyUS)
+
+    val var2HeadRM: Access = Access(s"other.$name".redundancyName,  xSeq.redundancyVarsInplace, RedundancyMap)
+    val var2BodyRM: SoP = emptySoP
+    val var2RM: Rule = Rule(var2HeadRM, var2BodyRM)
+
+    val uniqueSets: Map[Exp, Rule] = mergeMap(Seq(us, Map[Exp, Rule](var2 -> var2US)))((v1, v2) => v1)
+    val redundancyMap: Map[Exp, Rule] = mergeMap(Seq(rm, Map[Exp, Rule](var2 -> var2RM)))((v1, v2) => v1)
+
+    val inf: (Rule, Rule, DimInfo) = infer(tensorComputation, dimInfo, uniqueSets, redundancyMap)
+
+    val usF: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head -> inf._1), uniqueSets))((v1, v2) => v1)
+    val rmF: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head -> inf._2), redundancyMap))((v1, v2) => v1)
+    val diF: Seq[DimInfo] = dimInfo :+ inf._3
+    
+    (tensorComputation, diF, usF, rmF)
+  }
+
   def e2eMultiplication(n: Int, us: Map[Exp, Rule], rm: Map[Exp, Rule]) = {
     val degrees: Seq[Int] = (0 to n)
     val outName: String = if (n == 0) "r.count" else if (n == 1) "r.cont_sum1" else s"r.cont_degree$n"
@@ -4180,8 +4216,12 @@ object Main extends App {
 
     // println("Initial us and rm DONE")
 
-    val (add_tensorComputation, add_dimInfo, add_uniqueSets, add_redundancyMap) = e2eAddition(2, us, rm)
+    // val (add_tensorComputation, add_dimInfo, add_uniqueSets, add_redundancyMap) = e2eAddition(2, us, rm)
     // println(codeGen(add_tensorComputation, add_dimInfo, add_uniqueSets, add_redundancyMap))
+    // println("===========================================================")
+
+    val (peq_tensorComputation, peq_dimInfo, peq_uniqueSets, peq_redundancyMap) = e2ePlusEqual(2, us, rm)
+    // println(codeGen(peq_tensorComputation, peq_dimInfo, peq_uniqueSets, peq_redundancyMap))
     // println("===========================================================")
 
     val (mult_tensorComputation, mult_dimInfo, mult_uniqueSets, mult_redundancyMap) = e2eMultiplication(2, us, rm)
@@ -4210,20 +4250,27 @@ object Main extends App {
 
     // println("Initial us and rm DONE")
 
-    val (add_tensorComputation, add_dimInfo, add_uniqueSets, add_redundancyMap) = allDegs.foldLeft((Seq.empty[Rule], const_dimInfo, us, rm))((acc, d) => {
-      val res = e2eAddition(d, acc._3, acc._4)
-      (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2))
-    })
+    // val (add_tensorComputation, add_dimInfo, add_uniqueSets, add_redundancyMap) = allDegs.foldLeft((Seq.empty[Rule], const_dimInfo, us, rm))((acc, d) => {
+    //   val res = e2eAddition(d, acc._3, acc._4)
+    //   (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2))
+    // })
     // add_tensorComputation.foldLeft()((acc, ctc) => println(codeGen(ctc, add_dimInfo, add_uniqueSets, add_redundancyMap)))
     // println("===========================================================")
 
-    val (mult_tensorComputation, mult_dimInfo, mult_uniqueSets, mult_redundancyMap) = allDegs.foldLeft((Seq.empty[Rule], const_dimInfo, us, rm))((acc, d) => {
-      val res = e2eMultiplication(d, acc._3, acc._4)
+    val (peq_tensorComputation, peq_dimInfo, peq_uniqueSets, peq_redundancyMap) = allDegs.foldLeft((Seq.empty[Rule], const_dimInfo, us, rm))((acc, d) => {
+      val res = e2ePlusEqual(d, acc._3, acc._4)
       (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2))
     })
-    mult_tensorComputation.foldLeft()((_, cur) => println(cur.prettyFormat))
-    mult_tensorComputation.foldLeft()((acc, ctc) => println(codeGen(ctc, mult_dimInfo, mult_uniqueSets, mult_redundancyMap)))
+    peq_tensorComputation.foldLeft()((acc, ctc) => println(codeGen(ctc, peq_dimInfo, peq_uniqueSets, peq_redundancyMap)))
     println("===========================================================")
+
+    // val (mult_tensorComputation, mult_dimInfo, mult_uniqueSets, mult_redundancyMap) = allDegs.foldLeft((Seq.empty[Rule], const_dimInfo, us, rm))((acc, d) => {
+    //   val res = e2eMultiplication(d, acc._3, acc._4)
+    //   (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2))
+    // })
+    // mult_tensorComputation.foldLeft()((_, cur) => println(cur.prettyFormat))
+    // mult_tensorComputation.foldLeft()((acc, ctc) => println(codeGen(ctc, mult_dimInfo, mult_uniqueSets, mult_redundancyMap)))
+    // println("===========================================================")
   }
 
   // Chess Pattern is not implemented since it was just a unique set with no computation
