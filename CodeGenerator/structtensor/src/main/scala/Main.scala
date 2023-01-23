@@ -1667,7 +1667,7 @@ object Main extends App {
     }})
   }
 
-  def codeGenRule(tensorComputation: Rule, dimInfo: Seq[DimInfo], variables: Seq[Variable], intervals: Seq[Map[Variable, Interval]], equalityVarMap: Seq[Map[Variable, Index]], genType: AccessType, codeMotion: Boolean = false): String = {
+  def codeGenRule(tensorComputation: Rule, dimInfo: Seq[DimInfo], variables: Seq[Variable], intervals: Seq[Map[Variable, Interval]], equalityVarMap: Seq[Map[Variable, Index]], genType: AccessType, codeMotion: Boolean = true): String = {
     // we should make sure that all the variables that are in the right hand side of an addition, we have a condition over them or we don't add them at all. Look at e2eLRDimInfo3.txt, first for loop, for this!
     val vars = if (genType == RedundancyMap) variables.redundancyVarsInplace else variables
     val dimMap: Map[Access, Seq[Dim]] = dimInfo.toAccessMap
@@ -1677,7 +1677,7 @@ object Main extends App {
 
     (intervals zip equalityVarMap).foldLeft("")((acc, mapEqVar) => {
       val map: Map[Variable, Interval] = mapEqVar._1
-      var eqVar: Map[Variable, Index] = mapEqVar._2
+      val eqVar: Map[Variable, Index] = mapEqVar._2
       // println("eqVar:")
       // eqVar.foldLeft()((_, cur) => println(cur._1.prettyFormat  + " -> " + cur._2.prettyFormat))
       var cnt = 0
@@ -1695,11 +1695,11 @@ object Main extends App {
           cnt += 1
           ""
         } else if (areEquals) { // in this case all conditions should not be checked since it might have forward referencing
-          val init = "" // s"int ${variable.cFormat} = ${index.cFormat};"
-          eqVar = mergeMap(Seq(eqVar, Map(variable -> index)))((v1, v2) => v2)
-          val rest = // if (begin != "" && end != "") s"if ($begin <= ${index.cFormat} && ${index.cFormat} < $end) {" 
-          // else if (begin != "" && end == "") s"if ($begin <= ${index.cFormat}) {" 
-          // else if (begin == "" && end != "") s"if (${index.cFormat} < $end) {" 
+          val init = s"int ${variable.cFormat} = ${index.cFormat};"
+          // eqVar = mergeMap(Seq(eqVar, Map(variable -> index)))((v1, v2) => v2)
+          val rest = if (begin != "" && end != "") s"if ($begin <= ${index.cFormat} && ${index.cFormat} < $end) {" 
+          else if (begin != "" && end == "") s"if ($begin <= ${index.cFormat}) {" 
+          else if (begin == "" && end != "") s"if (${index.cFormat} < $end) {" 
           if (false) ""
           else {
             cnt += 1
@@ -1728,17 +1728,17 @@ object Main extends App {
           val di: Seq[DimInfo] = acc2._3
           val diMap: Map[Access, Seq[Dim]] = di.toAccessMap
 
-          val (head, headCode): (Access, String) = if (variableInd._2 != vars.length - 1 || tc.body.prods.length > 1) {
+          val (head, headCode): (Access, String) = if ((variableInd._2 != vars.length - 1 && genType == UniqueSet) || (variableInd._2 != vars.length / 2 - 1 && genType == RedundancyMap) || (tc.body.prods.length > 1 && genType != RedundancyMap)) {
             if (tc.head.vars.length > 0 && tc.head.vars(0) == variable) {
               val head = Access(getVar(s"cm"), tc.head.vars.slice(1, tc.head.vars.length), tc.head.kind) 
-              val headCode = s"auto ${head.name} = ${tc.head.name}[${variable.cFormat(eqVar)}];\n"
+              val headCode = s"auto ${head.name} = &${tc.head.name}[${variable.cFormat(eqVar)}];\n"
               (head, headCode)
             } else (tc.head, "")
           } else (tc.head, "")
 
           val allVars: Set[Variable] = tc.head.vars.toSet ++ eqVar.keySet
           
-          val (bodyProdSeq, bodyCode, newDI): (Seq[Prod], String, Seq[DimInfo]) = if (variableInd._2 != vars.length - 1) {
+          val (bodyProdSeq, bodyCode, newDI): (Seq[Prod], String, Seq[DimInfo]) = if (variableInd._2 != vars.length - 1 && genType != RedundancyMap) {
             tc.body.prods.foldLeft((Seq.empty[Prod], "", di))((acc4, prod) => {
               val allRHSVars: Set[Variable] = prod.exps.foldLeft(Set.empty[Variable])((accRHS, exp) => {
                 exp match {
@@ -1773,7 +1773,7 @@ object Main extends App {
                       if (fb) "NOT!HAPPENING!" else if (fe) s"${v.cFormat(eqVar)} < ${d.cFormat(eqVar)}" else ""
                     } else ""
 
-                    val accCode = if (conds.contains("NOT!HAPPENING!")) "" else if (conds == "") s"auto ${newAcc.name} = ${access.name}[${variable.cFormat(eqVar)}];\n" else s"auto ${newAcc.name} = ($conds) ? ${access.name}[${variable.cFormat(eqVar)}] : 0;\n"
+                    val accCode = if (conds.contains("NOT!HAPPENING!")) "" else if (conds == "") s"auto ${newAcc.name} = &${access.name}[${variable.cFormat(eqVar)}];\n" else s"auto ${newAcc.name} = ($conds) ? &${access.name}[${variable.cFormat(eqVar)}] : 0;\n"
                     (newAcc, accCode, newDI)
                   } else (access, "", Seq.empty[DimInfo])
                   (acc3._1 :+ newAcc, s"${acc3._2}$accCode", acc3._3 ++ newDI)
@@ -1792,8 +1792,8 @@ object Main extends App {
 
       // why constants are not exp as well? Then I could replace the comparison below by ConstantInt(1) instead.
       val tcBody: SoP = if (tc.body == emptySoP()) SoP(Seq(Prod(Seq(Comparison("=", ConstantInt(0), getVar("rndVar").toVar))))) else tc.body // if it's only comparison, then it was just a bunch of comparison multiplications so their value is only 1. Their ranges is inside unique set and redundancy maps already.
-      val allVars: Set[Variable] = tc.head.vars.toSet ++ eqVar.keySet
-      val body = if (genType == RedundancyMap) s"${tc.head.cFormat(eqVar)} = ${Access(tc.head.name, tc.head.vars.redundancyVars, tc.head.kind).cFormat(eqVar)};" else {
+      val allVars: Set[Variable] = tensorComputation.head.vars.toSet ++ eqVar.keySet
+      val body = if (genType == RedundancyMap) s"${tc.head.cFormat(eqVar)} = ${Access(tensorComputation.head.name, tensorComputation.head.vars.redundancyVars, tensorComputation.head.kind).cFormat(eqVar)};" else {
         if (tcBody.prods.length == 1) s"${tc.head.cFormat(eqVar)} += ${tcBody.cFormat(eqVar)};"
         else (tcBody.prods zip tcBodya.prods).foldLeft("")((acc, prodAProd) => {
           val prod: Prod = prodAProd._1
@@ -2089,7 +2089,7 @@ object Main extends App {
     val var1HeadUS: Access = Access("A".uniqueName,  Seq(Variable("x"), Variable("y")), UniqueSet)
     val var1ExpUS: Exp = Comparison("<=", Variable("x"), Variable("y"))
     val var1ProdsUS: Prod = Prod(Seq(var1ExpUS))
-    val var1BodyUS: SoP = SoP(Seq(var1ProdsUS))
+    val var1BodyUS: SoP = multSoP(Seq(SoP(Seq(var1ProdsUS)), dim1.toSoP))
     val var1US: Rule = Rule(var1HeadUS, var1BodyUS)
 
     val var1HeadRM: Access = Access("A".redundancyName,  Seq(Variable("x"), Variable("y"), Variable("x").redundancyVars, Variable("y").redundancyVars), RedundancyMap)
@@ -2097,13 +2097,13 @@ object Main extends App {
     val var1ExpRM2: Exp = Comparison("=", Variable("x").redundancyVars, Variable("y"))
     val var1ExpRM3: Exp = Comparison("=", Variable("y").redundancyVars, Variable("x"))
     val var1ProdsRM: Prod = Prod(Seq(var1ExpRM1, var1ExpRM2, var1ExpRM3))
-    val var1BodyRM: SoP = SoP(Seq(var1ProdsRM))
+    val var1BodyRM: SoP = multSoP(Seq(SoP(Seq(var1ProdsRM)), dim1.toSoP))
     val var1RM: Rule = Rule(var1HeadRM, var1BodyRM)
 
     val var2HeadUS: Access = Access("B".uniqueName,  Seq(Variable("x"), Variable("y")), UniqueSet)
     val var2ExpUS: Exp = Comparison(">=", Variable("x"), Variable("y"))
     val var2ProdsUS: Prod = Prod(Seq(var2ExpUS))
-    val var2BodyUS: SoP = SoP(Seq(var2ProdsUS))
+    val var2BodyUS: SoP = multSoP(Seq(SoP(Seq(var2ProdsUS)), dim2.toSoP))
     val var2US: Rule = Rule(var2HeadUS, var2BodyUS)
 
     val var2HeadRM: Access = Access("B".redundancyName,  Seq(Variable("x"), Variable("y"), Variable("x").redundancyVars, Variable("y").redundancyVars), RedundancyMap)
@@ -2111,7 +2111,7 @@ object Main extends App {
     val var2ExpRM2: Exp = Comparison("=", Variable("x").redundancyVars, Variable("y"))
     val var2ExpRM3: Exp = Comparison("=", Variable("y").redundancyVars, Variable("x"))
     val var2ProdsRM: Prod = Prod(Seq(var2ExpRM1, var2ExpRM2, var2ExpRM3))
-    val var2BodyRM: SoP = SoP(Seq(var2ProdsRM))
+    val var2BodyRM: SoP = multSoP(Seq(SoP(Seq(var2ProdsRM)), dim2.toSoP))
     val var2RM: Rule = Rule(var2HeadRM, var2BodyRM)
 
     val uniqueSets: Map[Exp, Rule] = Map(var1 -> var1US, var2 -> var2US)
@@ -2140,7 +2140,7 @@ object Main extends App {
     val var1HeadUS: Access = Access("A".uniqueName,  Seq(Variable("x"), Variable("y")), UniqueSet)
     val var1ExpUS: Exp = Comparison("<=", Variable("x"), Variable("y"))
     val var1ProdsUS: Prod = Prod(Seq(var1ExpUS))
-    val var1BodyUS: SoP = SoP(Seq(var1ProdsUS))
+    val var1BodyUS: SoP = multSoP(Seq(SoP(Seq(var1ProdsUS)), dim1.toSoP))
     val var1US: Rule = Rule(var1HeadUS, var1BodyUS)
 
     val var1HeadRM: Access = Access("A".redundancyName,  Seq(Variable("x"), Variable("y"), Variable("x").redundancyVars, Variable("y").redundancyVars), RedundancyMap)
@@ -2148,13 +2148,13 @@ object Main extends App {
     val var1ExpRM2: Exp = Comparison("=", Variable("x").redundancyVars, Variable("y"))
     val var1ExpRM3: Exp = Comparison("=", Variable("y").redundancyVars, Variable("x"))
     val var1ProdsRM: Prod = Prod(Seq(var1ExpRM1, var1ExpRM2, var1ExpRM3))
-    val var1BodyRM: SoP = SoP(Seq(var1ProdsRM))
+    val var1BodyRM: SoP = multSoP(Seq(SoP(Seq(var1ProdsRM)), dim1.toSoP))
     val var1RM: Rule = Rule(var1HeadRM, var1BodyRM)
 
     val var2HeadUS: Access = Access("B".uniqueName,  Seq(Variable("x"), Variable("y")), UniqueSet)
     val var2ExpUS: Exp = Comparison(">=", Variable("x"), Variable("y"))
     val var2ProdsUS: Prod = Prod(Seq(var2ExpUS))
-    val var2BodyUS: SoP = SoP(Seq(var2ProdsUS))
+    val var2BodyUS: SoP = multSoP(Seq(SoP(Seq(var2ProdsUS)), dim2.toSoP))
     val var2US: Rule = Rule(var2HeadUS, var2BodyUS)
 
     val var2HeadRM: Access = Access("B".redundancyName,  Seq(Variable("x"), Variable("y"), Variable("x").redundancyVars, Variable("y").redundancyVars), RedundancyMap)
@@ -2162,7 +2162,7 @@ object Main extends App {
     val var2ExpRM2: Exp = Comparison("=", Variable("x").redundancyVars, Variable("y"))
     val var2ExpRM3: Exp = Comparison("=", Variable("y").redundancyVars, Variable("x"))
     val var2ProdsRM: Prod = Prod(Seq(var2ExpRM1, var2ExpRM2, var2ExpRM3))
-    val var2BodyRM: SoP = SoP(Seq(var2ProdsRM))
+    val var2BodyRM: SoP = multSoP(Seq(SoP(Seq(var2ProdsRM)), dim2.toSoP))
     val var2RM: Rule = Rule(var2HeadRM, var2BodyRM)
 
     val uniqueSets: Map[Exp, Rule] = Map(var1 -> var1US, var2 -> var2US)
@@ -2283,7 +2283,7 @@ object Main extends App {
     val var1HeadUS: Access = Access(in1Name.uniqueName, in1SeqVar, UniqueSet)
     val var1ExpUS1: Exp = Comparison("=", "i".toVar, "r".toVar)
     val var1ProdsUS: Prod = Prod(Seq(var1ExpUS1))
-    val var1BodyUS: SoP = SoP(Seq(var1ProdsUS))
+    val var1BodyUS: SoP = multSoP(Seq(dim1.toSoP, SoP(Seq(var1ProdsUS))))
     val var1US: Rule = Rule(var1HeadUS, var1BodyUS)
 
     val var1HeadRM: Access = Access(in1Name.redundancyName,  in1SeqVar.redundancyVarsInplace, RedundancyMap)
@@ -2293,7 +2293,7 @@ object Main extends App {
     val var2HeadUS: Access = Access(in2Name.uniqueName,  in2SeqVar, UniqueSet)
     val var2ExpUS1: Exp = Comparison("=", "k".toVar, "j".toVar)
     val var2ProdsUS: Prod = Prod(Seq(var2ExpUS1))
-    val var2BodyUS: SoP = SoP(Seq(var2ProdsUS))
+    val var2BodyUS: SoP = multSoP(Seq(dim2.toSoP, SoP(Seq(var2ProdsUS))))
     val var2US: Rule = Rule(var2HeadUS, var2BodyUS)
 
     val var2HeadRM: Access = Access(in2Name.redundancyName,  in2SeqVar.redundancyVarsInplace, RedundancyMap)
@@ -2332,7 +2332,7 @@ object Main extends App {
     val var1HeadUS: Access = Access(in1Name.uniqueName, in1SeqVar, UniqueSet)
     val var1ExpUS1: Exp = Comparison("<=", "i".toVar, "j".toVar)
     val var1ProdsUS: Prod = Prod(Seq(var1ExpUS1))
-    val var1BodyUS: SoP = SoP(Seq(var1ProdsUS))
+    val var1BodyUS: SoP = multSoP(Seq(dim1.toSoP, SoP(Seq(var1ProdsUS))))
     val var1US: Rule = Rule(var1HeadUS, var1BodyUS)
 
     val var1HeadRM: Access = Access(in1Name.redundancyName,  in1SeqVar.redundancyVarsInplace, RedundancyMap)
@@ -2342,7 +2342,7 @@ object Main extends App {
     val var2HeadUS: Access = Access(in2Name.uniqueName,  in2SeqVar, UniqueSet)
     val var2ExpUS1: Exp = Comparison("<=", "i".toVar, "j".toVar)
     val var2ProdsUS: Prod = Prod(Seq(var2ExpUS1))
-    val var2BodyUS: SoP = SoP(Seq(var2ProdsUS))
+    val var2BodyUS: SoP = multSoP(Seq(dim2.toSoP, SoP(Seq(var2ProdsUS))))
     val var2US: Rule = Rule(var2HeadUS, var2BodyUS)
 
     val var2HeadRM: Access = Access(in2Name.redundancyName,  in2SeqVar.redundancyVarsInplace, RedundancyMap)
@@ -2385,7 +2385,7 @@ object Main extends App {
     val var1HeadUS: Access = Access(in1Name.uniqueName, in1SeqVar, UniqueSet)
     val var1ExpUS1: Exp = Comparison(">", "x1".toVar, "x2".toVar)
     val var1ProdsUS: Prod = Prod(Seq(var1ExpUS1))
-    val var1BodyUS: SoP = SoP(Seq(var1ProdsUS))
+    val var1BodyUS: SoP = multSoP(Seq(dim1.toSoP, SoP(Seq(var1ProdsUS))))
     val var1US: Rule = Rule(var1HeadUS, var1BodyUS)
 
     val var1HeadRM: Access = Access(in1Name.redundancyName,  in1SeqVar.redundancyVarsInplace, RedundancyMap)
@@ -2395,7 +2395,7 @@ object Main extends App {
     val var2HeadUS: Access = Access(in2Name.uniqueName,  in2SeqVar, UniqueSet)
     val var2ExpUS1: Exp = Comparison("<=", "x4".toVar, "x5".toVar)
     val var2ProdsUS: Prod = Prod(Seq(var2ExpUS1))
-    val var2BodyUS: SoP = SoP(Seq(var2ProdsUS))
+    val var2BodyUS: SoP = multSoP(Seq(dim2.toSoP, SoP(Seq(var2ProdsUS))))
     val var2US: Rule = Rule(var2HeadUS, var2BodyUS)
 
     val var2HeadRM: Access = Access(in2Name.redundancyName,  in2SeqVar.redundancyVarsInplace, RedundancyMap)
@@ -2403,7 +2403,7 @@ object Main extends App {
     val var2ExpRM2: Exp = Comparison("=", "x4".redundancyVars, "x5".toVar)
     val var2ExpRM3: Exp = Comparison("=", "x5".redundancyVars, "x4".toVar)
     val var2ProdsRM: Prod = Prod(Seq(var2ExpRM1, var2ExpRM2, var2ExpRM3))
-    val var2BodyRM: SoP = SoP(Seq(var2ProdsRM))
+    val var2BodyRM: SoP = multSoP(Seq(dim2.toSoP, SoP(Seq(var2ProdsRM))))
     val var2RM: Rule = Rule(var2HeadRM, var2BodyRM)
 
     val uniqueSets: Map[Exp, Rule] = Map(var1 -> var1US, var2 -> var2US)
@@ -2546,7 +2546,7 @@ object Main extends App {
     val var1HeadUS: Access = Access(in1Name.uniqueName, in1SeqVar, UniqueSet)
     val var1ExpUS1: Exp = Comparison("<=", "i".toVar, "j".toVar)
     val var1ProdsUS: Prod = Prod(Seq(var1ExpUS1))
-    val var1BodyUS: SoP = SoP(Seq(var1ProdsUS))
+    val var1BodyUS: SoP = multSoP(Seq(dim1.toSoP, SoP(Seq(var1ProdsUS))))
     val var1US: Rule = Rule(var1HeadUS, var1BodyUS)
 
     val var1HeadRM: Access = Access(in1Name.redundancyName,  in1SeqVar.redundancyVarsInplace, RedundancyMap)
@@ -2556,7 +2556,7 @@ object Main extends App {
     val var2HeadUS: Access = Access(in2Name.uniqueName,  in2SeqVar, UniqueSet)
     val var2ExpUS1: Exp = Comparison("=", "l".toVar, "k".toVar)
     val var2ProdsUS: Prod = Prod(Seq(var2ExpUS1))
-    val var2BodyUS: SoP = SoP(Seq(var2ProdsUS))
+    val var2BodyUS: SoP = multSoP(Seq(dim2.toSoP, SoP(Seq(var2ProdsUS))))
     val var2US: Rule = Rule(var2HeadUS, var2BodyUS)
 
     val var2HeadRM: Access = Access(in2Name.redundancyName,  in2SeqVar.redundancyVarsInplace, RedundancyMap)
@@ -2574,7 +2574,7 @@ object Main extends App {
     val var4HeadUS: Access = Access(in4Name.uniqueName,  in4SeqVar, UniqueSet)
     val var4ExpUS1: Exp = Comparison("<=", "i".toVar, "k".toVar)
     val var4ProdsUS: Prod = Prod(Seq(var4ExpUS1))
-    val var4BodyUS: SoP = SoP(Seq(var4ProdsUS))
+    val var4BodyUS: SoP = multSoP(Seq(dim4.toSoP, SoP(Seq(var4ProdsUS))))
     val var4US: Rule = Rule(var4HeadUS, var4BodyUS)
 
     val var4HeadRM: Access = Access(in4Name.redundancyName,  in4SeqVar.redundancyVarsInplace, RedundancyMap)
@@ -3132,7 +3132,7 @@ object Main extends App {
     val var1HeadUS: Access = Access(in1Name.uniqueName, in1SeqVar, UniqueSet)
     val var1ExpUS1: Exp = Comparison("=", "p".toVar, "q".toVar)
     val var1ProdsUS: Prod = Prod(Seq(var1ExpUS1))
-    val var1BodyUS: SoP = SoP(Seq(var1ProdsUS))
+    val var1BodyUS: SoP = multSoP(Seq(dim1.toSoP, SoP(Seq(var1ProdsUS))))
     val var1US: Rule = Rule(var1HeadUS, var1BodyUS)
 
     val var1HeadRM: Access = Access(in1Name.redundancyName,  in1SeqVar.redundancyVarsInplace, RedundancyMap)
@@ -3142,7 +3142,7 @@ object Main extends App {
     val var2HeadUS: Access = Access(in2Name.uniqueName,  in2SeqVar, UniqueSet)
     val var2ExpUS1: Exp = Comparison("=", "r".toVar, "s".toVar)
     val var2ProdsUS: Prod = Prod(Seq(var2ExpUS1))
-    val var2BodyUS: SoP = SoP(Seq(var2ProdsUS))
+    val var2BodyUS: SoP = multSoP(Seq(dim2.toSoP, SoP(Seq(var2ProdsUS))))
     val var2US: Rule = Rule(var2HeadUS, var2BodyUS)
 
     val var2HeadRM: Access = Access(in2Name.redundancyName,  in2SeqVar.redundancyVarsInplace, RedundancyMap)
@@ -3257,7 +3257,7 @@ object Main extends App {
     val var1HeadUS: Access = Access(in1Name.uniqueName, in1SeqVar, UniqueSet)
     val var1ExpUS1: Exp = Comparison("=", "p".toVar, "q".toVar)
     val var1ProdsUS: Prod = Prod(Seq(var1ExpUS1))
-    val var1BodyUS: SoP = SoP(Seq(var1ProdsUS))
+    val var1BodyUS: SoP = multSoP(Seq(dim1.toSoP, SoP(Seq(var1ProdsUS))))
     val var1US: Rule = Rule(var1HeadUS, var1BodyUS)
 
     val var1HeadRM: Access = Access(in1Name.redundancyName,  in1SeqVar.redundancyVarsInplace, RedundancyMap)
@@ -3267,7 +3267,7 @@ object Main extends App {
     val var2HeadUS: Access = Access(in2Name.uniqueName,  in2SeqVar, UniqueSet)
     val var2ExpUS1: Exp = Comparison("=", "r".toVar, "s".toVar)
     val var2ProdsUS: Prod = Prod(Seq(var2ExpUS1))
-    val var2BodyUS: SoP = SoP(Seq(var2ProdsUS))
+    val var2BodyUS: SoP = multSoP(Seq(dim2.toSoP, SoP(Seq(var2ProdsUS))))
     val var2US: Rule = Rule(var2HeadUS, var2BodyUS)
 
     val var2HeadRM: Access = Access(in2Name.redundancyName,  in2SeqVar.redundancyVarsInplace, RedundancyMap)
@@ -3788,17 +3788,17 @@ object Main extends App {
       case "diag_p" => {
         val var1ExpUS1: Exp = Comparison("=", "i".toVar, "j".toVar)
         val var1ProdsUS: Prod = Prod(Seq(var1ExpUS1))
-        SoP(Seq(var1ProdsUS))
+        multSoP(Seq(dim1.toSoP, SoP(Seq(var1ProdsUS))))
       }
       case "fixed_j" => {
         val var1ExpUS1: Exp = Comparison("=", "j".toVar, "J".toVar)
         val var1ProdsUS: Prod = Prod(Seq(var1ExpUS1))
-        SoP(Seq(var1ProdsUS))
+        multSoP(Seq(dim1.toSoP, SoP(Seq(var1ProdsUS))))
       }
       case "uhc" => {
         val var1ExpUS1: Exp = Comparison("<=", "i".toVar, "j".toVar)
         val var1ProdsUS: Prod = Prod(Seq(var1ExpUS1))
-        SoP(Seq(var1ProdsUS))
+        multSoP(Seq(dim1.toSoP, SoP(Seq(var1ProdsUS))))
       }
       case _ => dim1.toSoP
     } 
@@ -3842,17 +3842,17 @@ object Main extends App {
       case "diag_p" => {
         val var1ExpUS1: Exp = Comparison("=", "i".toVar, "j".toVar)
         val var1ProdsUS: Prod = Prod(Seq(var1ExpUS1))
-        SoP(Seq(var1ProdsUS))
+        multSoP(Seq(dim1.toSoP, SoP(Seq(var1ProdsUS))))
       }
       case "fixed_i" => {
         val var1ExpUS1: Exp = Comparison("=", "i".toVar, "I".toVar)
         val var1ProdsUS: Prod = Prod(Seq(var1ExpUS1))
-        SoP(Seq(var1ProdsUS))
+        multSoP(Seq(dim1.toSoP, SoP(Seq(var1ProdsUS))))
       }
       case "fixed_j" => {
         val var1ExpUS1: Exp = Comparison("=", "j".toVar, "J".toVar)
         val var1ProdsUS: Prod = Prod(Seq(var1ExpUS1))
-        SoP(Seq(var1ProdsUS))
+        multSoP(Seq(dim1.toSoP, SoP(Seq(var1ProdsUS))))
       }
       case _ => dim1.toSoP
     } 
@@ -3905,17 +3905,17 @@ object Main extends App {
         val var1ExpUS1: Exp = Comparison("=", "i".toVar, "I".toVar)
         val var1ExpUS2: Exp = Comparison("=", "j".toVar, "J".toVar)
         val var1ProdsUS: Prod = Prod(Seq(var1ExpUS1, var1ExpUS2))
-        SoP(Seq(var1ProdsUS))
+        multSoP(Seq(dim1.toSoP, SoP(Seq(var1ProdsUS))))
       }
       case "fixed_i" => {
         val var1ExpUS1: Exp = Comparison("=", "i".toVar, "I".toVar)
         val var1ProdsUS: Prod = Prod(Seq(var1ExpUS1))
-        SoP(Seq(var1ProdsUS))
+        multSoP(Seq(dim1.toSoP, SoP(Seq(var1ProdsUS))))
       }
       case "fixed_j" => {
         val var1ExpUS1: Exp = Comparison("=", "j".toVar, "J".toVar)
         val var1ProdsUS: Prod = Prod(Seq(var1ExpUS1))
-        SoP(Seq(var1ProdsUS))
+        multSoP(Seq(dim1.toSoP, SoP(Seq(var1ProdsUS))))
       }
       case _ => dim1.toSoP
     } 
@@ -3982,17 +3982,17 @@ object Main extends App {
         val var1ExpUS1: Exp = Comparison("=", "i".toVar, "I".toVar)
         val var1ExpUS2: Exp = Comparison("=", "j".toVar, "J".toVar)
         val var1ProdsUS: Prod = Prod(Seq(var1ExpUS1, var1ExpUS2))
-        SoP(Seq(var1ProdsUS))
+        multSoP(Seq(dim1.toSoP, SoP(Seq(var1ProdsUS))))
       }
       case "fixed_i" => {
         val var1ExpUS1: Exp = Comparison("=", "i".toVar, "I".toVar)
         val var1ProdsUS: Prod = Prod(Seq(var1ExpUS1))
-        SoP(Seq(var1ProdsUS))
+        multSoP(Seq(dim1.toSoP, SoP(Seq(var1ProdsUS))))
       }
       case "fixed_j" => {
         val var1ExpUS1: Exp = Comparison("=", "j".toVar, "J".toVar)
         val var1ProdsUS: Prod = Prod(Seq(var1ExpUS1))
-        SoP(Seq(var1ProdsUS))
+        multSoP(Seq(dim1.toSoP, SoP(Seq(var1ProdsUS))))
       }
       case _ => dim1.toSoP
     } 
@@ -4287,7 +4287,7 @@ object Main extends App {
   // pprintTest(test8n())
   // pprintTest(test9())
   // pprintTest(test9n())
-  // pprintTest(test10())
+  // pprintTest(test10()) // do not test this. It is not a valid test.
   // pprintTest(test11())
   // pprintTest(test12())
   // pprintTest(test13())
@@ -4309,7 +4309,7 @@ object Main extends App {
   // multiProg2()
   // e2eLR()
   // e2ePRk(1)
-  e2ePRk(2)
+  // e2ePRk(2)
 
   // println("TTM:")
   // pprintTest(ttm(""))
