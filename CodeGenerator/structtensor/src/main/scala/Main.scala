@@ -1667,7 +1667,7 @@ object Main extends App {
     }})
   }
 
-  def codeGenRule(tensorComputation: Rule, dimInfo: Seq[DimInfo], variables: Seq[Variable], intervals: Seq[Map[Variable, Interval]], equalityVarMap: Seq[Map[Variable, Index]], genType: AccessType, codeMotion: Boolean = true): String = {
+  def codeGenRule(tensorComputation: Rule, dimInfo: Seq[DimInfo], variables: Seq[Variable], intervals: Seq[Map[Variable, Interval]], equalityVarMap: Seq[Map[Variable, Index]], genType: AccessType, codeMotion: Boolean = false): String = {
     // we should make sure that all the variables that are in the right hand side of an addition, we have a condition over them or we don't add them at all. Look at e2eLRDimInfo3.txt, first for loop, for this!
     val vars = if (genType == RedundancyMap) variables.redundancyVarsInplace else variables
     val dimMap: Map[Access, Seq[Dim]] = dimInfo.toAccessMap
@@ -1700,7 +1700,6 @@ object Main extends App {
           val rest = if (begin != "" && end != "") s"if ($begin <= ${index.cFormat} && ${index.cFormat} < $end) {" 
           else if (begin != "" && end == "") s"if ($begin <= ${index.cFormat}) {" 
           else if (begin == "" && end != "") s"if (${index.cFormat} < $end) {" 
-          if (false) ""
           else {
             cnt += 1
             s""
@@ -1847,7 +1846,7 @@ object Main extends App {
     })
   }
 
-  def codeGen(tensorComputation: Rule, dimInfo: Seq[DimInfo], uniqueSets: Map[Exp, Rule], redundancyMaps: Map[Exp, Rule]): String = {
+  def codeGen(tensorComputation: Rule, dimInfo: Seq[DimInfo], uniqueSets: Map[Exp, Rule], redundancyMaps: Map[Exp, Rule], variableReplacementFlag: Boolean = false): String = {
     val variables: Seq[Variable] = getVariables(tensorComputation)
     val (outUS, outRM, outDI) = infer(tensorComputation, dimInfo, uniqueSets, redundancyMaps)
     val allDimVars: Seq[Variable] = dimInfo.toVarsMap.values.foldLeft(Seq.empty[Dim])((acc, dimSeq) => acc ++ dimSeq).foldLeft(Seq.empty[Variable])((acc, d) => acc ++ getVariables(d))
@@ -1873,14 +1872,17 @@ object Main extends App {
     val fixedConditionOrderUS: Seq[Map[Variable, Seq[(String, Index)]]] = fixConditionOrder(variables, distinctConditionMapUS)
     val fixedConditionOrderRM: Seq[Map[Variable, Seq[(String, Index)]]] = fixConditionOrder(variables, distinctConditionMapRM)
 
-    val (removedNonLHSVarsUS, equalityVarMapUS): (Seq[Map[Variable, Seq[(String, Index)]]], Seq[Map[Variable, Index]]) = removeNonLHSEQVars(tensorComputation.head.vars, fixedConditionOrderUS)
-    val (removedNonLHSVarsRM, equalityVarMapRM): (Seq[Map[Variable, Seq[(String, Index)]]], Seq[Map[Variable, Index]]) = removeNonLHSEQVars(tensorComputation.head.vars.redundancyVarsInplace, fixedConditionOrderRM)
+    val (fixedConditionOrderUS2, fixedConditionOrderRM2, eqVarMapUS, eqVarMapRM) = if (variableReplacementFlag) {
+      val (removedNonLHSVarsUS, equalityVarMapUS): (Seq[Map[Variable, Seq[(String, Index)]]], Seq[Map[Variable, Index]]) = removeNonLHSEQVars(tensorComputation.head.vars, fixedConditionOrderUS)
+      val (removedNonLHSVarsRM, equalityVarMapRM): (Seq[Map[Variable, Seq[(String, Index)]]], Seq[Map[Variable, Index]]) = removeNonLHSEQVars(tensorComputation.head.vars.redundancyVarsInplace, fixedConditionOrderRM)
 
-    val eqVarMapUS: Seq[Map[Variable, Index]] = (eqRepsUS zip equalityVarMapUS).map{case(e1, e2) => mergeMap(Seq(e1, e2))((v1, v2) => v1)}
-    val eqVarMapRM: Seq[Map[Variable, Index]] = (eqRepsRM zip equalityVarMapRM).map{case(e1, e2) => mergeMap(Seq(e1, e2))((v1, v2) => v1)}
+      val eqVarMapUS: Seq[Map[Variable, Index]] = (eqRepsUS zip equalityVarMapUS).map{case(e1, e2) => mergeMap(Seq(e1, e2))((v1, v2) => v1)}
+      val eqVarMapRM: Seq[Map[Variable, Index]] = (eqRepsRM zip equalityVarMapRM).map{case(e1, e2) => mergeMap(Seq(e1, e2))((v1, v2) => v1)}
 
-    val fixedConditionOrderUS2: Seq[Map[Variable, Seq[(String, Index)]]] = fixConditionOrder(variables, removedNonLHSVarsUS)
-    val fixedConditionOrderRM2: Seq[Map[Variable, Seq[(String, Index)]]] = fixConditionOrder(variables, removedNonLHSVarsRM)
+      val fixedConditionOrderUS2: Seq[Map[Variable, Seq[(String, Index)]]] = fixConditionOrder(variables, removedNonLHSVarsUS)
+      val fixedConditionOrderRM2: Seq[Map[Variable, Seq[(String, Index)]]] = fixConditionOrder(variables, removedNonLHSVarsRM)
+      (fixedConditionOrderUS2, fixedConditionOrderRM2, eqVarMapUS, eqVarMapRM)
+    } else (fixedConditionOrderUS, fixedConditionOrderRM, fixedConditionOrderUS.map(_ => Map.empty[Variable, Index]), fixedConditionOrderRM.map(_ => Map.empty[Variable, Index]))
 
     val intervalsUS: Seq[Map[Variable, Interval]] = getIntervals(variables, fixedConditionOrderUS2, eqVarMapUS)
     val intervalsRM: Seq[Map[Variable, Interval]] = getIntervals(variables, fixedConditionOrderRM2, eqVarMapRM)
@@ -4282,7 +4284,7 @@ object Main extends App {
   // pprintTest(test4())
   // pprintTest(test5())
   // pprintTest(test6())
-  // pprintTest(test7())
+  pprintTest(test7())
   // pprintTest(test8())
   // pprintTest(test8n())
   // pprintTest(test9())
