@@ -706,8 +706,7 @@ object Main extends App {
           val eRed = (inpRMSeq zip varsSeq).map{case (r, v) => r.head.vars.diff(v)}
           val eUS_allvars: Seq[SoP] = (eUS zip varsSeq zip eRed).map{case ((us, v), red) => SoPTimesSoP(us, SoP(Seq(vectorizeComparisonMultiplication("=", v, red))))}
           val cRed: Seq[Seq[SoP]] = eRed.map(red => varsSeq.map(v => SoP(Seq(vectorizeComparisonMultiplication("=", red, v)))))
-          val clt: Seq[Seq[SoP]] = varsSeq.map(v1 => varsSeq.map(v2 => SoP(Seq(vectorizeComparisonMultiplication("<", v1, v2)))))
-          val ceq: Seq[Seq[SoP]] = varsSeq.map(v1 => varsSeq.map(v2 => SoP(Seq(vectorizeComparisonMultiplication("=", v1, v2)))))
+          val cleq: Seq[Seq[SoP]] = varsSeq.map(v1 => varsSeq.map(v2 => SoP(Seq(vectorizeComparisonMultiplication("<=", v1, v2)))))
 
           val bodyUSSeq: Seq[SoP] = (0 to n - 1).map(ind => SoP(Seq(vectorizeComparisonMultiplication("<=", varsSeq(ind), varsSeq(ind + 1)))))
           val bodyUS: SoP = multSoP(eUS ++ bodyUSSeq)
@@ -722,23 +721,13 @@ object Main extends App {
             })
           })
           val indeSeqPerm: Iterator[Seq[Int]] = indSeq.permutations
-          val sg: List[List[String]] = (0 to n - 1).map(ind => List("=", "<")).toList
-          val travOps: Traversable[Traversable[String]] = crossJoin(sg)
-          val ops: Seq[Seq[String]] = travOps.map(s => s.toSeq).toSeq
           val bodyRMSeq2: Seq[SoP] = indeSeqPerm.zipWithIndex.foldLeft(Seq.empty[SoP])((acc, cur) => {
             val (iters, x) = (cur._1, cur._2)
-            if (x != 0) acc ++ ops.zipWithIndex.foldLeft(Seq.empty[SoP])((acc2, cur2) => {
-              val (op, x_sg) = (cur2._1, cur2._2)
-              if (x_sg != 0) {
-                val conds: Seq[SoP] = (0 to iters.length - 2).map(i => {
-                  if (op(i) == "<") clt(iters(i))(iters(i + 1))
-                  else ceq(iters(i))(iters(i + 1))
-                })
-                val cReds: Seq[SoP] = iters.zipWithIndex.map{case (iter, i) => cRed(i)(iter)}
-                acc2 :+ multSoP(eUS ++ conds ++ cReds)
-              } else acc2
-            })
-            else acc
+            if (x != 0) {
+              val conds: Seq[SoP] = (0 to iters.length - 2).map(i => cleq(iters(i))(iters(i + 1)))
+              val cReds: Seq[SoP] = (0 to iters.length - 1).map(i => cRed(i)(iters(i)))
+              acc :+ multSoP(eUS ++ conds ++ cReds)
+            } else acc
           })
           val bodyRM: SoP = concatSoP(bodyRMSeq1 ++ bodyRMSeq2)
           
@@ -1430,8 +1419,8 @@ object Main extends App {
     (fixedConditionOrder zip eqVarMap).foldLeft(Seq.empty[Map[Variable, Interval]])((acc, cur) => acc :+ getIntervals(variables, cur._1, cur._2))
   }
 
-  def getStringChain(indexSeq: Seq[Index]): String = {
-    val str = indexSeq.foldLeft("")((acc, index) => s"$acc, ${index.cFormat}")
+  def getStringChain(indexSeq: Seq[Index], m: Map[Variable, Index]): String = {
+    val str = indexSeq.foldLeft("")((acc, index) => s"$acc, ${index.cFormat(m)}")
     if (str.length > 0) str.substring(2, str.length)
     else str
   }
@@ -1667,13 +1656,17 @@ object Main extends App {
     }})
   }
 
-  def codeGenRule(tensorComputation: Rule, dimInfo: Seq[DimInfo], variables: Seq[Variable], intervals: Seq[Map[Variable, Interval]], equalityVarMap: Seq[Map[Variable, Index]], genType: AccessType, codeMotion: Boolean = false): String = {
+  def codeGenRule(tensorComputation: Rule, dimInfo: Seq[DimInfo], variables: Seq[Variable], intervals: Seq[Map[Variable, Interval]], equalityVarMap: Seq[Map[Variable, Index]], genType: AccessType, peqMode: Boolean = true, codeMotion: Boolean = false): String = {
     // we should make sure that all the variables that are in the right hand side of an addition, we have a condition over them or we don't add them at all. Look at e2eLRDimInfo3.txt, first for loop, for this!
     val vars = if (genType == RedundancyMap) variables.redundancyVarsInplace else variables
     val dimMap: Map[Access, Seq[Dim]] = dimInfo.toAccessMap
     val dimVarMap: Map[Variable, Seq[Dim]] = dimInfo.toVarsMap
     val tcBodya: SoP = getNoComparisonSoP(tensorComputation.body) 
     val tcBodyEQ: SoP = getNoComparisonButEQSoP(tensorComputation.body)
+
+    if (intervals == Seq.empty[Map[Variable, Interval]]) {
+      return s"${tensorComputation.head.cFormat} += ${tcBodya.cFormat};"
+    }
 
     (intervals zip equalityVarMap).foldLeft("")((acc, mapEqVar) => {
       val map: Map[Variable, Interval] = mapEqVar._1
@@ -1689,17 +1682,17 @@ object Main extends App {
                           else Interval(interval.begin.zipWithIndex.filter(indexID => indexID._2 != b).map(indexID => indexID._1),
                                 interval.end.zipWithIndex.filter(indexID => indexID._2 != e).map(indexID => indexID._1))
         val newInterval2: Interval = newInterval
-        val begin = if(newInterval2.begin.size > 1) s"std::max({${getStringChain(newInterval2.begin)}})" else if (newInterval2.begin.size == 1) newInterval2.begin(0).cFormat else ""
-        val end = if(newInterval2.end.size > 1) s"std::min({${getStringChain(newInterval2.end)}})" else if (newInterval2.end.size == 1) newInterval2.end(0).cFormat else ""
+        val begin = if(newInterval2.begin.size > 1) s"std::max({${getStringChain(newInterval2.begin, eqVar)}})" else if (newInterval2.begin.size == 1) newInterval2.begin(0).cFormat(eqVar) else ""
+        val end = if(newInterval2.end.size > 1) s"std::min({${getStringChain(newInterval2.end, eqVar)}})" else if (newInterval2.end.size == 1) newInterval2.end(0).cFormat(eqVar) else ""
         val code = if(eqVar.contains(variable)) {
           cnt += 1
           ""
         } else if (areEquals) { // in this case all conditions should not be checked since it might have forward referencing
-          val init = s"int ${variable.cFormat} = ${index.cFormat};"
+          val init = s"int ${variable.cFormat} = ${index.cFormat(eqVar)};"
           // eqVar = mergeMap(Seq(eqVar, Map(variable -> index)))((v1, v2) => v2)
-          val rest = if (begin != "" && end != "") s"if ($begin <= ${index.cFormat} && ${index.cFormat} < $end) {" 
-          else if (begin != "" && end == "") s"if ($begin <= ${index.cFormat}) {" 
-          else if (begin == "" && end != "") s"if (${index.cFormat} < $end) {" 
+          val rest = if (begin != "" && end != "") s"if ($begin <= ${index.cFormat(eqVar)} && ${index.cFormat} < $end) {" 
+          else if (begin != "" && end == "") s"if ($begin <= ${index.cFormat(eqVar)}) {" 
+          else if (begin == "" && end != "") s"if (${index.cFormat(eqVar)} < $end) {" 
           else {
             cnt += 1
             s""
@@ -1793,7 +1786,7 @@ object Main extends App {
       val tcBody: SoP = if (tc.body == emptySoP()) SoP(Seq(Prod(Seq(Comparison("=", ConstantInt(0), getVar("rndVar").toVar))))) else tc.body // if it's only comparison, then it was just a bunch of comparison multiplications so their value is only 1. Their ranges is inside unique set and redundancy maps already.
       val allVars: Set[Variable] = tensorComputation.head.vars.toSet ++ eqVar.keySet
       val body = if (genType == RedundancyMap) s"${tc.head.cFormat(eqVar)} = ${Access(tensorComputation.head.name, tensorComputation.head.vars.redundancyVars, tensorComputation.head.kind).cFormat(eqVar)};" else {
-        if (tcBody.prods.length == 1) s"${tc.head.cFormat(eqVar)} += ${tcBody.cFormat(eqVar)};"
+        if (tcBody.prods.length == 1) if(peqMode) s"${tc.head.cFormat(eqVar)} += ${tcBody.cFormat(eqVar)};" else s"${tc.head.cFormat(eqVar)} = ${tcBody.cFormat(eqVar)};"
         else (tcBody.prods zip tcBodya.prods).foldLeft("")((acc, prodAProd) => {
           val prod: Prod = prodAProd._1
           val aProd: Prod = prodAProd._2
@@ -1846,7 +1839,7 @@ object Main extends App {
     })
   }
 
-  def codeGen(tensorComputation: Rule, dimInfo: Seq[DimInfo], uniqueSets: Map[Exp, Rule], redundancyMaps: Map[Exp, Rule], variableReplacementFlag: Boolean = false): String = {
+  def codeGen(tensorComputation: Rule, dimInfo: Seq[DimInfo], uniqueSets: Map[Exp, Rule], redundancyMaps: Map[Exp, Rule], codeGenMode: Int = 0, peqMode: Boolean = true, variableReplacementFlag: Boolean = true): String = {
     val variables: Seq[Variable] = getVariables(tensorComputation)
     val (outUS, outRM, outDI) = infer(tensorComputation, dimInfo, uniqueSets, redundancyMaps)
     val allDimVars: Seq[Variable] = dimInfo.toVarsMap.values.foldLeft(Seq.empty[Dim])((acc, dimSeq) => acc ++ dimSeq).foldLeft(Seq.empty[Variable])((acc, d) => acc ++ getVariables(d))
@@ -1854,8 +1847,8 @@ object Main extends App {
     val variableConditionMapUS: Seq[Map[Variable, Seq[(String, Index)]]] = getVariableConditionMap(variables, outUS)
     val variableConditionMapRM: Seq[Map[Variable, Seq[(String, Index)]]] = getVariableConditionMap(variables, outRM)
 
-    val (unifiedVariableConditionMapUS, eqRepsUS): (Seq[Map[Variable, Seq[(String, Index)]]], Seq[Map[Variable, Variable]]) = unifyEqualVariableConditionMap(variables, variableConditionMapUS)
-    val (unifiedVariableConditionMapRM, eqRepsRM): (Seq[Map[Variable, Seq[(String, Index)]]], Seq[Map[Variable, Variable]]) = unifyEqualVariableConditionMap(variables, variableConditionMapRM)
+    val (unifiedVariableConditionMapUS, _): (Seq[Map[Variable, Seq[(String, Index)]]], Seq[Map[Variable, Variable]]) = unifyEqualVariableConditionMap(variables, variableConditionMapUS)
+    val (unifiedVariableConditionMapRM, _): (Seq[Map[Variable, Seq[(String, Index)]]], Seq[Map[Variable, Variable]]) = unifyEqualVariableConditionMap(variables, variableConditionMapRM)
 
     val unifiedOutUS: Rule = Rule(outUS.head, getSoP(unifiedVariableConditionMapUS))
     val unifiedOutRM: Rule = Rule(outRM.head, getSoP(unifiedVariableConditionMapRM))
@@ -1875,6 +1868,9 @@ object Main extends App {
     val (fixedConditionOrderUS2, fixedConditionOrderRM2, eqVarMapUS, eqVarMapRM) = if (variableReplacementFlag) {
       val (removedNonLHSVarsUS, equalityVarMapUS): (Seq[Map[Variable, Seq[(String, Index)]]], Seq[Map[Variable, Index]]) = removeNonLHSEQVars(tensorComputation.head.vars, fixedConditionOrderUS)
       val (removedNonLHSVarsRM, equalityVarMapRM): (Seq[Map[Variable, Seq[(String, Index)]]], Seq[Map[Variable, Index]]) = removeNonLHSEQVars(tensorComputation.head.vars.redundancyVarsInplace, fixedConditionOrderRM)
+
+      val (_, eqRepsUS): (Seq[Map[Variable, Seq[(String, Index)]]], Seq[Map[Variable, Variable]]) = unifyEqualVariableConditionMap(variables, fixedConditionOrderUS)
+      val (_, eqRepsRM): (Seq[Map[Variable, Seq[(String, Index)]]], Seq[Map[Variable, Variable]]) = unifyEqualVariableConditionMap(variables, fixedConditionOrderRM)
 
       val eqVarMapUS: Seq[Map[Variable, Index]] = (eqRepsUS zip equalityVarMapUS).map{case(e1, e2) => mergeMap(Seq(e1, e2))((v1, v2) => v1)}
       val eqVarMapRM: Seq[Map[Variable, Index]] = (eqRepsRM zip equalityVarMapRM).map{case(e1, e2) => mergeMap(Seq(e1, e2))((v1, v2) => v1)}
@@ -1953,6 +1949,12 @@ object Main extends App {
     // println("removedNonLHSVarsRM")
     // println(removedNonLHSVarsRM)
     // println("==================")
+    // println("eqVarMapUS")
+    // println(eqVarMapUS)
+    // println("------------------")
+    // println("eqVarMapRM")
+    // println(eqVarMapRM)
+    // println("==================")
     // println("intervalsUS")
     // println(intervalsUS)
     // println("------------------")
@@ -1964,15 +1966,18 @@ object Main extends App {
     // println("------------------")
     // println("intervalsSimplifiedRM")
     // println(intervalsSimplifiedRM)
-    println("==================")
-    println("finalUS")
-    pprint(finalUS)
-    println("------------------")
-    println("finalRM")
-    pprint(finalRM)
-    println("==================")
+    // println("==================")
+    // println("finalUS")
+    // pprint(finalUS)
+    // println("------------------")
+    // println("finalRM")
+    // pprint(finalRM)
+    // println("==================")
 
-    "void compute() {\n" + codeGenRule(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedUS, eqVarMapUS, UniqueSet) + "\n}\n\n\nvoid reconstruct() {\n" + codeGenRule(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedRM, eqVarMapRM, RedundancyMap) + "\n}\n"
+    if (codeGenMode == 0) "void compute() {\n" + codeGenRule(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedUS, eqVarMapUS, UniqueSet) + "\n}\n\n\nvoid reconstruct() {\n" + codeGenRule(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedRM, eqVarMapRM, RedundancyMap) + "\n}\n"
+    else if (codeGenMode == 1) codeGenRule(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedUS, eqVarMapUS, UniqueSet, peqMode)
+    else if (codeGenMode == 2) codeGenRule(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedRM, eqVarMapRM, RedundancyMap, peqMode)
+    else ""
   }
 
   def getAllVariables(sop: SoP): Seq[Variable] = sop.prods.foldLeft(Seq.empty[Variable])((acc, prod) => acc ++ prod.exps.foldLeft(Seq.empty[Variable])((acc2, exp) => acc2 ++ getAllVariables(exp)))
@@ -4275,6 +4280,244 @@ object Main extends App {
     // println("===========================================================")
   }
 
+  def e2ePRkWithSkeletone(k: Int) = {
+    val initCode: String = s"""
+#ifndef RING_COFACTOR_HPP
+#define RING_COFACTOR_HPP
+
+#include <array>
+#include <unordered_map>
+#include "hash.hpp"
+
+
+template <typename T, int CONT_SZ, int CAT_SZ>
+struct RingCofactor {
+    long count;
+    std::array<double, CONT_SZ> cont_sum1;
+    std::array<std::array<double, CONT_SZ>, CONT_SZ> cont_degree2;
+    ${if (k == 2) {
+      s"""
+    std::array<std::array<std::array<double, CONT_SZ>, CONT_SZ>, CONT_SZ> cont_degree3;
+    std::array<std::array<std::array<std::array<double, CONT_SZ>, CONT_SZ>, CONT_SZ>, CONT_SZ> cont_degree4;
+      """
+    } else ""}
+
+
+    explicit RingCofactor() : count(0) {
+      cont_sum1 = {};
+      cont_degree2 = {};
+      ${if (k == 2) {
+        s"""
+      cont_degree3 = {};
+      cont_degree4 = {};
+        """
+      } else ""}
+    }
+
+    template <typename... Args>
+    explicit RingCofactor(Args&&... args): count(1), cont_sum1 { args... } {
+        static_assert(CONT_SZ == sizeof...(args) && CAT_SZ == 0, "Incompatible array sizes");
+"""
+
+    val allDegs = (2 to 2 * k)
+    val (const_tensorComputation, const_dimInfo, const_uniqueSets, const_redundancyMap) = allDegs.foldLeft((Seq.empty[Rule], Seq.empty[DimInfo], Map.empty[Exp, Rule], Map.empty[Exp, Rule]))((acc, d) => {
+      val res = e2eConstructor(d)
+      (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2))
+    })
+    val constructorCode: String = const_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, const_dimInfo, const_uniqueSets, const_redundancyMap, 1, false)}")
+    val addus2: Map[Exp, Rule] = const_uniqueSets.map{case (k, v) => (Access("other." + k.asInstanceOf[Access].name, k.asInstanceOf[Access].vars, k.asInstanceOf[Access].kind) -> Rule(Access("other." + v.head.name, v.head.vars, v.head.kind), v.body))}.toMap
+    val addrm2: Map[Exp, Rule] = const_redundancyMap.map{case (k, v) => (Access("other." + k.asInstanceOf[Access].name, k.asInstanceOf[Access].vars, k.asInstanceOf[Access].kind) -> Rule(Access("other." + v.head.name, v.head.vars, v.head.kind), v.body))}.toMap
+    val addus: Map[Exp, Rule] = mergeMap(Seq(const_uniqueSets, addus2))((v1, v2) => v1)
+    val addrm: Map[Exp, Rule] = mergeMap(Seq(const_redundancyMap, addrm2))((v1, v2) => v1)
+
+    val multus2: Map[Exp, Rule] = const_uniqueSets.map{case (k, v) => (Access("other." + k.asInstanceOf[Access].name, k.asInstanceOf[Access].vars, k.asInstanceOf[Access].kind) -> replaceVars(Rule(Access("other." + v.head.name, v.head.vars, v.head.kind), v.body), Map("CONT_SZ".toVar -> "CONT_SZ2".toVar)))}.toMap
+    val multrm2: Map[Exp, Rule] = const_redundancyMap.map{case (k, v) => (Access("other." + k.asInstanceOf[Access].name, k.asInstanceOf[Access].vars, k.asInstanceOf[Access].kind) -> replaceVars(Rule(Access("other." + v.head.name, v.head.vars, v.head.kind), v.body), Map("CONT_SZ".toVar -> "CONT_SZ2".toVar)))}.toMap
+    val multus: Map[Exp, Rule] = mergeMap(Seq(const_uniqueSets, multus2))((v1, v2) => v1)
+    val multrm: Map[Exp, Rule] = mergeMap(Seq(const_redundancyMap, multrm2))((v1, v2) => v1)
+
+    val afterConstructorCode: String = s"""
+    }
+    
+    inline bool isZero() const { return count == 0; }
+
+    void finished(double div_val = 0, bool mapping_flag = false) {
+
+    }
+
+    RingCofactor& operator+=(const RingCofactor& other) {
+        peqInplace(other);
+        return *this;
+    }
+
+    void peqInplace(const RingCofactor& other, bool sort_merge_flag = false) {
+        if (other.isZero()) return;
+"""
+
+    val (peq_tensorComputation, peq_dimInfo, peq_uniqueSets, peq_redundancyMap) = (0 to 2 * k).foldLeft((Seq.empty[Rule], const_dimInfo, addus, addrm))((acc, d) => {
+      val res = e2ePlusEqual(d, acc._3, acc._4)
+      (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2))
+    })
+    val peqCode: String = peq_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, peq_dimInfo, peq_uniqueSets, peq_redundancyMap, 1)}")
+
+    val afterPeqCode: String = s"""
+    }
+    template <int CONT_SZ2, int CAT_SZ2>
+    RingCofactor<T, CONT_SZ + CONT_SZ2, CAT_SZ + CAT_SZ2> operator*(const RingCofactor<T, CONT_SZ2, CAT_SZ2>& other) const {
+        if (isZero() || other.isZero()) return RingCofactor<T, CONT_SZ + CONT_SZ2, CAT_SZ + CAT_SZ2>();
+        return this->multiply(other);
+    }
+
+    template <int CONT_SZ2, int CAT_SZ2>
+    RingCofactor<T, CONT_SZ + CONT_SZ2, CAT_SZ + CAT_SZ2>
+    multiply(const RingCofactor<T, CONT_SZ2, CAT_SZ2>& other) const {
+        RingCofactor<T, CONT_SZ + CONT_SZ2, CAT_SZ + CAT_SZ2> r;
+        multiplyDPS(other, r);
+        return r;
+    }
+
+    template <int CONT_SZ2, int CAT_SZ2>
+    void
+    multiplyDPS(const RingCofactor<T, CONT_SZ2, CAT_SZ2>& other, RingCofactor<T, CONT_SZ + CONT_SZ2, CAT_SZ + CAT_SZ2>& r) const {    
+"""
+
+    val (mult_tensorComputation, mult_dimInfo, mult_uniqueSets, mult_redundancyMap) = (0 to 2 * k).foldLeft((Seq.empty[Rule], const_dimInfo, multus, multrm))((acc, d) => {
+      val res = e2eMultiplication(d, acc._3, acc._4)
+      (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2))
+    })
+    val multCode: String = mult_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, mult_dimInfo, mult_uniqueSets, mult_redundancyMap, 1)}")
+
+    val afterMultCode: String = s"""
+        }
+
+
+    void clean() {
+      count = 0;
+
+      for(int i1 = 0; i1 < CONT_SZ; ++i1) {
+        cont_sum1[i1] = 0;
+      }
+
+      for(int i1 = 0; i1 < CONT_SZ; ++i1) {
+
+        for(int i2 = i1; i2 < CONT_SZ; ++i2) {
+          cont_degree2[i1][i2] = 0;
+        }
+      }
+
+      ${if (k == 2) {
+        s"""
+      for(int i1 = 0; i1 < CONT_SZ; ++i1) {
+
+        for(int i2 = i1; i2 < CONT_SZ; ++i2) {
+
+          for(int i3 = i2; i3 < CONT_SZ; ++i3) {
+            cont_degree3[i1][i2][i3] = 0;
+          }
+        }
+      }
+
+      for(int i1 = 0; i1 < CONT_SZ; ++i1) {
+
+        for(int i2 = i1; i2 < CONT_SZ; ++i2) {
+
+          for(int i3 = i2; i3 < CONT_SZ; ++i3) {
+
+            for(int i4 = i3; i4 < CONT_SZ; ++i4) {
+              cont_degree4[i1][i2][i3][i4] = 0;
+            }
+          }
+        }
+      }
+"""
+      } else ""}
+    }    
+    void reconstruct() {
+"""
+
+    val reconstructorCode: String = const_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, const_dimInfo, const_uniqueSets, const_redundancyMap, 2)}")
+
+    val endCode: String = s"""
+        std::cerr << cont_sum1[CONT_SZ - 1];
+        std::cerr << cont_degree2[CONT_SZ - 1][CONT_SZ - 1];
+        ${if (k == 2) {
+          s"""
+        std::cerr << cont_degree3[CONT_SZ - 1][CONT_SZ - 1][CONT_SZ - 1];
+        std::cerr << cont_degree4[CONT_SZ - 1][CONT_SZ - 1][CONT_SZ - 1][CONT_SZ - 1];
+"""
+        } else ""}
+    }
+
+};
+
+template <typename T, size_t CONT_SZ, size_t CAT_SZ>
+RingCofactor<T, CONT_SZ, CAT_SZ> operator*(long int alpha, const RingCofactor<T, CONT_SZ, CAT_SZ>& c) {
+    if (alpha == 1L) return c;
+    return c.multiply(alpha);
+}
+
+template <typename T>
+inline double convert(T x) { return x; }
+
+template <typename... Args>
+RingCofactor<double, sizeof...(Args), 0> Uliftcont(Args&&... args) {
+    return RingCofactor<double, sizeof...(Args), 0>(convert(args)...);
+}
+
+template <typename... Args>
+RingCofactor<double, 0, sizeof...(Args)> Uliftcat(Args&&... args) {
+    return RingCofactor<double, 0, sizeof...(Args)>(true, args...);
+}
+
+template <typename T, int CONT_SZ, int CAT_SZ>
+std::ostream& operator<<(std::ostream& os, const RingCofactor<T, CONT_SZ, CAT_SZ>& v) {
+os << "Cofactor: <CONT_SZ: " << CONT_SZ << ", CAT_SZ: " << CAT_SZ << ">\\n";
+  os << v.count << "\\n";
+  os << "cont_sum1:\\n";
+  for (int i = 0; i < CONT_SZ; ++i) {
+    os << v.cont_sum1[i] << ((i < CONT_SZ - 1) ? ", " : "\\n");
+  }
+
+  os << "cont_degree2:\\n";
+  for (int i = 0; i < CONT_SZ; ++i) {
+    for (int j = 0; j < CONT_SZ; ++j) {
+        os << v.cont_degree2[i][j] << ", ";
+    }
+  }
+  os << "\\n";
+
+  ${if (k == 2) {
+    s"""
+  os << "cont_degree3:\\n";
+  for (int i = 0; i < CONT_SZ; ++i) {
+    for (int j = 0; j < CONT_SZ; ++j) {
+        for (int k = 0; k < CONT_SZ; ++k) {
+            os << v.cont_degree3[i][j][k] << ", ";
+        }
+    }
+  }
+  os << "\\n";
+
+  os << "cont_degree4:\\n";
+  for (int i = 0; i < CONT_SZ; ++i) {
+    for (int j = 0; j < CONT_SZ; ++j) {
+        for (int k = 0; k < CONT_SZ; ++k) {
+            for (int l = 0; l < CONT_SZ; ++l) {
+                os << v.cont_degree4[i][j][k][l] << ", ";
+            }
+        }
+    }
+  }
+  os << "\\n";
+"""
+  } else ""}
+  return os;
+}
+
+#endif /* RING_COFACTOR_HPP */
+"""
+  s"$initCode\n$constructorCode\n$afterConstructorCode\n$peqCode\n$afterPeqCode\n$multCode\n$afterMultCode\n$reconstructorCode\n$endCode"
+  }
+
   // Chess Pattern is not implemented since it was just a unique set with no computation
   // none of vec(.), //, and || are explained in the paper in mathematical terms + don't know how to implement the code for this example
   // Kronecker product explanation in Fig 7. should have * in it (not +)!
@@ -4284,7 +4527,7 @@ object Main extends App {
   // pprintTest(test4())
   // pprintTest(test5())
   // pprintTest(test6())
-  pprintTest(test7())
+  // pprintTest(test7())
   // pprintTest(test8())
   // pprintTest(test8n())
   // pprintTest(test9())
@@ -4312,6 +4555,9 @@ object Main extends App {
   // e2eLR()
   // e2ePRk(1)
   // e2ePRk(2)
+
+  // println(e2ePRkWithSkeletone(1))
+  println(e2ePRkWithSkeletone(2))
 
   // println("TTM:")
   // pprintTest(ttm(""))
