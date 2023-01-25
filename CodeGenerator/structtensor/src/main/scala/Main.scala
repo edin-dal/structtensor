@@ -5626,6 +5626,13 @@ s"""
     write2File(s"outputs/$outName.cpp", code)
   }
 
+
+  def E2E_PRK(k: Int) = {
+    val code = e2ePRkWithSkeletone(k)
+    val outName = "E2E_R"
+    write2File(s"outputs/$outName.hpp", code)
+  }
+
   
 
 
@@ -5646,14 +5653,8 @@ THP_J     = THP: Fixed j
 MTTKRP_IJ = MTTKRP: Fixed i & j
 MTTKRP_I  = MTTKRP: Fixed i
 MTTKRP_J  = MTTKRP: Fixed j
-E2E_LRFS  = E2E - Linear Regression (Favorita Small)
-E2E_LRFF  = E2E - Linear Regression (Favorita Full)
-E2E_LRRS  = E2E - Linear Regression (Retailer Small)
-E2E_LRRF  = E2E - Linear Regression (Retailer Full)
-E2E_PR2FS = E2E - Polynomial Regression Degree 2 (Favorita Small)
-E2E_PR2FF = E2E - Polynomial Regression Degree 2 (Favorita Full)
-E2E_PR2RS = E2E - Polynomial Regression Degree 2 (Retailer Small)
-E2E_PR2RF = E2E - Polynomial Regression Degree 2 (Retailer Full)
+E2E_LR    = E2E - Linear Regression
+E2E_PR2   = E2E - Polynomial Regression Degree 2
 """
   if (args.length == 1) {
     args(0) match {
@@ -5672,14 +5673,8 @@ E2E_PR2RF = E2E - Polynomial Regression Degree 2 (Retailer Full)
       case "MTTKRP_IJ" => MTTKRP("fixed_ij")
       case "MTTKRP_I" => MTTKRP("fixed_i")
       case "MTTKRP_J" => MTTKRP("fixed_j")
-      // case "E2E_LRFS" => E2E_LRFS()
-      // case "E2E_LRFF" => E2E_LRFF()
-      // case "E2E_LRRS" => E2E_LRRS()
-      // case "E2E_LRRF" => E2E_LRRF()
-      // case "E2E_PR2FS" => E2E_PR2FS()
-      // case "E2E_PR2FF" => E2E_PR2FF()
-      // case "E2E_PR2RS" => E2E_PR2RS()
-      // case "E2E_PR2RF" => E2E_PR2RF()
+      case "E2E_LR" => E2E_PRK(1)
+      case "E2E_PR2" => E2E_PRK(2)
       case _ => println(help)
     }
   } else println(help)
