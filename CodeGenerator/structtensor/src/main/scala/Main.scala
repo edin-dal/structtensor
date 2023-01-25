@@ -1675,8 +1675,8 @@ object Main extends App {
       val eqVar: Map[Variable, Index] = mapEqVar._2
       // println("eqVar:")
       // eqVar.foldLeft()((_, cur) => println(cur._1.prettyFormat  + " -> " + cur._2.prettyFormat))
-      var cnt = 0
-      val (tc, nestedLoops, di): (Rule, String, Seq[DimInfo]) = vars.zipWithIndex.foldLeft((Rule(tensorComputation.head, tcBodya), "", dimInfo))((acc2, variableInd) => {
+      var cntVars: Seq[Variable] = Seq.empty[Variable]
+      val (tc, nestedLoops, di, finalHeadComputation): (Rule, String, Seq[DimInfo], Access) = vars.zipWithIndex.foldLeft((Rule(tensorComputation.head, tcBodya), "", dimInfo, Access("", Seq.empty[Variable], Tensor)))((acc2, variableInd) => {
         val variable: Variable = variableInd._1
         val interval = map.getOrElse(variable, Interval(Seq(), Seq()))
         val (areEquals, index, (b, e)) = areBeginAndEndEqual(interval)
@@ -1687,7 +1687,7 @@ object Main extends App {
         val begin = if(newInterval2.begin.size > 1) s"std::max({${getStringChain(newInterval2.begin, eqVar)}})" else if (newInterval2.begin.size == 1) newInterval2.begin(0).cFormat(eqVar) else ""
         val end = if(newInterval2.end.size > 1) s"std::min({${getStringChain(newInterval2.end, eqVar)}})" else if (newInterval2.end.size == 1) newInterval2.end(0).cFormat(eqVar) else ""
         val code = if(eqVar.contains(variable)) {
-          cnt += 1
+          cntVars = cntVars :+ variable
           ""
         } else if (areEquals) { // in this case all conditions should not be checked since it might have forward referencing
           val init = if (index.cFormat(eqVar) != variable.cFormat) s"int ${variable.cFormat} = ${index.cFormat(eqVar)};" else s"int ${variable.cFormat} = ${index.cFormat};"
@@ -1696,22 +1696,22 @@ object Main extends App {
           else if (begin != "" && end == "") s"if ($begin <= ${index.cFormat(eqVar)}) {" 
           else if (begin == "" && end != "") s"if (${index.cFormat(eqVar)} < $end) {" 
           else {
-            cnt += 1
+            cntVars = cntVars :+ variable
             s""
           }
           s"$init\n$rest"
         } else {
             if (begin != "" && end != "") s"for (int ${variable.cFormat} = $begin; ${variable.cFormat} < $end; ++${variable.cFormat}) {"
             else if (begin != "" && end == "") {
-              cnt += 1
+              cntVars = cntVars :+ variable
               s"int ${variable.cFormat} = $begin;" 
             }
             else if (begin == "" && end != "") {
-              cnt += 1
+              cntVars = cntVars :+ variable
               s"int ${variable.cFormat} = $end - 1;" 
             } 
             else {
-              cnt += 1
+              cntVars = cntVars :+ variable
               ""
             }
         }
@@ -1724,9 +1724,15 @@ object Main extends App {
 
           val (head, headCode): (Access, String) = if ((variableInd._2 != vars.length - 1 && genType == UniqueSet) || (variableInd._2 != vars.length / 2 - 1 && genType == RedundancyMap) || (tc.body.prods.length > 1 && genType != RedundancyMap)) {
             if (tc.head.vars.length > 0 && tc.head.vars(0) == variable) {
-              val head = Access(getVar(s"cm"), tc.head.vars.slice(1, tc.head.vars.length), tc.head.kind) 
-              val headCode = s"auto ${head.name} = &${tc.head.name}[${variable.cFormat(eqVar)}];\n"
-              (head, headCode)
+              if (tc.head.vars.length == 1) {
+                val head = Access("tmp", Seq.empty[Variable], Tensor)
+                val headCode = s"double tmp = 0.0;\n"
+                (head, headCode)
+              } else {
+                val head = Access(getVar(s"cm"), tc.head.vars.slice(1, tc.head.vars.length), tc.head.kind) 
+                val headCode = s"auto &${head.name} = ${tc.head.name}[${variable.cFormat(eqVar)}];\n"
+                (head, headCode) 
+              }
             } else (tc.head, "")
           } else (tc.head, "")
 
@@ -1743,7 +1749,7 @@ object Main extends App {
               val di: Seq[DimInfo] = acc4._3
               val diMap: Map[Access, Seq[Dim]] = di.toAccessMap
 
-              val (newProd, cmCode, newDI): (Seq[Exp], String, Seq[DimInfo]) = if (allRHSVars.subsetOf(allVars)) {
+              val (newProd, cmCode, newDI): (Seq[Exp], String, Seq[DimInfo]) = // if (allRHSVars.subsetOf(allVars)) {  // --> should the subset be the other way around?
                 prod.exps.foldLeft((Seq.empty[Exp], "", Seq.empty[DimInfo]))((acc3, exp) => {
                   val access: Access = exp.asInstanceOf[Access]
                   val (newAcc, accCode, newDI): (Access, String, Seq[DimInfo]) = if (access.vars.length > 0 && access.vars(0) == variable) {
@@ -1767,12 +1773,12 @@ object Main extends App {
                       if (fb) "NOT!HAPPENING!" else if (fe) s"${v.cFormat(eqVar)} < ${d.cFormat(eqVar)}" else ""
                     } else ""
 
-                    val accCode = if (conds.contains("NOT!HAPPENING!")) "" else if (conds == "") s"auto ${newAcc.name} = &${access.name}[${variable.cFormat(eqVar)}];\n" else s"auto ${newAcc.name} = ($conds) ? &${access.name}[${variable.cFormat(eqVar)}] : 0;\n"
+                    val accCode = if (conds.contains("NOT!HAPPENING!")) "" else if (conds == "") s"auto &${newAcc.name} = ${access.name}[${variable.cFormat(eqVar)}];\n" else s"auto &${newAcc.name} = ($conds) ? ${access.name}[${variable.cFormat(eqVar)}] : 0;\n"
                     (newAcc, accCode, newDI)
                   } else (access, "", Seq.empty[DimInfo])
                   (acc3._1 :+ newAcc, s"${acc3._2}$accCode", acc3._3 ++ newDI)
                 })
-              } else (Seq.empty[Exp], "", Seq.empty[DimInfo])
+              // } else (Seq.empty[Exp], "", Seq.empty[DimInfo]) //
               
               if (!(newProd == Seq.empty[Exp] && cmCode == "")) (acc4._1 :+ Prod(newProd), s"${acc4._2}$cmCode", acc4._3 ++ newDI) else acc4
             })
@@ -1780,8 +1786,9 @@ object Main extends App {
           val body = SoP(bodyProdSeq)
 
           val newTC: Rule = Rule(head, body)
-          (newTC, s"${acc2._2}\n$code\n$headCode\n$bodyCode", newDI)
-        } else (acc2._1, s"${acc2._2}\n$code", acc2._3)
+          val oH: Access = if (head.name == "tmp" && acc2._4.name == "") tc.head else acc2._4
+          (newTC, s"${acc2._2}\n$code\n$headCode\n$bodyCode", newDI, oH)
+        } else (acc2._1, s"${acc2._2}\n$code", acc2._3, acc2._4)
       })
 
       // why constants are not exp as well? Then I could replace the comparison below by ConstantInt(1) instead.
@@ -1835,13 +1842,16 @@ object Main extends App {
       } // change wrt code motion and use the newest variables with the corresponding list to them
       // val body = if (genType == RedundancyMap) s"${tensorComputation.head.cFormat} = ${tensorComputation.head.cRedFormat};" else tensorComputation.cPeqFormat
 
-      val finalBrackets = vars.slice(cnt, vars.size).foldLeft("")((acc, _) => s"$acc}\n")
+      val finalBrackets = vars.reverse.filter(e => !cntVars.contains(e)).foldLeft("")((acc, v) => {
+        if (codeMotion && finalHeadComputation.vars.length > 0 && finalHeadComputation.vars(0) == v) s"$acc${finalHeadComputation.cFormat(eqVar)} += tmp;\n}\n"
+        else s"$acc}\n"
+      })
       
       s"$acc\n$nestedLoops\n$body\n$finalBrackets"
     })
   }
 
-  def codeGen(tensorComputation: Rule, dimInfo: Seq[DimInfo], uniqueSets: Map[Exp, Rule], redundancyMaps: Map[Exp, Rule], codeGenMode: Int = 0, peqMode: Boolean = true, variableReplacementFlag: Boolean = true): String = {
+  def codeGen(tensorComputation: Rule, dimInfo: Seq[DimInfo], uniqueSets: Map[Exp, Rule], redundancyMaps: Map[Exp, Rule], codeGenMode: Int = 0, peqMode: Boolean = true, variableReplacementFlag: Boolean = true, codeMotion: Boolean = true): String = {
     val variables: Seq[Variable] = getVariables(tensorComputation)
     val (outUS, outRM, outDI) = infer(tensorComputation, dimInfo, uniqueSets, redundancyMaps)
     val allDimVars: Seq[Variable] = dimInfo.toVarsMap.values.foldLeft(Seq.empty[Dim])((acc, dimSeq) => acc ++ dimSeq).foldLeft(Seq.empty[Variable])((acc, d) => acc ++ getVariables(d))
@@ -1976,9 +1986,9 @@ object Main extends App {
     // pprint(finalRM)
     // println("==================")
 
-    if (codeGenMode == 0) "void compute() {\n" + codeGenRule(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedUS, eqVarMapUS, UniqueSet) + "\n}\n\n\nvoid reconstruct() {\n" + codeGenRule(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedRM, eqVarMapRM, RedundancyMap) + "\n}\n"
-    else if (codeGenMode == 1) codeGenRule(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedUS, eqVarMapUS, UniqueSet, peqMode)
-    else if (codeGenMode == 2) codeGenRule(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedRM, eqVarMapRM, RedundancyMap, peqMode)
+    if (codeGenMode == 0) "void compute() {\n" + codeGenRule(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedUS, eqVarMapUS, UniqueSet, peqMode, codeMotion) + "\n}\n\n\nvoid reconstruct() {\n" + codeGenRule(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedRM, eqVarMapRM, RedundancyMap, peqMode, codeMotion) + "\n}\n"
+    else if (codeGenMode == 1) codeGenRule(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedUS, eqVarMapUS, UniqueSet, peqMode, codeMotion)
+    else if (codeGenMode == 2) codeGenRule(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedRM, eqVarMapRM, RedundancyMap, peqMode, codeMotion)
     else ""
   }
 
@@ -5327,7 +5337,7 @@ int main(int argc, char **argv){
         for(size_t j = 0; j < N; ++j){
             B[i][j] = new double[Q];
             for(size_t l =0; l< Q; ++l){
-                if (i == j){
+                ${if (structure == "diag_p") "if (i == j){" else if (structure == "fixed_j") "if (j == J){" else if (structure == "uhc") "if (i <= j){" else ""}
                     B[i][j][l] = (double) (rand() % 1000000) / 1e6;
                 }
                 else{
@@ -5430,7 +5440,7 @@ int main(int argc, char **argv){
         for(size_t j = 0; j < N; ++j){
             B[i][j] = new double[P];
             for(size_t k =0; k< P; ++k){
-                if (i == j){
+                ${if (structure == "diag_p") "if (i == j){" else if (structure == "fixed_i") "if (i == I){" else if (structure == "fixed_j") "if (j == J){" else "THP"}
                     B[i][j][k] = (double) (rand() % 1000000) / 1e6;
                 }
                 else{
@@ -5570,7 +5580,17 @@ s"""
     for(size_t l = 0; l < P; ++l){
         D[l] = new double[Q];
         for(size_t j = 0; j < Q; j++){
-            D[l][j] = (double) (rand() % 1000000) / 1e6;
+            ${if (structure == "fixed_j" || structure == "fixed_ij") {
+s"""
+            if(j == J){
+                D[l][j] = (double) (rand() % 1000000) / 1e6;
+            }
+            else{
+                D[l][j] = (double) 0;
+
+            }
+"""
+            } else "D[l][j] = (double) (rand() % 1000000) / 1e6;"}
         }
     }
 

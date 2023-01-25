@@ -27,7 +27,7 @@ int main(int argc, char **argv){
         for(size_t j = 0; j < N; ++j){
             B[i][j] = new double[P];
             for(size_t k =0; k< P; ++k){
-                if (i == j){
+                if (j == J){
                     B[i][j][k] = (double) (rand() % 1000000) / 1e6;
                 }
                 else{
@@ -65,10 +65,22 @@ int main(int argc, char **argv){
 
 
 for (int i = 0; i < M; ++i) {
+auto &cm1 = A[i];
+
+auto &cm2 = B[i];
+auto &cm3 = C[i];
+
 int j = J;
 if (j < N) {
+auto &cm4 = cm1[j];
+
+auto &cm5 = cm2[j];
+auto &cm6 = cm3[j];
+
 for (int k = 0; k < P; ++k) {
-A[i][j][k] += ((B[i][j][k] * C[i][j][k]));
+
+
+cm4[k] += ((cm5[k] * cm6[k]));
 }
 }
 }

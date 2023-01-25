@@ -73,12 +73,26 @@ int main(int argc, char **argv){
 
 int i = I;
 if (i < M) {
+auto &cm2 = A[i];
+
+auto &cm3 = B[i];
+
 for (int j = 0; j < Q; ++j) {
+double tmp = 0.0;
+
+
 for (int k = 0; k < N; ++k) {
+
+auto &cm4 = cm3[k];
+auto &cm5 = C[k];
+
 for (int l = 0; l < P; ++l) {
-A[i][j] += ((B[i][k][l] * C[k][j] * D[l][j]));
+
+
+tmp += ((cm4[l] * cm5[j] * D[l][j]));
 }
 }
+cm2[j] += tmp;
 }
 }
 

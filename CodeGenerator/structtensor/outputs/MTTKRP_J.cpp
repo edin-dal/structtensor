@@ -47,7 +47,15 @@ int main(int argc, char **argv){
     for(size_t l = 0; l < P; ++l){
         D[l] = new double[Q];
         for(size_t j = 0; j < Q; j++){
-            D[l][j] = (double) (rand() % 1000000) / 1e6;
+            
+            if(j == J){
+                D[l][j] = (double) (rand() % 1000000) / 1e6;
+            }
+            else{
+                D[l][j] = (double) 0;
+
+            }
+
         }
     }
 
@@ -65,13 +73,27 @@ int main(int argc, char **argv){
 
 
 for (int i = 0; i < M; ++i) {
+auto &cm2 = A[i];
+
+auto &cm3 = B[i];
+
 int j = J;
 if (j < Q) {
+double tmp = 0.0;
+
+
 for (int k = 0; k < N; ++k) {
+
+auto &cm4 = cm3[k];
+auto &cm5 = C[k];
+
 for (int l = 0; l < P; ++l) {
-A[i][j] += ((B[i][k][l] * C[k][j] * D[l][j]));
+
+
+tmp += ((cm4[l] * cm5[j] * D[l][j]));
 }
 }
+cm2[j] += tmp;
 }
 }
 

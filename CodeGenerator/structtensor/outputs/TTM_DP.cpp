@@ -65,11 +65,26 @@ int main(int argc, char **argv){
 
 
 for (int i = 0; i < std::min({M, N}); ++i) {
+auto &cm1 = A[i];
+
+auto &cm2 = B[i];
+
+
+auto &cm3 = cm1[i];
+
+auto &cm4 = cm2[i];
 
 for (int k = 0; k < P; ++k) {
+double tmp = 0.0;
+
+auto &cm5 = C[k];
+
 for (int l = 0; l < Q; ++l) {
-A[i][i][k] += ((B[i][i][l] * C[k][l]));
+
+
+tmp += ((cm4[l] * cm5[l]));
 }
+cm3[k] += tmp;
 }
 }
 

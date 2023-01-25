@@ -29,7 +29,7 @@ int main(int argc, char **argv){
         for(size_t j = 0; j < N; ++j){
             B[i][j] = new double[Q];
             for(size_t l =0; l< Q; ++l){
-                if (i == j){
+                if (j == J){
                     B[i][j][l] = (double) (rand() % 1000000) / 1e6;
                 }
                 else{
@@ -65,12 +65,27 @@ int main(int argc, char **argv){
 
 
 for (int i = 0; i < M; ++i) {
+auto &cm1 = A[i];
+
+auto &cm2 = B[i];
+
 int j = J;
 if (j < N) {
+auto &cm3 = cm1[j];
+
+auto &cm4 = cm2[j];
+
 for (int k = 0; k < P; ++k) {
+double tmp = 0.0;
+
+auto &cm5 = C[k];
+
 for (int l = 0; l < Q; ++l) {
-A[i][j][k] += ((B[i][j][l] * C[k][l]));
+
+
+tmp += ((cm4[l] * cm5[l]));
 }
+cm3[k] += tmp;
 }
 }
 }
