@@ -1,3 +1,5 @@
+import java.io._ 
+
 sealed trait Exp {
   def prettyFormat(): String
   def cFormat(): String
@@ -1688,7 +1690,7 @@ object Main extends App {
           cnt += 1
           ""
         } else if (areEquals) { // in this case all conditions should not be checked since it might have forward referencing
-          val init = s"int ${variable.cFormat} = ${index.cFormat(eqVar)};"
+          val init = if (index.cFormat(eqVar) != variable.cFormat) s"int ${variable.cFormat} = ${index.cFormat(eqVar)};" else s"int ${variable.cFormat} = ${index.cFormat};"
           // eqVar = mergeMap(Seq(eqVar, Map(variable -> index)))((v1, v2) => v2)
           val rest = if (begin != "" && end != "") s"if ($begin <= ${index.cFormat(eqVar)} && ${index.cFormat} < $end) {" 
           else if (begin != "" && end == "") s"if ($begin <= ${index.cFormat(eqVar)}) {" 
@@ -3777,7 +3779,7 @@ object Main extends App {
     (tensorComputation, infer(tensorComputation, dimInfo, uniqueSets, redundancyMap))
   }
 
-  def ttm(structure: String): (Rule, (Rule, Rule, DimInfo)) = {
+  def ttm(structure: String, mode: Int = 0) = {
     val head: Access = Access("A", Seq("i".toVar, "j".toVar, "k".toVar), Tensor)
     val var1: Access = Access("B",  Seq("i".toVar, "j".toVar, "l".toVar), Tensor)
     val var2: Access = Access("C",  Seq("k".toVar, "l".toVar), Tensor)
@@ -3785,8 +3787,8 @@ object Main extends App {
     val body: SoP = SoP(Seq(prods))
     val tensorComputation: Rule = Rule(head, body)
 
-    val dim1: DimInfo = DimInfo(var1, Seq("ni".toVar, "nj".toVar, "nl".toVar))
-    val dim2: DimInfo = DimInfo(var2, Seq("nk".toVar, "nl".toVar))
+    val dim1: DimInfo = DimInfo(var1, Seq("M".toVar, "N".toVar, "Q".toVar))
+    val dim2: DimInfo = DimInfo(var2, Seq("P".toVar, "Q".toVar))
     val dimInfo: Seq[DimInfo] = Seq(dim1, dim2)
 
 
@@ -3826,12 +3828,14 @@ object Main extends App {
     val uniqueSets: Map[Exp, Rule] = Map(var1 -> var1US, var2 -> var2US)
     val redundancyMap: Map[Exp, Rule] = Map(var1 -> var1RM, var2 -> var2RM)
 
-    println(codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap))
+    if (mode == 0) {
+      println(codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap))
 
-    (tensorComputation, infer(tensorComputation, dimInfo, uniqueSets, redundancyMap))
+      (tensorComputation, infer(tensorComputation, dimInfo, uniqueSets, redundancyMap))
+    } else codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, 1)
   }
 
-  def thp(structure: String): (Rule, (Rule, Rule, DimInfo)) = {
+  def thp(structure: String, mode: Int = 0) = {
     val head: Access = Access("A", Seq("i".toVar, "j".toVar, "k".toVar), Tensor)
     val var1: Access = Access("B",  Seq("i".toVar, "j".toVar, "k".toVar), Tensor)
     val var2: Access = Access("C",  Seq("i".toVar, "j".toVar, "k".toVar), Tensor)
@@ -3839,8 +3843,8 @@ object Main extends App {
     val body: SoP = SoP(Seq(prods))
     val tensorComputation: Rule = Rule(head, body)
 
-    val dim1: DimInfo = DimInfo(var1, Seq("ni".toVar, "nj".toVar, "nk".toVar))
-    val dim2: DimInfo = DimInfo(var2, Seq("ni".toVar, "nj".toVar, "nk".toVar))
+    val dim1: DimInfo = DimInfo(var1, Seq("M".toVar, "N".toVar, "P".toVar))
+    val dim2: DimInfo = DimInfo(var2, Seq("M".toVar, "N".toVar, "P".toVar))
     val dimInfo: Seq[DimInfo] = Seq(dim1, dim2)
 
 
@@ -3880,12 +3884,14 @@ object Main extends App {
     val uniqueSets: Map[Exp, Rule] = Map(var1 -> var1US, var2 -> var2US)
     val redundancyMap: Map[Exp, Rule] = Map(var1 -> var1RM, var2 -> var2RM)
 
-    println(codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap))
+    if (mode == 0) {
+      println(codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap))
 
-    (tensorComputation, infer(tensorComputation, dimInfo, uniqueSets, redundancyMap))
+      (tensorComputation, infer(tensorComputation, dimInfo, uniqueSets, redundancyMap))
+    } else codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, 1)
   }
 
-  def mttkrp(structure: String): (Rule, (Rule, Rule, DimInfo)) = {
+  def mttkrp(structure: String, mode: Int = 0) = {
     val head: Access = Access("A", Seq("i".toVar, "j".toVar), Tensor)
     val var1: Access = Access("B",  Seq("i".toVar, "k".toVar, "l".toVar), Tensor)
     val var2: Access = Access("C",  Seq("k".toVar, "j".toVar), Tensor)
@@ -3961,12 +3967,14 @@ object Main extends App {
     val newRedundancyMap: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head1 -> infer1._2), redundancyMap))((v1, v2) => v2)
     val newDimInfo: Seq[DimInfo] = dimInfo :+ infer1._3
 
-    println(codeGen(tensorComputation, newDimInfo, newUniqueSets, newRedundancyMap))
+    if (mode == 0) {
+      println(codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap))
 
-    (tensorComputation, infer(tensorComputation, newDimInfo, newUniqueSets, newRedundancyMap))
+      (tensorComputation, infer(tensorComputation, dimInfo, uniqueSets, redundancyMap))
+    } else codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, 1)
   }
 
-  def mttkrp_n(structure: String): (Rule, (Rule, Rule, DimInfo)) = {
+  def mttkrp_n(structure: String, mode: Int = 0) = {
     val head: Access = Access("A", Seq("i".toVar, "j".toVar), Tensor)
     val var1: Access = Access("B",  Seq("i".toVar, "k".toVar, "l".toVar), Tensor)
     val var2: Access = Access("C",  Seq("k".toVar, "j".toVar), Tensor)
@@ -3977,9 +3985,9 @@ object Main extends App {
     val body: SoP = SoP(Seq(prods))
     val tensorComputation: Rule = Rule(head, body)
 
-    val dim1: DimInfo = DimInfo(var1, Seq("ni".toVar, "nk".toVar, "nl".toVar))
-    val dim2: DimInfo = DimInfo(var2, Seq("nk".toVar, "nj".toVar))
-    val dim3: DimInfo = DimInfo(var3, Seq("nl".toVar, "nj".toVar))
+    val dim1: DimInfo = DimInfo(var1, Seq("M".toVar, "N".toVar, "P".toVar))
+    val dim2: DimInfo = DimInfo(var2, Seq("N".toVar, "Q".toVar))
+    val dim3: DimInfo = DimInfo(var3, Seq("P".toVar, "Q".toVar))
     val dimInfo: Seq[DimInfo] = Seq(dim1, dim2, dim3)
 
 
@@ -4028,26 +4036,29 @@ object Main extends App {
     val uniqueSets: Map[Exp, Rule] = Map(var1 -> var1US, var2 -> var2US, var3 -> var3US)
     val redundancyMap: Map[Exp, Rule] = Map(var1 -> var1RM, var2 -> var2RM, var3 -> var3RM)
 
-    println(codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap))
+    if (mode == 0) {
+      println(codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap))
 
-    (tensorComputation, infer(tensorComputation, dimInfo, uniqueSets, redundancyMap))
+      (tensorComputation, infer(tensorComputation, dimInfo, uniqueSets, redundancyMap))
+    } else codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, 1)
   }
 
-  def e2eConstructor(n: Int) = {
+  def e2eConstructor(n: Int, mode: Int = 0) = {
     val indSeq: Seq[Int] = (0 to n - 1)
     val xSeq: Seq[Variable] = indSeq.map(i => s"x$i".toVar)
-    val head: Access = Access(s"cont_degree$n", xSeq, Tensor)
-    val vars: Seq[Access] = xSeq.map(x => Access("cont_sum1", Seq(x), Tensor))
+    val cont = if (mode == 0) "cont" else "other_cont"
+    val head: Access = Access(s"${cont}_degree$n", xSeq, Tensor)
+    val vars: Seq[Access] = xSeq.map(x => Access(s"${cont}_sum1", Seq(x), Tensor))
     val prods: Prod = Prod(vars)
     val body: SoP = SoP(Seq(prods))
     val tensorComputation: Rule = Rule(head, body)
     val dimInfo: Seq[DimInfo] = vars.map(v => DimInfo(v, Seq("CONT_SZ".toVar)))
 
-    val varHeadUS: Seq[Access] = xSeq.map(x => Access("cont_sum1".uniqueName, Seq(x), UniqueSet)) 
+    val varHeadUS: Seq[Access] = xSeq.map(x => Access(s"${cont}_sum1".uniqueName, Seq(x), UniqueSet)) 
     val varBodyUS: Seq[SoP] = dimInfo.map(dim => dim.toSoP)
     val varUS: Seq[Rule] = (varHeadUS zip varBodyUS).map{case (head, body) => Rule(head, body)}
 
-    val varHeadRM: Seq[Access] = xSeq.map(x => Access("cont_sum1".redundancyName, Seq(x, x.redundancyVars), UniqueSet)) 
+    val varHeadRM: Seq[Access] = xSeq.map(x => Access(s"${cont}_sum1".redundancyName, Seq(x, x.redundancyVars), UniqueSet)) 
     val varBodyRM: Seq[SoP] = dimInfo.map(dim => emptySoP())
     val varRM: Seq[Rule] = (varHeadRM zip varBodyRM).map{case (head, body) => Rule(head, body)}
 
@@ -4063,13 +4074,15 @@ object Main extends App {
     (tensorComputation, di, us, rm)
   }
 
-  def e2eAddition(n: Int, us: Map[Exp, Rule], rm: Map[Exp, Rule]) = {
+  def e2eAddition(n: Int, us: Map[Exp, Rule], rm: Map[Exp, Rule], mode: Int = 0) = {
     val name = if (n == 0) "count" else if (n == 1) "cont_sum1" else s"cont_degree$n"
     val indSeq: Seq[Int] = (0 to n - 1)
     val xSeq: Seq[Variable] = indSeq.map(i => s"x$i".toVar)
-    val head: Access = Access(s"r.$name", xSeq, Tensor)
+    val r = if (mode == 0) "r." else "r_"
+    val head: Access = Access(s"$r$name", xSeq, Tensor)
+    val other = if (mode == 0) "other." else "other_"
     val var1: Access = Access(name,  xSeq, Tensor)
-    val var2: Access = Access(s"other.$name",  xSeq, Tensor)
+    val var2: Access = Access(s"$other$name",  xSeq, Tensor)
     val prods1: Prod = Prod(Seq(var1))
     val prods2: Prod = Prod(Seq(var2))
     val body: SoP = SoP(Seq(prods1, prods2))
@@ -4090,11 +4103,11 @@ object Main extends App {
     val var1BodyRM: SoP = emptySoP
     val var1RM: Rule = Rule(var1HeadRM, var1BodyRM)
 
-    val var2HeadUS: Access = Access(s"other.$name".uniqueName,  xSeq, UniqueSet)
+    val var2HeadUS: Access = Access(s"$other$name".uniqueName,  xSeq, UniqueSet)
     val var2BodyUS: SoP = dim2.toSoP
     val var2US: Rule = Rule(var2HeadUS, var2BodyUS)
 
-    val var2HeadRM: Access = Access(s"other.$name".redundancyName,  xSeq.redundancyVarsInplace, RedundancyMap)
+    val var2HeadRM: Access = Access(s"$other$name".redundancyName,  xSeq.redundancyVarsInplace, RedundancyMap)
     val var2BodyRM: SoP = emptySoP
     val var2RM: Rule = Rule(var2HeadRM, var2BodyRM)
 
@@ -4110,12 +4123,13 @@ object Main extends App {
     (tensorComputation, diF, usF, rmF)
   }
 
-  def e2ePlusEqual(n: Int, us: Map[Exp, Rule], rm: Map[Exp, Rule]) = {
+  def e2ePlusEqual(n: Int, us: Map[Exp, Rule], rm: Map[Exp, Rule], mode: Int = 0) = {
     val name = if (n == 0) "count" else if (n == 1) "cont_sum1" else s"cont_degree$n"
     val indSeq: Seq[Int] = (0 to n - 1)
     val xSeq: Seq[Variable] = indSeq.map(i => s"x$i".toVar)
     val head: Access = Access(name, xSeq, Tensor)
-    val var2: Access = Access(s"other.$name",  xSeq, Tensor)
+    val other = if (mode == 0) "other." else "other_"
+    val var2: Access = Access(s"$other$name",  xSeq, Tensor)
     val prods2: Prod = Prod(Seq(var2))
     val body: SoP = SoP(Seq(prods2))
     val tensorComputation: Rule = Rule(head, body)
@@ -4125,11 +4139,11 @@ object Main extends App {
     val dim2: DimInfo = DimInfo(var2, dimSeq)
     val dimInfo: Seq[DimInfo] = Seq(dim2)
 
-    val var2HeadUS: Access = Access(s"other.$name".uniqueName,  xSeq, UniqueSet)
+    val var2HeadUS: Access = Access(s"$other$name".uniqueName,  xSeq, UniqueSet)
     val var2BodyUS: SoP = dim2.toSoP
     val var2US: Rule = Rule(var2HeadUS, var2BodyUS)
 
-    val var2HeadRM: Access = Access(s"other.$name".redundancyName,  xSeq.redundancyVarsInplace, RedundancyMap)
+    val var2HeadRM: Access = Access(s"$other$name".redundancyName,  xSeq.redundancyVarsInplace, RedundancyMap)
     val var2BodyRM: SoP = emptySoP
     val var2RM: Rule = Rule(var2HeadRM, var2BodyRM)
 
@@ -4557,7 +4571,7 @@ os << "Cofactor: <CONT_SZ: " << CONT_SZ << ", CAT_SZ: " << CAT_SZ << ">\\n";
   // e2ePRk(2)
 
   // println(e2ePRkWithSkeletone(1))
-  println(e2ePRkWithSkeletone(2))
+  // println(e2ePRkWithSkeletone(2))
 
   // println("TTM:")
   // pprintTest(ttm(""))
@@ -4594,6 +4608,1082 @@ os << "Cofactor: <CONT_SZ: " << CONT_SZ << ", CAT_SZ: " << CAT_SZ << ">\\n";
   // pprintTest(mttkrp_n("fixed_i"))
   // println("MTTKRP_N: Fixed j")
   // pprintTest(mttkrp_n("fixed_j"))
+
+  def write2File(filename: String, s: String): Unit = { // taken from https://alvinalexander.com/scala/how-to-write-text-files-in-scala-printwriter-filewriter/
+    val file = new File(filename)
+    val bw = new BufferedWriter(new FileWriter(file))
+    bw.write(s)
+    bw.close()
+  }
+
+
+  def LRC() = {
+    val c1 =
+s"""
+#include <iostream>
+#include <random>
+#include <algorithm>
+#include <chrono>
+#include <vector>
+#include <array>
+#include <ctime>
+
+using namespace std::chrono;
+using namespace std;
+
+int main(int argc, char *argv[]) {
+  int CONT_SZ = stoi(argv[1]);    
+  srand(0);
+  double *cont_sum1 = new double[CONT_SZ];
+  double **cont_degree2 = new double*[CONT_SZ];
+  for (int i = 0; i < CONT_SZ; i++) {
+    cont_degree2[i] = new double[CONT_SZ];
+    for (int j = 0; j < CONT_SZ; j++) {
+      cont_degree2[i][j] = 0;
+    }
+  }
+  for (int i = 0; i < CONT_SZ; i++) {
+    cont_sum1[i] = (double) (rand() % 1000000) / 1e6;
+  }
+  long start = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
+"""
+    val allDegs = (2 to 2)
+    val (const_tensorComputation, const_dimInfo, const_uniqueSets, const_redundancyMap) = allDegs.foldLeft((Seq.empty[Rule], Seq.empty[DimInfo], Map.empty[Exp, Rule], Map.empty[Exp, Rule]))((acc, d) => {
+      val res = e2eConstructor(d)
+      (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2))
+    })
+    val c2 = const_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, const_dimInfo, const_uniqueSets, const_redundancyMap, 1, false)}")
+    val c3 = 
+s"""
+  long end = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
+  cerr << cont_degree2[CONT_SZ - 1][CONT_SZ - 1] << endl;
+  delete[] cont_sum1;
+  for (int i = 0; i < CONT_SZ; i++) {
+    delete[] cont_degree2[i];
+  }
+  delete[] cont_degree2;
+  cout << end - start << endl;
+  return 0;
+}
+"""
+    val code = s"$c1\n$c2\n$c3"
+    write2File("outputs/LRC.cpp", code)
+  }
+
+  def PR2C() = {
+    val c1 = 
+s"""
+#include <iostream>
+#include <random>
+#include <algorithm>
+#include <chrono>
+#include <vector>
+#include <array>
+#include <ctime>
+
+using namespace std::chrono;
+using namespace std;
+
+int main(int argc, char *argv[]) {
+  int CONT_SZ = stoi(argv[1]);    
+  srand(0);
+  double *cont_sum1 = new double[CONT_SZ];
+  double **cont_degree2 = new double*[CONT_SZ];
+  double ***cont_degree3 = new double**[CONT_SZ];
+  double ****cont_degree4 = new double***[CONT_SZ];
+  for (int i = 0; i < CONT_SZ; i++) {
+    cont_degree2[i] = new double[CONT_SZ];
+    cont_degree3[i] = new double*[CONT_SZ];
+    cont_degree4[i] = new double**[CONT_SZ];
+    for (int j = 0; j < CONT_SZ; j++) {
+      cont_degree2[i][j] = 0;
+      cont_degree3[i][j] = new double[CONT_SZ];
+      cont_degree4[i][j] = new double*[CONT_SZ];
+      for (int k = 0; k < CONT_SZ; k++) {
+        cont_degree3[i][j][k] = 0;
+        cont_degree4[i][j][k] = new double[CONT_SZ];
+        for (int l = 0; l < CONT_SZ; l++) {
+          cont_degree4[i][j][k][l] = 0;
+        }
+      }
+    }
+  }
+  for (int i = 0; i < CONT_SZ; i++) {
+    cont_sum1[i] = (double) (rand() % 1000000) / 1e6;
+  }
+  long start = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
+"""
+    val allDegs = (2 to 4)
+    val (const_tensorComputation, const_dimInfo, const_uniqueSets, const_redundancyMap) = allDegs.foldLeft((Seq.empty[Rule], Seq.empty[DimInfo], Map.empty[Exp, Rule], Map.empty[Exp, Rule]))((acc, d) => {
+      val res = e2eConstructor(d)
+      (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2))
+    })
+    val c2 = const_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, const_dimInfo, const_uniqueSets, const_redundancyMap, 1, false)}")
+    val c3 = 
+s"""
+  long end = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
+  cerr << cont_degree2[CONT_SZ - 1][CONT_SZ - 1] << " " << cont_degree3[CONT_SZ - 1][CONT_SZ - 1][CONT_SZ - 1] << " " << cont_degree4[CONT_SZ - 1][CONT_SZ - 1][CONT_SZ - 1][CONT_SZ - 1] << endl;
+  delete[] cont_sum1;
+  for (int i = 0; i < CONT_SZ; i++) {
+    for (int j = 0; j < CONT_SZ; j++) {
+      for (int k = 0; k < CONT_SZ; k++) {
+        delete[] cont_degree4[i][j][k];
+      }
+      delete[] cont_degree3[i][j];
+      delete[] cont_degree4[i][j];
+    }
+    delete[] cont_degree2[i];
+    delete[] cont_degree3[i];
+    delete[] cont_degree4[i];
+  }
+  delete[] cont_degree2;
+  delete[] cont_degree3;
+  delete[] cont_degree4;
+  cout << end - start << endl;
+  return 0;
+}
+"""
+    val code = s"$c1\n$c2\n$c3"
+    write2File("outputs/PR2C.cpp", code)
+  }
+
+  def PR3C() = {
+    val c1 = 
+s"""
+#include <iostream>
+#include <random>
+#include <algorithm>
+#include <chrono>
+#include <vector>
+#include <array>
+#include <ctime>
+
+using namespace std::chrono;
+using namespace std;
+
+int main(int argc, char *argv[]) {
+  int CONT_SZ = stoi(argv[1]);
+  srand(0);
+  double *cont_sum1 = new double[CONT_SZ];
+  double **cont_degree2 = new double*[CONT_SZ];
+  double ***cont_degree3 = new double**[CONT_SZ];
+  double ****cont_degree4 = new double***[CONT_SZ];
+  double *****cont_degree5 = new double****[CONT_SZ];
+  double ******cont_degree6 = new double*****[CONT_SZ];
+  for (int i = 0; i < CONT_SZ; i++) {
+    cont_degree2[i] = new double[CONT_SZ];
+    cont_degree3[i] = new double*[CONT_SZ];
+    cont_degree4[i] = new double**[CONT_SZ];
+    cont_degree5[i] = new double***[CONT_SZ];
+    cont_degree6[i] = new double****[CONT_SZ];
+    for (int j = 0; j < CONT_SZ; j++) {
+      cont_degree2[i][j] = 0;
+      cont_degree3[i][j] = new double[CONT_SZ];
+      cont_degree4[i][j] = new double*[CONT_SZ];
+      cont_degree5[i][j] = new double**[CONT_SZ];
+      cont_degree6[i][j] = new double***[CONT_SZ];
+      for (int k = 0; k < CONT_SZ; k++) {
+        cont_degree3[i][j][k] = 0;
+        cont_degree4[i][j][k] = new double[CONT_SZ];
+        cont_degree5[i][j][k] = new double*[CONT_SZ];
+        cont_degree6[i][j][k] = new double**[CONT_SZ];
+        for (int l = 0; l < CONT_SZ; l++) {
+          cont_degree4[i][j][k][l] = 0;
+          cont_degree5[i][j][k][l] = new double[CONT_SZ];
+          cont_degree6[i][j][k][l] = new double*[CONT_SZ];
+          for (int p = 0; p < CONT_SZ; p++) {
+            cont_degree5[i][j][k][l][p] = 0;
+            cont_degree6[i][j][k][l][p] = new double[CONT_SZ];
+            for (int q = 0; q < CONT_SZ; q++) {
+              cont_degree6[i][j][k][l][p][q] = 0;
+            }
+          }
+        }
+      }
+    }
+  }
+  for (int i = 0; i < CONT_SZ; i++) {
+      cont_sum1[i] = (double) (rand() % 1000000) / 1e6;
+  }
+  long start = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
+"""
+    val allDegs = (2 to 6)
+    val (const_tensorComputation, const_dimInfo, const_uniqueSets, const_redundancyMap) = allDegs.foldLeft((Seq.empty[Rule], Seq.empty[DimInfo], Map.empty[Exp, Rule], Map.empty[Exp, Rule]))((acc, d) => {
+      val res = e2eConstructor(d)
+      (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2))
+    })
+    val c2 = const_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, const_dimInfo, const_uniqueSets, const_redundancyMap, 1, false)}")
+    val c3 = 
+s"""
+  long end = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
+  cerr << cont_degree2[CONT_SZ - 1][CONT_SZ - 1] << " " << cont_degree3[CONT_SZ - 1][CONT_SZ - 1][CONT_SZ - 1] << " " << cont_degree4[CONT_SZ - 1][CONT_SZ - 1][CONT_SZ - 1][CONT_SZ - 1] << " " << cont_degree5[CONT_SZ - 1][CONT_SZ - 1][CONT_SZ - 1][CONT_SZ - 1][CONT_SZ - 1] << " " << cont_degree6[CONT_SZ - 1][CONT_SZ - 1][CONT_SZ - 1][CONT_SZ - 1][CONT_SZ - 1][CONT_SZ - 1] << endl;
+  delete[] cont_sum1;
+  for (int i = 0; i < CONT_SZ; i++) {
+      for (int j = 0; j < CONT_SZ; j++) {
+          for (int k = 0; k < CONT_SZ; k++) {
+              for (int l = 0; l < CONT_SZ; l++) {
+                  for (int p = 0; p < CONT_SZ; p++) {
+                      delete[] cont_degree6[i][j][k][l][p];
+                  }
+                  delete[] cont_degree5[i][j][k][l];
+                  delete[] cont_degree6[i][j][k][l];
+              }
+              delete[] cont_degree4[i][j][k];
+              delete[] cont_degree5[i][j][k];
+              delete[] cont_degree6[i][j][k];
+          }
+          delete[] cont_degree3[i][j];
+          delete[] cont_degree4[i][j];
+          delete[] cont_degree5[i][j];
+          delete[] cont_degree6[i][j];
+      }
+      delete[] cont_degree2[i];
+      delete[] cont_degree3[i];
+      delete[] cont_degree4[i];
+      delete[] cont_degree5[i];
+      delete[] cont_degree6[i];
+  }
+  delete[] cont_degree2;
+  delete[] cont_degree3;
+  delete[] cont_degree4;
+  delete[] cont_degree5;
+  delete[] cont_degree6;
+  cout << end - start << endl;
+  return 0;
+}
+"""
+    val code = s"$c1\n$c2\n$c3"
+    write2File("outputs/PR3C.cpp", code)
+  }
+
+
+  def LRA() = {
+    val c1 =
+s"""
+#include <iostream>
+#include <random>
+#include <algorithm>
+#include <chrono>
+#include <vector>
+#include <array>
+#include <ctime>
+
+using namespace std::chrono;
+using namespace std;
+
+int main(int argc, char *argv[]) {
+  int CONT_SZ = stoi(argv[1]);    
+  srand(0);
+  double *cont_sum1 = new double[CONT_SZ];
+  double *other_cont_sum1 = new double[CONT_SZ];
+  double **cont_degree2 = new double*[CONT_SZ];
+  double **other_cont_degree2 = new double*[CONT_SZ];
+  double **r_cont_degree2 = new double*[CONT_SZ];
+  for (int i = 0; i < CONT_SZ; i++) {
+    cont_degree2[i] = new double[CONT_SZ];
+    other_cont_degree2[i] = new double[CONT_SZ];
+    r_cont_degree2[i] = new double[CONT_SZ];
+    for (int j = 0; j < CONT_SZ; j++) {
+      cont_degree2[i][j] = 0;
+      other_cont_degree2[i][j] = 0;
+      r_cont_degree2[i][j] = 0;
+    }
+  }
+  for (int i = 0; i < CONT_SZ; i++) {
+    cont_sum1[i] = (double) (rand() % 1000000) / 1e6;
+    other_cont_sum1[i] = (double) (rand() % 1000000) / 1e6;
+  }
+"""
+    val k = 1
+    val allDegs = (2 to 2 * k)
+    val (const_tensorComputation, const_dimInfo, const_uniqueSets, const_redundancyMap) = allDegs.foldLeft((Seq.empty[Rule], Seq.empty[DimInfo], Map.empty[Exp, Rule], Map.empty[Exp, Rule]))((acc, d) => {
+      val res = e2eConstructor(d)
+      (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2))
+    })
+    val (other_const_tensorComputation, other_const_dimInfo, other_const_uniqueSets, other_const_redundancyMap) = allDegs.foldLeft((Seq.empty[Rule], Seq.empty[DimInfo], Map.empty[Exp, Rule], Map.empty[Exp, Rule]))((acc, d) => {
+      val res = e2eConstructor(d, 1)
+      (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2))
+    })
+    val addus2: Map[Exp, Rule] = const_uniqueSets.map{case (k, v) => (Access("other_" + k.asInstanceOf[Access].name, k.asInstanceOf[Access].vars, k.asInstanceOf[Access].kind) -> Rule(Access("other_" + v.head.name, v.head.vars, v.head.kind), v.body))}.toMap
+    val addrm2: Map[Exp, Rule] = const_redundancyMap.map{case (k, v) => (Access("other_" + k.asInstanceOf[Access].name, k.asInstanceOf[Access].vars, k.asInstanceOf[Access].kind) -> Rule(Access("other_" + v.head.name, v.head.vars, v.head.kind), v.body))}.toMap
+    val addus: Map[Exp, Rule] = mergeMap(Seq(const_uniqueSets, addus2))((v1, v2) => v1)
+    val addrm: Map[Exp, Rule] = mergeMap(Seq(const_redundancyMap, addrm2))((v1, v2) => v1)
+    val (peq_tensorComputation, peq_dimInfo, peq_uniqueSets, peq_redundancyMap) = allDegs.foldLeft((Seq.empty[Rule], const_dimInfo, addus, addrm))((acc, d) => {
+      val res = e2eAddition(d, acc._3, acc._4, 1)
+      (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2))
+    })
+    val c2 = const_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, const_dimInfo, const_uniqueSets, const_redundancyMap, 1, false)}")
+    val c3 = other_const_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, other_const_dimInfo, other_const_uniqueSets, other_const_redundancyMap, 1, false)}")
+    val c4 = "  long start = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();"
+    val c5 = peq_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, peq_dimInfo, peq_uniqueSets, peq_redundancyMap, 1)}")
+    val c6 = 
+s"""
+  long end = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
+  cerr << r_cont_degree2[CONT_SZ - 1][CONT_SZ - 1] << endl;
+  delete[] cont_sum1;
+  delete[] other_cont_sum1;
+  for (int i = 0; i < CONT_SZ; i++) {
+    delete[] cont_degree2[i];
+    delete[] other_cont_degree2[i];
+    delete[] r_cont_degree2[i];
+  }
+  delete[] cont_degree2;
+  delete[] other_cont_degree2;
+  delete[] r_cont_degree2;
+  cout << end - start << endl;
+  return 0;
+}
+"""
+    val code = s"$c1\n$c2\n$c3\n$c4\n$c5\n$c6"
+    write2File("outputs/LRA.cpp", code)
+  }
+
+  def PR2A() = {
+    val c1 = 
+s"""
+#include <iostream>
+#include <random>
+#include <algorithm>
+#include <chrono>
+#include <vector>
+#include <array>
+#include <ctime>
+
+using namespace std::chrono;
+using namespace std;
+
+int main(int argc, char *argv[]) {
+  int CONT_SZ = stoi(argv[1]);    
+  srand(0);
+  double *cont_sum1 = new double[CONT_SZ];
+  double *other_cont_sum1 = new double[CONT_SZ];
+  double **cont_degree2 = new double*[CONT_SZ];
+  double **other_cont_degree2 = new double*[CONT_SZ];
+  double **r_cont_degree2 = new double*[CONT_SZ];
+  double ***cont_degree3 = new double**[CONT_SZ];
+  double ***other_cont_degree3 = new double**[CONT_SZ];
+  double ***r_cont_degree3 = new double**[CONT_SZ];
+  double ****cont_degree4 = new double***[CONT_SZ];
+  double ****other_cont_degree4 = new double***[CONT_SZ];
+  double ****r_cont_degree4 = new double***[CONT_SZ];
+  for (int i = 0; i < CONT_SZ; i++) {
+    cont_degree2[i] = new double[CONT_SZ];
+    other_cont_degree2[i] = new double[CONT_SZ];
+    r_cont_degree2[i] = new double[CONT_SZ];
+    cont_degree3[i] = new double*[CONT_SZ];
+    other_cont_degree3[i] = new double*[CONT_SZ];
+    r_cont_degree3[i] = new double*[CONT_SZ];
+    cont_degree4[i] = new double**[CONT_SZ];
+    other_cont_degree4[i] = new double**[CONT_SZ];
+    r_cont_degree4[i] = new double**[CONT_SZ];
+    for (int j = 0; j < CONT_SZ; j++) {
+      cont_degree2[i][j] = 0;
+      other_cont_degree2[i][j] = 0;
+      r_cont_degree2[i][j] = 0;
+      cont_degree3[i][j] = new double[CONT_SZ];
+      other_cont_degree3[i][j] = new double[CONT_SZ];
+      r_cont_degree3[i][j] = new double[CONT_SZ];
+      cont_degree4[i][j] = new double*[CONT_SZ];
+      other_cont_degree4[i][j] = new double*[CONT_SZ];
+      r_cont_degree4[i][j] = new double*[CONT_SZ];
+      for (int k = 0; k < CONT_SZ; k++) {
+        cont_degree3[i][j][k] = 0;
+        other_cont_degree3[i][j][k] = 0;
+        r_cont_degree3[i][j][k] = 0;
+        cont_degree4[i][j][k] = new double[CONT_SZ];
+        other_cont_degree4[i][j][k] = new double[CONT_SZ];
+        r_cont_degree4[i][j][k] = new double[CONT_SZ];
+        for (int l = 0; l < CONT_SZ; l++) {
+          cont_degree4[i][j][k][l] = 0;
+          other_cont_degree4[i][j][k][l] = 0;
+          r_cont_degree4[i][j][k][l] = 0;
+        }
+      }
+    }
+  }
+  for (int i = 0; i < CONT_SZ; i++) {
+    cont_sum1[i] = (double) (rand() % 1000000) / 1e6;
+    other_cont_sum1[i] = (double) (rand() % 1000000) / 1e6;
+  }
+"""
+    val k = 2
+    val allDegs = (2 to 2 * k)
+    val (const_tensorComputation, const_dimInfo, const_uniqueSets, const_redundancyMap) = allDegs.foldLeft((Seq.empty[Rule], Seq.empty[DimInfo], Map.empty[Exp, Rule], Map.empty[Exp, Rule]))((acc, d) => {
+      val res = e2eConstructor(d)
+      (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2))
+    })
+    val (other_const_tensorComputation, other_const_dimInfo, other_const_uniqueSets, other_const_redundancyMap) = allDegs.foldLeft((Seq.empty[Rule], Seq.empty[DimInfo], Map.empty[Exp, Rule], Map.empty[Exp, Rule]))((acc, d) => {
+      val res = e2eConstructor(d, 1)
+      (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2))
+    })
+    val addus2: Map[Exp, Rule] = const_uniqueSets.map{case (k, v) => (Access("other_" + k.asInstanceOf[Access].name, k.asInstanceOf[Access].vars, k.asInstanceOf[Access].kind) -> Rule(Access("other_" + v.head.name, v.head.vars, v.head.kind), v.body))}.toMap
+    val addrm2: Map[Exp, Rule] = const_redundancyMap.map{case (k, v) => (Access("other_" + k.asInstanceOf[Access].name, k.asInstanceOf[Access].vars, k.asInstanceOf[Access].kind) -> Rule(Access("other_" + v.head.name, v.head.vars, v.head.kind), v.body))}.toMap
+    val addus: Map[Exp, Rule] = mergeMap(Seq(const_uniqueSets, addus2))((v1, v2) => v1)
+    val addrm: Map[Exp, Rule] = mergeMap(Seq(const_redundancyMap, addrm2))((v1, v2) => v1)
+    val (peq_tensorComputation, peq_dimInfo, peq_uniqueSets, peq_redundancyMap) = allDegs.foldLeft((Seq.empty[Rule], const_dimInfo, addus, addrm))((acc, d) => {
+      val res = e2eAddition(d, acc._3, acc._4, 1)
+      (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2))
+    })
+    val c2 = const_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, const_dimInfo, const_uniqueSets, const_redundancyMap, 1, false)}")
+    val c3 = other_const_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, other_const_dimInfo, other_const_uniqueSets, other_const_redundancyMap, 1, false)}")
+    val c4 = "  long start = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();"
+    val c5 = peq_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, peq_dimInfo, peq_uniqueSets, peq_redundancyMap, 1)}")
+    val c6 = 
+s"""
+  long end = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
+  cerr << r_cont_degree2[CONT_SZ - 1][CONT_SZ - 1] << " " << r_cont_degree3[CONT_SZ - 1][CONT_SZ - 1][CONT_SZ - 1] << " " << r_cont_degree4[CONT_SZ - 1][CONT_SZ - 1][CONT_SZ - 1][CONT_SZ - 1] << endl;
+  delete[] cont_sum1;
+  delete[] other_cont_sum1;
+  for (int i = 0; i < CONT_SZ; i++) {
+    for (int j = 0; j < CONT_SZ; j++) {
+      for (int k = 0; k < CONT_SZ; k++) {
+        delete[] cont_degree4[i][j][k];
+        delete[] other_cont_degree4[i][j][k];
+        delete[] r_cont_degree4[i][j][k];
+      }
+      delete[] cont_degree3[i][j];
+      delete[] other_cont_degree3[i][j];
+      delete[] r_cont_degree3[i][j];
+      delete[] cont_degree4[i][j];
+      delete[] other_cont_degree4[i][j];
+      delete[] r_cont_degree4[i][j];
+    }
+    delete[] cont_degree2[i];
+    delete[] other_cont_degree2[i];
+    delete[] r_cont_degree2[i];
+    delete[] cont_degree3[i];
+    delete[] other_cont_degree3[i];
+    delete[] r_cont_degree3[i];
+    delete[] cont_degree4[i];
+    delete[] other_cont_degree4[i];
+    delete[] r_cont_degree4[i];
+  }
+  delete[] cont_degree2;
+  delete[] other_cont_degree2;
+  delete[] r_cont_degree2;
+  delete[] cont_degree3;
+  delete[] other_cont_degree3;
+  delete[] r_cont_degree3;
+  delete[] cont_degree4;
+  delete[] other_cont_degree4;
+  delete[] r_cont_degree4;
+  cout << end - start << endl;
+  return 0;
+}
+"""
+    val code = s"$c1\n$c2\n$c3\n$c4\n$c5\n$c6"
+    write2File("outputs/PR2A.cpp", code)
+  }
+
+  def PR3A() = {
+    val c1 = 
+s"""
+#include <iostream>
+#include <random>
+#include <algorithm>
+#include <chrono>
+#include <vector>
+#include <array>
+#include <ctime>
+
+using namespace std::chrono;
+using namespace std;
+
+int main(int argc, char *argv[]) {
+  int CONT_SZ = stoi(argv[1]);
+  srand(0);
+  double *cont_sum1 = new double[CONT_SZ];
+  double *other_cont_sum1 = new double[CONT_SZ];
+  double **cont_degree2 = new double*[CONT_SZ];
+  double **other_cont_degree2 = new double*[CONT_SZ];
+  double **r_cont_degree2 = new double*[CONT_SZ];
+  double ***cont_degree3 = new double**[CONT_SZ];
+  double ***other_cont_degree3 = new double**[CONT_SZ];
+  double ***r_cont_degree3 = new double**[CONT_SZ];
+  double ****cont_degree4 = new double***[CONT_SZ];
+  double ****other_cont_degree4 = new double***[CONT_SZ];
+  double ****r_cont_degree4 = new double***[CONT_SZ];
+  double *****cont_degree5 = new double****[CONT_SZ];
+  double *****other_cont_degree5 = new double****[CONT_SZ];
+  double *****r_cont_degree5 = new double****[CONT_SZ];
+  double ******cont_degree6 = new double*****[CONT_SZ];
+  double ******other_cont_degree6 = new double*****[CONT_SZ];
+  double ******r_cont_degree6 = new double*****[CONT_SZ];
+  for (int i = 0; i < CONT_SZ; i++) {
+    cont_degree2[i] = new double[CONT_SZ];
+    other_cont_degree2[i] = new double[CONT_SZ];
+    r_cont_degree2[i] = new double[CONT_SZ];
+    cont_degree3[i] = new double*[CONT_SZ];
+    other_cont_degree3[i] = new double*[CONT_SZ];
+    r_cont_degree3[i] = new double*[CONT_SZ];
+    cont_degree4[i] = new double**[CONT_SZ];
+    other_cont_degree4[i] = new double**[CONT_SZ];
+    r_cont_degree4[i] = new double**[CONT_SZ];
+    cont_degree5[i] = new double***[CONT_SZ];
+    other_cont_degree5[i] = new double***[CONT_SZ];
+    r_cont_degree5[i] = new double***[CONT_SZ];
+    cont_degree6[i] = new double****[CONT_SZ];
+    other_cont_degree6[i] = new double****[CONT_SZ];
+    r_cont_degree6[i] = new double****[CONT_SZ];
+    for (int j = 0; j < CONT_SZ; j++) {
+      cont_degree2[i][j] = 0;
+      other_cont_degree2[i][j] = 0;
+      r_cont_degree2[i][j] = 0;
+      cont_degree3[i][j] = new double[CONT_SZ];
+      other_cont_degree3[i][j] = new double[CONT_SZ];
+      r_cont_degree3[i][j] = new double[CONT_SZ];
+      cont_degree4[i][j] = new double*[CONT_SZ];
+      other_cont_degree4[i][j] = new double*[CONT_SZ];
+      r_cont_degree4[i][j] = new double*[CONT_SZ];
+      cont_degree5[i][j] = new double**[CONT_SZ];
+      other_cont_degree5[i][j] = new double**[CONT_SZ];
+      r_cont_degree5[i][j] = new double**[CONT_SZ];
+      cont_degree6[i][j] = new double***[CONT_SZ];
+      other_cont_degree6[i][j] = new double***[CONT_SZ];
+      r_cont_degree6[i][j] = new double***[CONT_SZ];
+      for (int k = 0; k < CONT_SZ; k++) {
+        cont_degree3[i][j][k] = 0;
+        other_cont_degree3[i][j][k] = 0;
+        r_cont_degree3[i][j][k] = 0;
+        cont_degree4[i][j][k] = new double[CONT_SZ];
+        other_cont_degree4[i][j][k] = new double[CONT_SZ];
+        r_cont_degree4[i][j][k] = new double[CONT_SZ];
+        cont_degree5[i][j][k] = new double*[CONT_SZ];
+        other_cont_degree5[i][j][k] = new double*[CONT_SZ];
+        r_cont_degree5[i][j][k] = new double*[CONT_SZ];
+        cont_degree6[i][j][k] = new double**[CONT_SZ];
+        other_cont_degree6[i][j][k] = new double**[CONT_SZ];
+        r_cont_degree6[i][j][k] = new double**[CONT_SZ];
+        for (int l = 0; l < CONT_SZ; l++) {
+          cont_degree4[i][j][k][l] = 0;
+          other_cont_degree4[i][j][k][l] = 0;
+          r_cont_degree4[i][j][k][l] = 0;
+          cont_degree5[i][j][k][l] = new double[CONT_SZ];
+          other_cont_degree5[i][j][k][l] = new double[CONT_SZ];
+          r_cont_degree5[i][j][k][l] = new double[CONT_SZ];
+          cont_degree6[i][j][k][l] = new double*[CONT_SZ];
+          other_cont_degree6[i][j][k][l] = new double*[CONT_SZ];
+          r_cont_degree6[i][j][k][l] = new double*[CONT_SZ];
+          for (int p = 0; p < CONT_SZ; p++) {
+            cont_degree5[i][j][k][l][p] = 0;
+            other_cont_degree5[i][j][k][l][p] = 0;
+            r_cont_degree5[i][j][k][l][p] = 0;
+            cont_degree6[i][j][k][l][p] = new double[CONT_SZ];
+            other_cont_degree6[i][j][k][l][p] = new double[CONT_SZ];
+            r_cont_degree6[i][j][k][l][p] = new double[CONT_SZ];
+            for (int q = 0; q < CONT_SZ; q++) {
+              cont_degree6[i][j][k][l][p][q] = 0;
+              other_cont_degree6[i][j][k][l][p][q] = 0;
+              r_cont_degree6[i][j][k][l][p][q] = 0;
+            }
+          }
+        }
+      }
+    }
+  }
+  for (int i = 0; i < CONT_SZ; i++) {
+      cont_sum1[i] = (double) (rand() % 1000000) / 1e6;
+      other_cont_sum1[i] = (double) (rand() % 1000000) / 1e6;
+  }
+"""
+    val k = 3
+    val allDegs = (2 to 2 * k)
+    val (const_tensorComputation, const_dimInfo, const_uniqueSets, const_redundancyMap) = allDegs.foldLeft((Seq.empty[Rule], Seq.empty[DimInfo], Map.empty[Exp, Rule], Map.empty[Exp, Rule]))((acc, d) => {
+      val res = e2eConstructor(d)
+      (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2))
+    })
+    val (other_const_tensorComputation, other_const_dimInfo, other_const_uniqueSets, other_const_redundancyMap) = allDegs.foldLeft((Seq.empty[Rule], Seq.empty[DimInfo], Map.empty[Exp, Rule], Map.empty[Exp, Rule]))((acc, d) => {
+      val res = e2eConstructor(d, 1)
+      (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2))
+    })
+    val addus2: Map[Exp, Rule] = const_uniqueSets.map{case (k, v) => (Access("other_" + k.asInstanceOf[Access].name, k.asInstanceOf[Access].vars, k.asInstanceOf[Access].kind) -> Rule(Access("other_" + v.head.name, v.head.vars, v.head.kind), v.body))}.toMap
+    val addrm2: Map[Exp, Rule] = const_redundancyMap.map{case (k, v) => (Access("other_" + k.asInstanceOf[Access].name, k.asInstanceOf[Access].vars, k.asInstanceOf[Access].kind) -> Rule(Access("other_" + v.head.name, v.head.vars, v.head.kind), v.body))}.toMap
+    val addus: Map[Exp, Rule] = mergeMap(Seq(const_uniqueSets, addus2))((v1, v2) => v1)
+    val addrm: Map[Exp, Rule] = mergeMap(Seq(const_redundancyMap, addrm2))((v1, v2) => v1)
+    val (peq_tensorComputation, peq_dimInfo, peq_uniqueSets, peq_redundancyMap) = allDegs.foldLeft((Seq.empty[Rule], const_dimInfo, addus, addrm))((acc, d) => {
+      val res = e2eAddition(d, acc._3, acc._4, 1)
+      (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2))
+    })
+    val c2 = const_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, const_dimInfo, const_uniqueSets, const_redundancyMap, 1, false)}")
+    val c3 = other_const_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, other_const_dimInfo, other_const_uniqueSets, other_const_redundancyMap, 1, false)}")
+    val c4 = "  long start = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();"
+    val c5 = peq_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, peq_dimInfo, peq_uniqueSets, peq_redundancyMap, 1)}")
+    val c6 = 
+s"""
+  long end = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
+  cerr << r_cont_degree2[CONT_SZ - 1][CONT_SZ - 1] << " " << r_cont_degree3[CONT_SZ - 1][CONT_SZ - 1][CONT_SZ - 1] << " " << r_cont_degree4[CONT_SZ - 1][CONT_SZ - 1][CONT_SZ - 1][CONT_SZ - 1] << " " << r_cont_degree5[CONT_SZ - 1][CONT_SZ - 1][CONT_SZ - 1][CONT_SZ - 1][CONT_SZ - 1] << " " << r_cont_degree6[CONT_SZ - 1][CONT_SZ - 1][CONT_SZ - 1][CONT_SZ - 1][CONT_SZ - 1][CONT_SZ - 1] << endl;
+  delete[] cont_sum1;
+  delete[] other_cont_sum1;
+  for (int i = 0; i < CONT_SZ; i++) {
+      for (int j = 0; j < CONT_SZ; j++) {
+          for (int k = 0; k < CONT_SZ; k++) {
+              for (int l = 0; l < CONT_SZ; l++) {
+                  for (int p = 0; p < CONT_SZ; p++) {
+                      delete[] cont_degree6[i][j][k][l][p];
+                      delete[] other_cont_degree6[i][j][k][l][p];
+                      delete[] r_cont_degree6[i][j][k][l][p];
+                  }
+                  delete[] cont_degree5[i][j][k][l];
+                  delete[] other_cont_degree5[i][j][k][l];
+                  delete[] r_cont_degree5[i][j][k][l];
+                  delete[] cont_degree6[i][j][k][l];
+                  delete[] other_cont_degree6[i][j][k][l];
+                  delete[] r_cont_degree6[i][j][k][l];
+              }
+              delete[] cont_degree4[i][j][k];
+              delete[] other_cont_degree4[i][j][k];
+              delete[] r_cont_degree4[i][j][k];
+              delete[] cont_degree5[i][j][k];
+              delete[] other_cont_degree5[i][j][k];
+              delete[] r_cont_degree5[i][j][k];
+              delete[] cont_degree6[i][j][k];
+              delete[] other_cont_degree6[i][j][k];
+              delete[] r_cont_degree6[i][j][k];
+          }
+          delete[] cont_degree3[i][j];
+          delete[] other_cont_degree3[i][j];
+          delete[] r_cont_degree3[i][j];
+          delete[] cont_degree4[i][j];
+          delete[] other_cont_degree4[i][j];
+          delete[] r_cont_degree4[i][j];
+          delete[] cont_degree5[i][j];
+          delete[] other_cont_degree5[i][j];
+          delete[] r_cont_degree5[i][j];
+          delete[] cont_degree6[i][j];
+          delete[] other_cont_degree6[i][j];
+          delete[] r_cont_degree6[i][j];
+      }
+      delete[] cont_degree2[i];
+      delete[] other_cont_degree2[i];
+      delete[] r_cont_degree2[i];
+      delete[] cont_degree3[i];
+      delete[] other_cont_degree3[i];
+      delete[] r_cont_degree3[i];
+      delete[] cont_degree4[i];
+      delete[] other_cont_degree4[i];
+      delete[] r_cont_degree4[i];
+      delete[] cont_degree5[i];
+      delete[] other_cont_degree5[i];
+      delete[] r_cont_degree5[i];
+      delete[] cont_degree6[i];
+      delete[] other_cont_degree6[i];
+      delete[] r_cont_degree6[i];
+  }
+  delete[] cont_degree2;
+  delete[] other_cont_degree2;
+  delete[] r_cont_degree2;
+  delete[] cont_degree3;
+  delete[] other_cont_degree3;
+  delete[] r_cont_degree3;
+  delete[] cont_degree4;
+  delete[] other_cont_degree4;
+  delete[] r_cont_degree4;
+  delete[] cont_degree5;
+  delete[] other_cont_degree5;
+  delete[] r_cont_degree5;
+  delete[] cont_degree6;
+  delete[] other_cont_degree6;
+  delete[] r_cont_degree6;
+  cout << end - start << endl;
+  return 0;
+}
+"""
+    val code = s"$c1\n$c2\n$c3\n$c4\n$c5\n$c6"
+    write2File("outputs/PR3A.cpp", code)
+  }
+
+
+  def TTM(structure: String) = {
+    val outName = if (structure == "diag_p") "TTM_DP" else if (structure == "fixed_j") "TTM_J" else if (structure == "uhc") "TTM_UT" else "TTM"
+    val c1 = 
+s"""
+#include <iostream>
+#include <random>
+#include <algorithm>
+#include <chrono>
+
+using namespace std;
+using namespace std::chrono;
+
+int main(int argc, char **argv){
+    srand(0);
+
+    int M = atoi(argv[1]),N = atoi(argv[2]), Q = atoi(argv[3]), P = atoi(argv[4]);
+    ${if (structure == "fixed_j") "int J = atoi(argv[5]);" else ""}
+    
+     /*
+        M : third dimension in B, A (i)    
+        N : rows in B, A (j)
+        Q : columns in B, columns in C (l)
+
+        P : rows  in C (k)
+
+        A(i, j,k) = B(i,j,l),C(k,l)
+    */
+
+    double  ***B = new double**[M];
+    for(size_t i = 0; i < M; ++i){
+        B[i] = new double*[N];
+        for(size_t j = 0; j < N; ++j){
+            B[i][j] = new double[Q];
+            for(size_t l =0; l< Q; ++l){
+                if (i == j){
+                    B[i][j][l] = (double) (rand() % 1000000) / 1e6;
+                }
+                else{
+                    B[i][j][l] = (double) 0;
+                }
+            }
+        }
+    }
+
+    double  **C = new double*[P];
+    for(size_t k = 0; k < P; ++k){
+        C[k] = new double[Q];
+        for(size_t l = 0; l < Q; ++l){
+            C[k][l] = (double) (rand() % 1000000) / 1e6;
+        }
+    }
+
+
+    double  ***A = new double**[M];
+    for(size_t i = 0; i < M; ++i){
+        A[i] = new double*[N];
+        for(size_t j = 0; j < N; ++j){
+            A[i][j] = new double[P];
+            for(size_t k =0; k < P; ++k){
+                A[i][j][k] = (double) 0;
+            }
+        }
+    }
+
+    long time = 0, start, end;
+    start = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
+"""
+    val c2 = ttm(structure, 1)
+    val c3 =
+s"""
+  end = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
+    time += end - start;
+
+    cerr << A[M - 1][N - 1][P - 1] << "\\n";
+    cout << time;
+   
+    for(size_t i = 0; i < M; ++i){
+        for(size_t j = 0; j < N; ++j){
+            delete[] B[i][j];
+        }
+        delete[] B[i];
+    }
+    delete[] B;
+
+    for(size_t k = 0; k < P; ++k){
+        delete[] C[k];
+    }
+    delete[] C;
+
+    for(size_t i = 0; i < M; ++i){
+        for(size_t j = 0; j < N; ++j){
+            delete[] A[i][j];
+        }
+        delete[] A[i];
+    }
+    delete[] A;
+    
+    return 0; 
+}
+"""
+
+    val code = s"$c1\n$c2\n$c3"
+    write2File(s"outputs/$outName.cpp", code)
+  }
+
+  def THP(structure: String) = {
+    val outName = if (structure == "diag_p") "THP_DP" else if (structure == "fixed_i") "THP_I" else if (structure == "fixed_j") "THP_J" else "THP"
+    val c1 = 
+s"""
+#include <array>
+#include <iostream>
+#include <algorithm>
+#include <chrono>
+
+using namespace std;
+using namespace std::chrono;
+
+int main(int argc, char **argv){
+    
+    srand(0);
+    int M = atoi(argv[1]), N = atoi(argv[2]), P = atoi(argv[3]);
+    ${if (structure == "fixed_i") "int I = atoi(argv[4]);" else if (structure == "fixed_j") "int J = atoi(argv[4]);" else ""}
+    
+    /*
+        M : third dimension (i) in B, C, A
+        N : first dimension (j) in B, C, A
+        P : second dimension (k) in B, C, A
+
+        A(i,j,k) = B(i,j,k),C(i,j,k)
+    */
+
+    double  ***B = new double**[M];
+    for(size_t i = 0; i < M; ++i){
+        B[i] = new double*[N];
+        for(size_t j = 0; j < N; ++j){
+            B[i][j] = new double[P];
+            for(size_t k =0; k< P; ++k){
+                if (i == j){
+                    B[i][j][k] = (double) (rand() % 1000000) / 1e6;
+                }
+                else{
+                    B[i][j][k] = (double) 0;
+                }
+            }
+        }
+    }
+
+    double  ***C = new double**[M];
+    for(size_t i = 0; i < M; ++i){
+        C[i] = new double*[N];
+        for(size_t j = 0; j < N; ++j){
+            C[i][j] = new double[P];
+            for(size_t k =0; k< P; ++k){
+                C[i][j][k] = (double) (rand() % 1000000) / 1e6;
+            }
+        }
+    }
+
+    double  ***A = new double**[M];
+    for(size_t i = 0; i < M; ++i){
+        A[i] = new double*[N];
+        for(size_t j = 0; j < N; ++j){
+            A[i][j] = new double[P];
+            for(size_t k =0; k < P; ++k){
+                (double) 0;
+            }
+        }
+    }
+
+    long time = 0, start, end;
+    start = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
+"""
+    val c2 = thp(structure, 1)
+    val c3 = 
+s"""
+    end = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
+    time += end - start;
+    
+    cerr << A[M - 1][N - 1][P - 1] << "\\n";
+    cout<<time;
+
+    for(size_t i = 0; i < M; ++i){
+        for(size_t j = 0; j < N; ++j){
+            delete[] B[i][j];
+        }
+        delete[] B[i];
+    }
+    delete[] B;
+
+    for(size_t i = 0; i < M; ++i){
+        for(size_t j = 0; j < N; ++j){
+            delete[] C[i][j];
+        }
+        delete[] C[i];
+    }
+    delete[] C;
+
+    for(size_t i = 0; i < M; ++i){
+        for(size_t j = 0; j < N; ++j){
+            delete[] A[i][j];
+        }
+        delete[] A[i];
+    }
+    delete[] A;
+
+    return 0; 
+}
+"""
+
+    val code = s"$c1\n$c2\n$c3"
+    write2File(s"outputs/$outName.cpp", code)
+  }
+
+
+  def MTTKRP(structure: String) = {
+    val outName = if (structure == "fixed_ij") "MTTKRP_IJ" else if (structure == "fixed_i") "MTTKRP_I" else if (structure == "fixed_j") "MTTKRP_J" else "MTTKRP"
+    val c1 = 
+s"""
+#include <iostream>
+#include <random>
+#include <algorithm>
+#include <chrono>
+
+using namespace std;
+using namespace std::chrono;
+
+int main(int argc, char **argv){
+    srand(0);
+
+    int M = atoi(argv[1]),N = atoi(argv[2]), P = atoi(argv[3]), Q = atoi(argv[4]);
+    ${if (structure == "fixed_ij") "int I = atoi(argv[5]), J = atoi(argv[6]);" else if (structure == "fixed_i") "int I = atoi(argv[5]);" else if (structure == "fixed_j") "int J = atoi(argv[5]);" else ""}
+    
+     /*
+        M : third dimension (k vec) in B,   --> rows in A 
+        N : first dimension (i vec) in B,   --> rows in C
+        P : second dimension (j vec) in B,  --> rows in D
+
+        Q : columns  in C, D, and A 
+
+        A(i, j) = B(i,k,l),C(k,j),D(l,j)
+    */
+
+    double  ***B = new double**[M];
+    for(size_t i = 0; i < M; ++i){
+        B[i] = new double*[N];
+        for(size_t k = 0; k < N; ++k){
+            B[i][k] = new double[P];
+            for(size_t l =0; l< P; ++l){
+                ${if (structure == "fixed_i" || structure == "fixed_ij") {
+s"""
+                if (i == I){
+                    B[i][k][l] = (double) (rand() % 1000000) / 1e6;
+                }
+                else{
+                    B[i][k][l] = (double) 0;
+                }
+"""
+                } else {
+                  "B[i][k][l] = (double) (rand() % 1000000) / 1e6;"
+                }}
+            }
+        }
+    }
+
+    double  **C = new double*[N];
+    for(size_t k = 0; k < N; ++k){
+        C[k] = new double[Q];
+        for(size_t j = 0; j < Q; ++j){
+            C[k][j] = (double) (rand() % 1000000) / 1e6;
+        }
+    }
+
+
+    double  **D = new double*[P];
+    for(size_t l = 0; l < P; ++l){
+        D[l] = new double[Q];
+        for(size_t j = 0; j < Q; j++){
+            D[l][j] = (double) (rand() % 1000000) / 1e6;
+        }
+    }
+
+    double  **A = new double*[M];
+    for(size_t i = 0; i < M; ++i){
+        A[i] = new double[Q];
+        for(size_t j = 0; j < Q; ++j){
+            A[i][j] = (double) 0;
+        }
+    }
+
+    long time = 0, start, end;
+    start = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
+"""
+    val c2 = mttkrp_n(structure, 1)
+    val c3 = 
+s"""
+    end = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
+    time += end - start;
+
+    cerr << A[M - 1][Q - 1] << "\\n";
+    cout<<time;
+   
+
+
+    for(size_t i = 0; i < P; i++){
+        for(size_t j = 0; j < N; j++){
+            delete[] B[i][j];
+        }
+        delete[] B[i];
+
+    }
+    delete[] B;
+    
+    for(size_t i = 0; i < N; i++){
+        delete[] C[i];
+    }
+    delete[] C;
+
+    for(size_t i = 0; i < P; i++){
+        delete[] D[i];
+    }
+    delete[] D;
+
+    for(size_t i = 0; i < M; i++){
+        delete[] A[i];
+    }
+    delete[] A;
+    return 0; 
+}
+"""
+    val code = s"$c1\n$c2\n$c3"
+    write2File(s"outputs/$outName.cpp", code)
+  }
+
+  
+
+
+  val help: String = s"""
+Please specify the experiment name [use `sbt "run [exp]"`]:
+LRC       = Linear Regression - Creation
+PR2C      = Polynomial Regression Degree 2 - Creation
+PR3C      = Polynomial Regression Degree 3 - Creation
+LRA       = Linear Regression - Addition
+PR2A      = Polynomial Regression Degree 2 - Addition
+PR3A      = Polynomial Regression Degree 3 - Addition
+TTM_DP    = TTM: Diagonal (Plane)
+TTM_J     = TTM: Fixed j
+TTM_UT    = TTM: Upper Triangular (Half-cube)
+THP_DP    = THP: Diagonal (Plane)
+THP_I     = THP: Fixed i
+THP_J     = THP: Fixed j
+MTTKRP_IJ = MTTKRP: Fixed i & j
+MTTKRP_I  = MTTKRP: Fixed i
+MTTKRP_J  = MTTKRP: Fixed j
+E2E_LRFS  = E2E - Linear Regression (Favorita Small)
+E2E_LRFF  = E2E - Linear Regression (Favorita Full)
+E2E_LRRS  = E2E - Linear Regression (Retailer Small)
+E2E_LRRF  = E2E - Linear Regression (Retailer Full)
+E2E_PR2FS = E2E - Polynomial Regression Degree 2 (Favorita Small)
+E2E_PR2FF = E2E - Polynomial Regression Degree 2 (Favorita Full)
+E2E_PR2RS = E2E - Polynomial Regression Degree 2 (Retailer Small)
+E2E_PR2RF = E2E - Polynomial Regression Degree 2 (Retailer Full)
+"""
+  if (args.length == 1) {
+    args(0) match {
+      case "LRC" => LRC()
+      case "PR2C" => PR2C()
+      case "PR3C" => PR3C()
+      case "LRA" => LRA()
+      case "PR2A" => PR2A()
+      case "PR3A" => PR3A()
+      case "TTM_DP" => TTM("diag_p")
+      case "TTM_J" => TTM("fixed_j")
+      case "TTM_UT" => TTM("uhc")
+      case "THP_DP" => THP("diag_p")
+      case "THP_I" => THP("fixed_i")
+      case "THP_J" => THP("fixed_j")
+      case "MTTKRP_IJ" => MTTKRP("fixed_ij")
+      case "MTTKRP_I" => MTTKRP("fixed_i")
+      case "MTTKRP_J" => MTTKRP("fixed_j")
+      // case "E2E_LRFS" => E2E_LRFS()
+      // case "E2E_LRFF" => E2E_LRFF()
+      // case "E2E_LRRS" => E2E_LRRS()
+      // case "E2E_LRRF" => E2E_LRRF()
+      // case "E2E_PR2FS" => E2E_PR2FS()
+      // case "E2E_PR2FF" => E2E_PR2FF()
+      // case "E2E_PR2RS" => E2E_PR2RS()
+      // case "E2E_PR2RF" => E2E_PR2RF()
+      case _ => println(help)
+    }
+  } else println(help)
+  
 
   // println(Variable("a").equals(Variable("a")))
 
