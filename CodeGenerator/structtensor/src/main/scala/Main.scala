@@ -3923,7 +3923,7 @@ object Main extends App {
     } else codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, 1, dataLayoutMap=dataLayoutMap)
   }
 
-  def thp(structure: String, mode: Int = 0) = {
+  def thp(structure: String, mode: Int = 0, sparse: Boolean = false) = {
     val head: Access = Access("A", Seq("i".toVar, "j".toVar, "k".toVar), Tensor)
     val var1: Access = Access("B",  Seq("i".toVar, "j".toVar, "k".toVar), Tensor)
     val var2: Access = Access("C",  Seq("i".toVar, "j".toVar, "k".toVar), Tensor)
@@ -3961,6 +3961,13 @@ object Main extends App {
     val var1BodyRM: SoP = emptySoP()
     val var1RM: Rule = Rule(var1HeadRM, var1BodyRM)
 
+    val var1DL: Function[Seq[Variable], Seq[Index]] = structure match {
+      case "diag_p" => (x: Seq[Variable]) => Seq(Arithmetic("+", Arithmetic("*", x(0), "P".toVar), x(2)))
+      case "fixed_j" => (x: Seq[Variable]) => Seq(Arithmetic("+", Arithmetic("*", x(0), "P".toVar), x(2)))
+      case "fixed_i" => (x: Seq[Variable]) => Seq(Arithmetic("+", Arithmetic("*", x(1), "P".toVar), x(2)))
+      case _ => (x: Seq[Variable]) => x
+    }
+
     val var2HeadUS: Access = Access(var2.name.uniqueName, var2.vars, UniqueSet)
     val var2BodyUS: SoP = dim2.toSoP
     val var2US: Rule = Rule(var2HeadUS, var2BodyUS)
@@ -3971,12 +3978,13 @@ object Main extends App {
 
     val uniqueSets: Map[Exp, Rule] = Map(var1 -> var1US, var2 -> var2US)
     val redundancyMap: Map[Exp, Rule] = Map(var1 -> var1RM, var2 -> var2RM)
+    val dataLayoutMap: Map[Exp, Function[Seq[Variable], Seq[Index]]] = if (sparse) Map(var1 -> var1DL) else Map()
 
     if (mode == 0) {
-      println(codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap))
+      println(codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, dataLayoutMap=dataLayoutMap))
 
       (tensorComputation, infer(tensorComputation, dimInfo, uniqueSets, redundancyMap))
-    } else codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, 1)
+    } else codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, 1, dataLayoutMap=dataLayoutMap)
   }
 
   def mttkrp(structure: String, mode: Int = 0) = {
@@ -5505,8 +5513,9 @@ s"""
     write2File(s"outputs/$outName.cpp", code)
   }
 
-  def THP(structure: String) = {
-    val outName = if (structure == "diag_p") "THP_DP" else if (structure == "fixed_i") "THP_I" else if (structure == "fixed_j") "THP_J" else "THP"
+  def THP(structure: String, sparse: Boolean) = {
+    val outName1 = if (structure == "diag_p") "THP_DP" else if (structure == "fixed_i") "THP_I" else if (structure == "fixed_j") "THP_J" else "THP"
+    val outName = if (sparse) s"${outName1}_Sparse" else outName1
     val c1 = 
 s"""
 #include <array>
@@ -5531,6 +5540,18 @@ int main(int argc, char **argv){
         A(i,j,k) = B(i,j,k),C(i,j,k)
     */
 
+    ${if (sparse) {
+s"""
+    double *B = new double${if (structure == "diag_p" || structure == "fixed_j") "[M * P];" else if (structure == "fixed_i") "[N * P];"}
+    ${if (structure == "diag_p" || structure == "fixed_j") "for (size_t i = 0; i < M; ++i){" else ""}
+      ${if (structure == "diag_p" || structure == "fixed_j") "" else "for(size_t j = 0; j < N; ++j){"}
+        for(size_t k =0; k< P; ++k){
+          ${if (structure == "diag_p" || structure == "fixed_j") "B[i * P + k]" else "B[j * P + k]"} = (double) (rand() % 1000000) / 1e6;
+        }
+      }
+"""
+    } else {
+s"""
     double  ***B = new double**[M];
     for(size_t i = 0; i < M; ++i){
         B[i] = new double*[N];
@@ -5546,6 +5567,8 @@ int main(int argc, char **argv){
             }
         }
     }
+"""
+    }}
 
     double  ***C = new double**[M];
     for(size_t i = 0; i < M; ++i){
@@ -5572,7 +5595,7 @@ int main(int argc, char **argv){
     long time = 0, start, end;
     start = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
 """
-    val c2 = thp(structure, 1)
+    val c2 = thp(structure, 1, sparse)
     val c3 = 
 s"""
     end = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
@@ -5581,12 +5604,16 @@ s"""
     cerr << A[M - 1][N - 1][P - 1] << "\\n";
     cout<<time;
 
+    ${if (sparse) "" else {
+s"""
     for(size_t i = 0; i < M; ++i){
         for(size_t j = 0; j < N; ++j){
             delete[] B[i][j];
         }
         delete[] B[i];
     }
+"""
+    }}
     delete[] B;
 
     for(size_t i = 0; i < M; ++i){
@@ -5785,9 +5812,9 @@ E2E_PR2   = E2E - Polynomial Regression Degree 2
       case "TTM_DP" => TTM("diag_p", sparse)
       case "TTM_J" => TTM("fixed_j", sparse)
       case "TTM_UT" => TTM("uhc", sparse)
-      case "THP_DP" => THP("diag_p")
-      case "THP_I" => THP("fixed_i")
-      case "THP_J" => THP("fixed_j")
+      case "THP_DP" => THP("diag_p", sparse)
+      case "THP_I" => THP("fixed_i", sparse)
+      case "THP_J" => THP("fixed_j", sparse)
       case "MTTKRP_IJ" => MTTKRP("fixed_ij")
       case "MTTKRP_I" => MTTKRP("fixed_i")
       case "MTTKRP_J" => MTTKRP("fixed_j")
