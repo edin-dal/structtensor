@@ -2,7 +2,7 @@
 
 ## Micro Benchmarks
 
-Run sbt by specifying the experiment name to generate the code [use `sbt "run [name]"`]:
+Run sbt by specifying the experiment name to generate the code [use `sbt "run <name> [sparse]"`]:
 
 `LRC`       = Linear Regression - Creation
 
@@ -34,8 +34,8 @@ Run sbt by specifying the experiment name to generate the code [use `sbt "run [n
 
 `MTTKRP_J`  = MTTKRP: Fixed j
 
-For example: `sbt "run THP_I"` to get the code for THP: Fixed i case. 
-Then compile the file `[name].cpp` using the flags mentioned in the example.
+For example: `sbt "run THP_I"` to get the code for THP: Fixed i case. Or run `sbt "run THP_I sparse"` to get the code for THP: Fixed j case with sparse data layout for input.
+Then compile the file `<name>.cpp` using the flags mentioned in the example.
 Run the code by passing the required arguments to the compiled code.
 
 ### Example
@@ -48,7 +48,7 @@ c++ THP_I.cpp -g -std=c++17 -O3 -pthread -mtune=native -Wno-narrowing -mavx2 -ff
 
 ## E2E
 
-Run sbt by specifying the experiment name to generate the code [use `sbt "run [name]"`]:
+Run sbt by specifying the experiment name to generate the code [use `sbt "run <name> [sparse]"`]:
 
 `E2E_LR`    = E2E - Linear Regression
 

@@ -79,6 +79,7 @@ case class Access(name: String, vars: Seq[Variable], kind: AccessType) extends E
   }
   def cFormat(): String = vars.foldLeft(name)((acc, cur) => s"$acc[${cur.cFormat}]")
   def cFormat(m: Map[Variable, Index]): String = vars.foldLeft(name)((acc, cur) => s"$acc[${cur.cFormat(m)}]")
+  def cFormat(m: Map[Variable, Index], dl: Function[Seq[Variable], Seq[Index]]): String = dl(vars).foldLeft(name)((acc, cur) => s"$acc[${cur.cFormat(m)}]")
 }
 
 case class Comparison(op: String, index: Index, variable: Variable) extends Exp {
@@ -103,6 +104,15 @@ case class Prod(exps: Seq[Exp]) {
     if (exps.length == 0) "∅"
     else s"(${pr.substring(3, pr.length)})"
   } 
+  def cFormat(m: Map[Variable, Index], dlm: Map[Exp, Function[Seq[Variable], Seq[Index]]]): String = {
+    val defaultMap: Function[Seq[Variable], Seq[Index]] = (vars: Seq[Variable]) => vars
+    val pr = exps.foldLeft("")((acc, cur) => {
+      if (cur.isInstanceOf[Access]) s"$acc * ${cur.asInstanceOf[Access].cFormat(m, dlm.getOrElse(cur, defaultMap))}"
+      else s"$acc * ${cur.cFormat(m)}"
+    })
+    if (exps.length == 0) "∅"
+    else s"(${pr.substring(3, pr.length)})"
+  }
   
 }
 
@@ -1658,7 +1668,7 @@ object Main extends App {
     }})
   }
 
-  def codeGenRule(tensorComputation: Rule, dimInfo: Seq[DimInfo], variables: Seq[Variable], intervals: Seq[Map[Variable, Interval]], equalityVarMap: Seq[Map[Variable, Index]], genType: AccessType, peqMode: Boolean = true, codeMotion: Boolean = false): String = {
+  def codeGenRule(tensorComputation: Rule, dimInfo: Seq[DimInfo], variables: Seq[Variable], intervals: Seq[Map[Variable, Interval]], equalityVarMap: Seq[Map[Variable, Index]], genType: AccessType, peqMode: Boolean = true, codeMotion: Boolean = true, dataLayoutMap: Map[Exp, Function[Seq[Variable], Seq[Index]]] = Map()): String = {
     // we should make sure that all the variables that are in the right hand side of an addition, we have a condition over them or we don't add them at all. Look at e2eLRDimInfo3.txt, first for loop, for this!
     val vars = if (genType == RedundancyMap) variables.redundancyVarsInplace else variables
     val dimMap: Map[Access, Seq[Dim]] = dimInfo.toAccessMap
@@ -1752,31 +1762,34 @@ object Main extends App {
               val (newProd, cmCode, newDI): (Seq[Exp], String, Seq[DimInfo]) = // if (allRHSVars.subsetOf(allVars)) {  // --> should the subset be the other way around?
                 prod.exps.foldLeft((Seq.empty[Exp], "", Seq.empty[DimInfo]))((acc3, exp) => {
                   val access: Access = exp.asInstanceOf[Access]
-                  val (newAcc, accCode, newDI): (Access, String, Seq[DimInfo]) = if (access.vars.length > 0 && access.vars(0) == variable) {
-                    val newAcc = Access(getVar(s"cm"), access.vars.slice(1, access.vars.length), access.kind)
-                    val newDims: Seq[Dim] = if (diMap.contains(access)) diMap.get(access).get.slice(1, access.vars.length) else Seq.empty[Dim]
-                    val newDI: Seq[DimInfo] = if (newDims.length > 0) Seq(DimInfo(newAcc, newDims)) else Seq.empty[DimInfo]
+                  if (dataLayoutMap.contains(access)) (acc3._1 :+ access, acc3._2, acc3._3)
+                  else {
+                    val (newAcc, accCode, newDI): (Access, String, Seq[DimInfo]) = if (access.vars.length > 0 && access.vars(0) == variable) {
+                      val newAcc = Access(getVar(s"cm"), access.vars.slice(1, access.vars.length), access.kind)
+                      val newDims: Seq[Dim] = if (diMap.contains(access)) diMap.get(access).get.slice(1, access.vars.length) else Seq.empty[Dim]
+                      val newDI: Seq[DimInfo] = if (newDims.length > 0) Seq(DimInfo(newAcc, newDims)) else Seq.empty[DimInfo]
 
-                    val conds: String = if (diMap.contains(access)) {
-                      val v: Variable = variable
-                      val d: Dim = diMap.get(access).get(0)
-                      val b: Seq[Index] = if (map.contains(v)) map.get(v).get.begin else Seq.empty[Index]
-                      val e: Seq[Index] = if (map.contains(v)) map.get(v).get.end else Seq.empty[Index]
-                      val fb: Boolean = b.foldLeft(false)((acc, beginInd) => {
-                        val res: Seq[Index] = indexMin(beginInd, d)
-                        if (res.length == 1 && res(0) == d) acc || true else acc
-                      })
-                      val fe: Boolean = e.foldLeft(false)((acc, endInd) => {
-                        val res: Seq[Index] = indexMin(endInd, d)
-                        if (res.length == 1 && res(0) == endInd && res(0) != d) acc || true else acc
-                      })
-                      if (fb) "NOT!HAPPENING!" else if (fe) s"${v.cFormat(eqVar)} < ${d.cFormat(eqVar)}" else ""
-                    } else ""
+                      val conds: String = if (diMap.contains(access)) {
+                        val v: Variable = variable
+                        val d: Dim = diMap.get(access).get(0)
+                        val b: Seq[Index] = if (map.contains(v)) map.get(v).get.begin else Seq.empty[Index]
+                        val e: Seq[Index] = if (map.contains(v)) map.get(v).get.end else Seq.empty[Index]
+                        val fb: Boolean = b.foldLeft(false)((acc, beginInd) => {
+                          val res: Seq[Index] = indexMin(beginInd, d)
+                          if (res.length == 1 && res(0) == d) acc || true else acc
+                        })
+                        val fe: Boolean = e.foldLeft(false)((acc, endInd) => {
+                          val res: Seq[Index] = indexMin(endInd, d)
+                          if (res.length == 1 && res(0) == endInd && res(0) != d) acc || true else acc
+                        })
+                        if (fb) "NOT!HAPPENING!" else if (fe) s"${v.cFormat(eqVar)} < ${d.cFormat(eqVar)}" else ""
+                      } else ""
 
-                    val accCode = if (conds.contains("NOT!HAPPENING!")) "" else if (conds == "") s"auto &${newAcc.name} = ${access.name}[${variable.cFormat(eqVar)}];\n" else s"auto &${newAcc.name} = ($conds) ? ${access.name}[${variable.cFormat(eqVar)}] : 0;\n"
-                    (newAcc, accCode, newDI)
-                  } else (access, "", Seq.empty[DimInfo])
-                  (acc3._1 :+ newAcc, s"${acc3._2}$accCode", acc3._3 ++ newDI)
+                      val accCode = if (conds.contains("NOT!HAPPENING!")) "" else if (conds == "") s"auto &${newAcc.name} = ${access.name}[${variable.cFormat(eqVar)}];\n" else s"auto &${newAcc.name} = ($conds) ? ${access.name}[${variable.cFormat(eqVar)}] : 0;\n"
+                      (newAcc, accCode, newDI)
+                    } else (access, "", Seq.empty[DimInfo])
+                    (acc3._1 :+ newAcc, s"${acc3._2}$accCode", acc3._3 ++ newDI)
+                  }
                 })
               // } else (Seq.empty[Exp], "", Seq.empty[DimInfo]) //
               
@@ -1791,11 +1804,13 @@ object Main extends App {
         } else (acc2._1, s"${acc2._2}\n$code", acc2._3, acc2._4)
       })
 
+      val defaultDataLayout = (x: Seq[Variable]) => x
+
       // why constants are not exp as well? Then I could replace the comparison below by ConstantInt(1) instead.
       val tcBody: SoP = if (tc.body == emptySoP()) SoP(Seq(Prod(Seq(Comparison("=", ConstantInt(0), getVar("rndVar").toVar))))) else tc.body // if it's only comparison, then it was just a bunch of comparison multiplications so their value is only 1. Their ranges is inside unique set and redundancy maps already.
       val allVars: Set[Variable] = tensorComputation.head.vars.toSet ++ eqVar.keySet
-      val body = if (genType == RedundancyMap) s"${tc.head.cFormat(eqVar)} = ${Access(tensorComputation.head.name, tensorComputation.head.vars.redundancyVars, tensorComputation.head.kind).cFormat(eqVar)};" else {
-        if (tcBody.prods.length == 1) if(peqMode) s"${tc.head.cFormat(eqVar)} += ${tcBody.cFormat(eqVar)};" else s"${tc.head.cFormat(eqVar)} = ${tcBody.cFormat(eqVar)};"
+      val body = if (genType == RedundancyMap) s"${tc.head.cFormat(eqVar, dataLayoutMap.getOrElse(tc.head, defaultDataLayout))} = ${Access(tensorComputation.head.name, tensorComputation.head.vars.redundancyVars, tensorComputation.head.kind).cFormat(eqVar, dataLayoutMap.getOrElse(tc.head, defaultDataLayout))};" else {
+        if (tcBody.prods.length == 1) if(peqMode) s"${tc.head.cFormat(eqVar, dataLayoutMap.getOrElse(tc.head, defaultDataLayout))} += ${tcBody.prods(0).cFormat(eqVar, dataLayoutMap)};" else s"${tc.head.cFormat(eqVar, dataLayoutMap.getOrElse(tc.head, defaultDataLayout))} = ${tcBody.prods(0).cFormat(eqVar, dataLayoutMap)};"
         else (tcBody.prods zip tcBodya.prods).foldLeft("")((acc, prodAProd) => {
           val prod: Prod = prodAProd._1
           val aProd: Prod = prodAProd._2
@@ -1835,15 +1850,15 @@ object Main extends App {
               }
             })
             if (conds.contains("NOT!HAPPENING!")) acc else if (conds != "") {
-              s"$acc\nif ($conds) {\n${tc.head.cFormat(eqVar)} += ${prod.cFormat(eqVar)};\n}"
-            } else s"$acc\n${tc.head.cFormat(eqVar)} += ${prod.cFormat(eqVar)};\n"
+              s"$acc\nif ($conds) {\n${tc.head.cFormat(eqVar, dataLayoutMap.getOrElse(tc.head, defaultDataLayout))} += ${prod.cFormat(eqVar, dataLayoutMap)};\n}"
+            } else s"$acc\n${tc.head.cFormat(eqVar, dataLayoutMap.getOrElse(tc.head, defaultDataLayout))} += ${prod.cFormat(eqVar, dataLayoutMap)};\n"
           } else acc
         })
       } // change wrt code motion and use the newest variables with the corresponding list to them
       // val body = if (genType == RedundancyMap) s"${tensorComputation.head.cFormat} = ${tensorComputation.head.cRedFormat};" else tensorComputation.cPeqFormat
 
       val finalBrackets = vars.reverse.filter(e => !cntVars.contains(e)).foldLeft("")((acc, v) => {
-        if (codeMotion && finalHeadComputation.vars.length > 0 && finalHeadComputation.vars(0) == v) s"$acc${finalHeadComputation.cFormat(eqVar)} += tmp;\n}\n"
+        if (codeMotion && finalHeadComputation.vars.length > 0 && finalHeadComputation.vars(0) == v) s"$acc${finalHeadComputation.cFormat(eqVar, dataLayoutMap.getOrElse(finalHeadComputation, defaultDataLayout))} += tmp;\n}\n"
         else s"$acc}\n"
       })
       
@@ -1851,7 +1866,7 @@ object Main extends App {
     })
   }
 
-  def codeGen(tensorComputation: Rule, dimInfo: Seq[DimInfo], uniqueSets: Map[Exp, Rule], redundancyMaps: Map[Exp, Rule], codeGenMode: Int = 0, peqMode: Boolean = true, variableReplacementFlag: Boolean = true, codeMotion: Boolean = true): String = {
+  def codeGen(tensorComputation: Rule, dimInfo: Seq[DimInfo], uniqueSets: Map[Exp, Rule], redundancyMaps: Map[Exp, Rule], codeGenMode: Int = 0, peqMode: Boolean = true, variableReplacementFlag: Boolean = true, codeMotion: Boolean = true, dataLayoutMap: Map[Exp, Function[Seq[Variable], Seq[Index]]] = Map()): String = {
     val variables: Seq[Variable] = getVariables(tensorComputation)
     val (outUS, outRM, outDI) = infer(tensorComputation, dimInfo, uniqueSets, redundancyMaps)
     val allDimVars: Seq[Variable] = dimInfo.toVarsMap.values.foldLeft(Seq.empty[Dim])((acc, dimSeq) => acc ++ dimSeq).foldLeft(Seq.empty[Variable])((acc, d) => acc ++ getVariables(d))
@@ -1986,9 +2001,9 @@ object Main extends App {
     // pprint(finalRM)
     // println("==================")
 
-    if (codeGenMode == 0) "void compute() {\n" + codeGenRule(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedUS, eqVarMapUS, UniqueSet, peqMode, codeMotion) + "\n}\n\n\nvoid reconstruct() {\n" + codeGenRule(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedRM, eqVarMapRM, RedundancyMap, peqMode, codeMotion) + "\n}\n"
-    else if (codeGenMode == 1) codeGenRule(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedUS, eqVarMapUS, UniqueSet, peqMode, codeMotion)
-    else if (codeGenMode == 2) codeGenRule(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedRM, eqVarMapRM, RedundancyMap, peqMode, codeMotion)
+    if (codeGenMode == 0) "void compute() {\n" + codeGenRule(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedUS, eqVarMapUS, UniqueSet, peqMode, codeMotion, dataLayoutMap) + "\n}\n\n\nvoid reconstruct() {\n" + codeGenRule(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedRM, eqVarMapRM, RedundancyMap, peqMode, codeMotion, dataLayoutMap) + "\n}\n"
+    else if (codeGenMode == 1) codeGenRule(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedUS, eqVarMapUS, UniqueSet, peqMode, codeMotion, dataLayoutMap)
+    else if (codeGenMode == 2) codeGenRule(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedRM, eqVarMapRM, RedundancyMap, peqMode, codeMotion, dataLayoutMap)
     else ""
   }
 
@@ -3615,6 +3630,61 @@ object Main extends App {
     (tensorComputation, infer(tensorComputation, dimInfo, uniqueSets, redundancyMap))
   }
 
+  // testing input datalayout 
+  def test19(): (Rule, (Rule, Rule, DimInfo)) = {
+    val head: Access = Access("M", Seq(Variable("x"), Variable("y")), Tensor)
+    val var1: Access = Access("A",  Seq(Variable("x"), Variable("y")), Tensor)
+    val var2: Access = Access("B",  Seq(Variable("x"), Variable("y")), Tensor)
+    val prods: Prod = Prod(Seq(var1, var2))
+    val body: SoP = SoP(Seq(prods))
+    val tensorComputation: Rule = Rule(head, body)
+
+    val dim1: DimInfo = DimInfo(var1, Seq("m".toVar, "n".toVar))
+    val dim2: DimInfo = DimInfo(var2, Seq("m".toVar, "n".toVar))
+    val dimInfo: Seq[DimInfo] = Seq(dim1, dim2)
+
+
+    val var1HeadUS: Access = Access("A".uniqueName,  Seq(Variable("x"), Variable("y")), UniqueSet)
+    val var1ExpUS: Exp = Comparison("<=", Variable("x"), Variable("y"))
+    val var1ProdsUS: Prod = Prod(Seq(var1ExpUS))
+    val var1BodyUS: SoP = multSoP(Seq(SoP(Seq(var1ProdsUS)), dim1.toSoP))
+    val var1US: Rule = Rule(var1HeadUS, var1BodyUS)
+
+    val var1HeadRM: Access = Access("A".redundancyName,  Seq(Variable("x"), Variable("y"), Variable("x").redundancyVars, Variable("y").redundancyVars), RedundancyMap)
+    val var1ExpRM1: Exp = Comparison(">", Variable("x"), Variable("y"))
+    val var1ExpRM2: Exp = Comparison("=", Variable("x").redundancyVars, Variable("y"))
+    val var1ExpRM3: Exp = Comparison("=", Variable("y").redundancyVars, Variable("x"))
+    val var1ProdsRM: Prod = Prod(Seq(var1ExpRM1, var1ExpRM2, var1ExpRM3))
+    val var1BodyRM: SoP = multSoP(Seq(SoP(Seq(var1ProdsRM)), dim1.toSoP))
+    val var1RM: Rule = Rule(var1HeadRM, var1BodyRM)
+
+    val var1DL = (x: Seq[Variable]) => Seq(Arithmetic("+", Arithmetic("*", x(0), "n".toVar), x(1)))
+
+    val var2HeadUS: Access = Access("B".uniqueName,  Seq(Variable("x"), Variable("y")), UniqueSet)
+    val var2ExpUS: Exp = Comparison(">=", Variable("x"), Variable("y"))
+    val var2ProdsUS: Prod = Prod(Seq(var2ExpUS))
+    val var2BodyUS: SoP = multSoP(Seq(SoP(Seq(var2ProdsUS)), dim2.toSoP))
+    val var2US: Rule = Rule(var2HeadUS, var2BodyUS)
+
+    val var2HeadRM: Access = Access("B".redundancyName,  Seq(Variable("x"), Variable("y"), Variable("x").redundancyVars, Variable("y").redundancyVars), RedundancyMap)
+    val var2ExpRM1: Exp = Comparison("<", Variable("x"), Variable("y"))
+    val var2ExpRM2: Exp = Comparison("=", Variable("x").redundancyVars, Variable("y"))
+    val var2ExpRM3: Exp = Comparison("=", Variable("y").redundancyVars, Variable("x"))
+    val var2ProdsRM: Prod = Prod(Seq(var2ExpRM1, var2ExpRM2, var2ExpRM3))
+    val var2BodyRM: SoP = multSoP(Seq(SoP(Seq(var2ProdsRM)), dim2.toSoP))
+    val var2RM: Rule = Rule(var2HeadRM, var2BodyRM)
+
+    val var2DL = (x: Seq[Variable]) => x
+
+    val uniqueSets: Map[Exp, Rule] = Map(var1 -> var1US, var2 -> var2US)
+    val redundancyMap: Map[Exp, Rule] = Map(var1 -> var1RM, var2 -> var2RM)
+    val dataLayoutMap: Map[Exp, Function[Seq[Variable], Seq[Index]]] = Map(var1 -> var1DL, var2 -> var2DL)
+
+    println(codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, dataLayoutMap=dataLayoutMap))
+
+    (tensorComputation, infer(tensorComputation, dimInfo, uniqueSets, redundancyMap))
+  }
+
   def multiProg1() = {
     val head1: Access = Access("T", Seq("x".toVar), Tensor)
     val var11: Access = Access("T1",  Seq("x".toVar), Tensor)
@@ -3789,7 +3859,7 @@ object Main extends App {
     (tensorComputation, infer(tensorComputation, dimInfo, uniqueSets, redundancyMap))
   }
 
-  def ttm(structure: String, mode: Int = 0) = {
+  def ttm(structure: String, mode: Int = 0, sparse: Boolean = false) = {
     val head: Access = Access("A", Seq("i".toVar, "j".toVar, "k".toVar), Tensor)
     val var1: Access = Access("B",  Seq("i".toVar, "j".toVar, "l".toVar), Tensor)
     val var2: Access = Access("C",  Seq("k".toVar, "l".toVar), Tensor)
@@ -3827,6 +3897,13 @@ object Main extends App {
     val var1BodyRM: SoP = emptySoP()
     val var1RM: Rule = Rule(var1HeadRM, var1BodyRM)
 
+    val var1DL: Function[Seq[Variable], Seq[Index]] = structure match {
+      case "diag_p" => (x: Seq[Variable]) => Seq(Arithmetic("+", Arithmetic("*", x(0), "Q".toVar), x(2)))
+      case "fixed_j" => (x: Seq[Variable]) => Seq(Arithmetic("+", Arithmetic("*", x(0), "Q".toVar), x(2)))
+      case "uhc" => (x: Seq[Variable]) => Seq(Arithmetic("+", Arithmetic("*", Arithmetic("-", Arithmetic("+", Arithmetic("*", x(0), "N".toVar), x(1)), Arithmetic("/", Arithmetic("*", x(0), Arithmetic("+", x(0), ConstantInt(1))), ConstantInt(2))), "Q".toVar), x(2)))
+      case _ => (x: Seq[Variable]) => x
+    }
+
     val var2HeadUS: Access = Access(var2.name.uniqueName, var2.vars, UniqueSet)
     val var2BodyUS: SoP = dim2.toSoP
     val var2US: Rule = Rule(var2HeadUS, var2BodyUS)
@@ -3837,12 +3914,13 @@ object Main extends App {
 
     val uniqueSets: Map[Exp, Rule] = Map(var1 -> var1US, var2 -> var2US)
     val redundancyMap: Map[Exp, Rule] = Map(var1 -> var1RM, var2 -> var2RM)
+    val dataLayoutMap: Map[Exp, Function[Seq[Variable], Seq[Index]]] = if (sparse) Map(var1 -> var1DL) else Map()
 
     if (mode == 0) {
-      println(codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap))
+      println(codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, dataLayoutMap=dataLayoutMap))
 
       (tensorComputation, infer(tensorComputation, dimInfo, uniqueSets, redundancyMap))
-    } else codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, 1)
+    } else codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, 1, dataLayoutMap=dataLayoutMap)
   }
 
   def thp(structure: String, mode: Int = 0) = {
@@ -5303,8 +5381,9 @@ s"""
   }
 
 
-  def TTM(structure: String) = {
-    val outName = if (structure == "diag_p") "TTM_DP" else if (structure == "fixed_j") "TTM_J" else if (structure == "uhc") "TTM_UT" else "TTM"
+  def TTM(structure: String, sparse: Boolean) = {
+    val outName1 = if (structure == "diag_p") "TTM_DP" else if (structure == "fixed_j") "TTM_J" else if (structure == "uhc") "TTM_UT" else "TTM"
+    val outName = if(sparse) s"${outName1}_Sparse" else outName1
     val c1 = 
 s"""
 #include <iostream>
@@ -5331,6 +5410,19 @@ int main(int argc, char **argv){
         A(i, j,k) = B(i,j,l),C(k,l)
     */
 
+    ${if (sparse) {
+s"""
+    ${if (structure == "diag_p" || structure == "fixed_j") "double *B = new double[M * Q];" else if (structure == "uhc") "double *B = new double[((N + 1) * N / 2 - (N - M + 1) * (N - M) / 2) * Q];"}
+    for (size_t i = 0; i < M; ++i) {
+      ${if (structure == "uhc") "for (size_t j = i; j < N; ++j) {" else ""}
+        for(size_t l = 0; l < Q; ++l) {
+          ${if (structure == "diag_p" || structure == "fixed_j") "B[i * Q + l]" else if (structure == "uhc") "B[(i * N + j - ((i + 1) * i / 2)) * Q + l]"} = (double) (rand() % 1000000) / 1e6;
+        }
+      ${if (structure == "uhc") "}" else ""}
+    }
+"""
+    } else {
+s"""
     double  ***B = new double**[M];
     for(size_t i = 0; i < M; ++i){
         B[i] = new double*[N];
@@ -5346,6 +5438,8 @@ int main(int argc, char **argv){
             }
         }
     }
+"""      
+    }}
 
     double  **C = new double*[P];
     for(size_t k = 0; k < P; ++k){
@@ -5370,7 +5464,7 @@ int main(int argc, char **argv){
     long time = 0, start, end;
     start = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
 """
-    val c2 = ttm(structure, 1)
+    val c2 = ttm(structure, 1, sparse)
     val c3 =
 s"""
   end = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
@@ -5378,13 +5472,16 @@ s"""
 
     cerr << A[M - 1][N - 1][P - 1] << "\\n";
     cout << time;
-   
+    ${if (sparse) "" else {
+s"""
     for(size_t i = 0; i < M; ++i){
         for(size_t j = 0; j < N; ++j){
             delete[] B[i][j];
         }
         delete[] B[i];
     }
+"""
+    }}
     delete[] B;
 
     for(size_t k = 0; k < P; ++k){
@@ -5657,7 +5754,7 @@ s"""
 
 
   val help: String = s"""
-Please specify the experiment name [use `sbt "run [exp]"`]:
+Please specify the experiment name and select whether you want sparse datalayout for the input [use `sbt "run <exp> [sparse]"`]:
 LRC       = Linear Regression - Creation
 PR2C      = Polynomial Regression Degree 2 - Creation
 PR3C      = Polynomial Regression Degree 3 - Creation
@@ -5676,7 +5773,8 @@ MTTKRP_J  = MTTKRP: Fixed j
 E2E_LR    = E2E - Linear Regression
 E2E_PR2   = E2E - Polynomial Regression Degree 2
 """
-  if (args.length == 1) {
+  if (args.length >= 1) {
+    val sparse: Boolean = if (args.length == 2 && (args(1).toLowerCase() == "sparse" || args(1).toLowerCase() == "s" || args(1).toLowerCase() == "-s") ) true else false
     args(0) match {
       case "LRC" => LRC()
       case "PR2C" => PR2C()
@@ -5684,9 +5782,9 @@ E2E_PR2   = E2E - Polynomial Regression Degree 2
       case "LRA" => LRA()
       case "PR2A" => PR2A()
       case "PR3A" => PR3A()
-      case "TTM_DP" => TTM("diag_p")
-      case "TTM_J" => TTM("fixed_j")
-      case "TTM_UT" => TTM("uhc")
+      case "TTM_DP" => TTM("diag_p", sparse)
+      case "TTM_J" => TTM("fixed_j", sparse)
+      case "TTM_UT" => TTM("uhc", sparse)
       case "THP_DP" => THP("diag_p")
       case "THP_I" => THP("fixed_i")
       case "THP_J" => THP("fixed_j")
