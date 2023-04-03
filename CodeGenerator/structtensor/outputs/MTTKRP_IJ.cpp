@@ -23,6 +23,8 @@ int main(int argc, char **argv){
         A(i, j) = B(i,k,l),C(k,j),D(l,j)
     */
 
+
+    
     double  ***B = new double**[M];
     for(size_t i = 0; i < M; ++i){
         B[i] = new double*[N];
@@ -41,6 +43,7 @@ int main(int argc, char **argv){
         }
     }
 
+
     double  **C = new double*[N];
     for(size_t k = 0; k < N; ++k){
         C[k] = new double[Q];
@@ -49,7 +52,7 @@ int main(int argc, char **argv){
         }
     }
 
-
+    
     double  **D = new double*[P];
     for(size_t l = 0; l < P; ++l){
         D[l] = new double[Q];
@@ -65,6 +68,7 @@ int main(int argc, char **argv){
 
         }
     }
+
 
     double  **A = new double*[M];
     for(size_t i = 0; i < M; ++i){
@@ -98,7 +102,7 @@ auto &cm5 = C[k];
 for (int l = 0; l < P; ++l) {
 
 
-tmp += ((cm4[l] * cm5[j] * D[l][j]));
+tmp += (cm4[l] * cm5[j] * D[l][j]);
 }
 }
 cm2[j] += tmp;
@@ -113,14 +117,14 @@ cm2[j] += tmp;
     cout<<time;
    
 
-
+    
     for(size_t i = 0; i < P; i++){
         for(size_t j = 0; j < N; j++){
             delete[] B[i][j];
         }
         delete[] B[i];
-
     }
+
     delete[] B;
     
     for(size_t i = 0; i < N; i++){
@@ -128,9 +132,11 @@ cm2[j] += tmp;
     }
     delete[] C;
 
+    
     for(size_t i = 0; i < P; i++){
         delete[] D[i];
     }
+
     delete[] D;
 
     for(size_t i = 0; i < M; i++){

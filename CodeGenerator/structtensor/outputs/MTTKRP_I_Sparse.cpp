@@ -25,21 +25,10 @@ int main(int argc, char **argv){
 
 
     
-    double  ***B = new double**[M];
-    for(size_t i = 0; i < M; ++i){
-        B[i] = new double*[N];
-        for(size_t k = 0; k < N; ++k){
-            B[i][k] = new double[P];
-            for(size_t l =0; l< P; ++l){
-                
-                if (i == I){
-                    B[i][k][l] = (double) (rand() % 1000000) / 1e6;
-                }
-                else{
-                    B[i][k][l] = (double) 0;
-                }
-
-            }
+    double *B = new double[N * P];
+    for (size_t k = 0; k < N; ++k){
+        for (size_t l = 0; l < P; ++l){
+            B[k * P + l] = (double) (rand() % 1000000) / 1e6;
         }
     }
 
@@ -79,7 +68,6 @@ int i = I;
 if (i < M) {
 auto &cm2 = A[i];
 
-auto &cm3 = B[i];
 
 for (int j = 0; j < Q; ++j) {
 double tmp = 0.0;
@@ -87,13 +75,12 @@ double tmp = 0.0;
 
 for (int k = 0; k < N; ++k) {
 
-auto &cm4 = cm3[k];
-auto &cm5 = C[k];
+auto &cm3 = C[k];
 
 for (int l = 0; l < P; ++l) {
 
 
-tmp += (cm4[l] * cm5[j] * D[l][j]);
+tmp += (B[((k * P) + l)] * cm3[j] * D[l][j]);
 }
 }
 cm2[j] += tmp;
@@ -109,13 +96,6 @@ cm2[j] += tmp;
    
 
     
-    for(size_t i = 0; i < P; i++){
-        for(size_t j = 0; j < N; j++){
-            delete[] B[i][j];
-        }
-        delete[] B[i];
-    }
-
     delete[] B;
     
     for(size_t i = 0; i < N; i++){

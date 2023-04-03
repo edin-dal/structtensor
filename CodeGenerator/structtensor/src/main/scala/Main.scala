@@ -4070,7 +4070,7 @@ object Main extends App {
     } else codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, 1)
   }
 
-  def mttkrp_n(structure: String, mode: Int = 0) = {
+  def mttkrp_n(structure: String, mode: Int = 0, sparse: Boolean = false) = {
     val head: Access = Access("A", Seq("i".toVar, "j".toVar), Tensor)
     val var1: Access = Access("B",  Seq("i".toVar, "k".toVar, "l".toVar), Tensor)
     val var2: Access = Access("C",  Seq("k".toVar, "j".toVar), Tensor)
@@ -4089,19 +4089,8 @@ object Main extends App {
 
     val var1HeadUS: Access = Access(var1.name.uniqueName, var1.vars, UniqueSet)
     val var1BodyUS: SoP = structure match {
-      case "fixed_ij" => {
+      case "fixed_ij" | "fixed_i" => {
         val var1ExpUS1: Exp = Comparison("=", "i".toVar, "I".toVar)
-        val var1ExpUS2: Exp = Comparison("=", "j".toVar, "J".toVar)
-        val var1ProdsUS: Prod = Prod(Seq(var1ExpUS1, var1ExpUS2))
-        multSoP(Seq(dim1.toSoP, SoP(Seq(var1ProdsUS))))
-      }
-      case "fixed_i" => {
-        val var1ExpUS1: Exp = Comparison("=", "i".toVar, "I".toVar)
-        val var1ProdsUS: Prod = Prod(Seq(var1ExpUS1))
-        multSoP(Seq(dim1.toSoP, SoP(Seq(var1ProdsUS))))
-      }
-      case "fixed_j" => {
-        val var1ExpUS1: Exp = Comparison("=", "j".toVar, "J".toVar)
         val var1ProdsUS: Prod = Prod(Seq(var1ExpUS1))
         multSoP(Seq(dim1.toSoP, SoP(Seq(var1ProdsUS))))
       }
@@ -4113,6 +4102,11 @@ object Main extends App {
     val var1BodyRM: SoP = emptySoP()
     val var1RM: Rule = Rule(var1HeadRM, var1BodyRM)
 
+    val var1DL: Function[Seq[Variable], Seq[Index]] = structure match {
+      case "fixed_ij" | "fixed_i" => (x: Seq[Variable]) => Seq(Arithmetic("+", Arithmetic("*", x(1), "P".toVar), x(2)))
+      case _ => (x: Seq[Variable]) => x
+    }
+
     val var2HeadUS: Access = Access(var2.name.uniqueName, var2.vars, UniqueSet)
     val var2BodyUS: SoP = dim2.toSoP
     val var2US: Rule = Rule(var2HeadUS, var2BodyUS)
@@ -4122,21 +4116,34 @@ object Main extends App {
     val var2RM: Rule = Rule(var2HeadRM, var2BodyRM)
 
     val var3HeadUS: Access = Access(var3.name.uniqueName, var3.vars, UniqueSet)
-    val var3BodyUS: SoP = dim3.toSoP
+    val var3BodyUS: SoP = structure match {
+      case "fixed_ij" | "fixed_j" => {
+        val var3ExpUS1: Exp = Comparison("=", "j".toVar, "J".toVar)
+        val var3ProdsUS: Prod = Prod(Seq(var3ExpUS1))
+        multSoP(Seq(dim3.toSoP, SoP(Seq(var3ProdsUS))))
+      }      
+      case _ => dim3.toSoP
+    } 
     val var3US: Rule = Rule(var3HeadUS, var3BodyUS)
 
     val var3HeadRM: Access = Access(var3.name.redundancyName, var3.vars.redundancyVarsInplace, RedundancyMap)
     val var3BodyRM: SoP = emptySoP()
     val var3RM: Rule = Rule(var3HeadRM, var3BodyRM)
 
+    val var3DL: Function[Seq[Variable], Seq[Index]] = structure match {
+      case "fixed_ij" | "fixed_j" => (x: Seq[Variable]) => Seq(x(0))
+      case _ => (x: Seq[Variable]) => x
+    }
+
     val uniqueSets: Map[Exp, Rule] = Map(var1 -> var1US, var2 -> var2US, var3 -> var3US)
     val redundancyMap: Map[Exp, Rule] = Map(var1 -> var1RM, var2 -> var2RM, var3 -> var3RM)
+    val dataLayoutMap: Map[Exp, Function[Seq[Variable], Seq[Index]]] = if (sparse) Map(var1 -> var1DL, var3 -> var3DL) else Map()
 
     if (mode == 0) {
-      println(codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap))
+      println(codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, dataLayoutMap=dataLayoutMap))
 
       (tensorComputation, infer(tensorComputation, dimInfo, uniqueSets, redundancyMap))
-    } else codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, 1)
+    } else codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, 1, dataLayoutMap=dataLayoutMap)
   }
 
   def e2eConstructor(n: Int, mode: Int = 0) = {
@@ -5641,8 +5648,9 @@ s"""
   }
 
 
-  def MTTKRP(structure: String) = {
-    val outName = if (structure == "fixed_ij") "MTTKRP_IJ" else if (structure == "fixed_i") "MTTKRP_I" else if (structure == "fixed_j") "MTTKRP_J" else "MTTKRP"
+  def MTTKRP(structure: String, sparse: Boolean) = {
+    val outName1 = if (structure == "fixed_ij") "MTTKRP_IJ" else if (structure == "fixed_i") "MTTKRP_I" else if (structure == "fixed_j") "MTTKRP_J" else "MTTKRP"
+    val outName = if (sparse) s"${outName1}_Sparse" else outName1
     val c1 = 
 s"""
 #include <iostream>
@@ -5669,6 +5677,18 @@ int main(int argc, char **argv){
         A(i, j) = B(i,k,l),C(k,j),D(l,j)
     */
 
+
+    ${if (sparse && (structure == "fixed_i" || structure == "fixed_ij")) {
+s"""
+    double *B = new double[N * P];
+    for (size_t k = 0; k < N; ++k){
+        for (size_t l = 0; l < P; ++l){
+            B[k * P + l] = (double) (rand() % 1000000) / 1e6;
+        }
+    }
+"""
+    } else {
+s"""
     double  ***B = new double**[M];
     for(size_t i = 0; i < M; ++i){
         B[i] = new double*[N];
@@ -5690,6 +5710,8 @@ s"""
             }
         }
     }
+"""
+    }}
 
     double  **C = new double*[N];
     for(size_t k = 0; k < N; ++k){
@@ -5699,7 +5721,15 @@ s"""
         }
     }
 
-
+    ${if (sparse && (structure == "fixed_j" || structure == "fixed_ij")) {
+s"""
+    double *D = new double[P];
+    for (size_t l = 0; l < P; ++l){
+        D[l] = (double) (rand() % 1000000) / 1e6;
+    }
+"""
+    } else {
+s"""
     double  **D = new double*[P];
     for(size_t l = 0; l < P; ++l){
         D[l] = new double[Q];
@@ -5717,6 +5747,8 @@ s"""
             } else "D[l][j] = (double) (rand() % 1000000) / 1e6;"}
         }
     }
+"""
+    }}
 
     double  **A = new double*[M];
     for(size_t i = 0; i < M; ++i){
@@ -5729,7 +5761,7 @@ s"""
     long time = 0, start, end;
     start = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
 """
-    val c2 = mttkrp_n(structure, 1)
+    val c2 = mttkrp_n(structure, 1, sparse)
     val c3 = 
 s"""
     end = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
@@ -5739,14 +5771,16 @@ s"""
     cout<<time;
    
 
-
+    ${if (sparse && (structure == "fixed_i" || structure == "fixed_ij")) "" else {
+s"""
     for(size_t i = 0; i < P; i++){
         for(size_t j = 0; j < N; j++){
             delete[] B[i][j];
         }
         delete[] B[i];
-
     }
+"""
+    }}
     delete[] B;
     
     for(size_t i = 0; i < N; i++){
@@ -5754,9 +5788,13 @@ s"""
     }
     delete[] C;
 
+    ${if (sparse && (structure == "fixed_j" || structure == "fixed_ij")) "" else {
+s"""
     for(size_t i = 0; i < P; i++){
         delete[] D[i];
     }
+"""
+    }}
     delete[] D;
 
     for(size_t i = 0; i < M; i++){
@@ -5815,9 +5853,9 @@ E2E_PR2   = E2E - Polynomial Regression Degree 2
       case "THP_DP" => THP("diag_p", sparse)
       case "THP_I" => THP("fixed_i", sparse)
       case "THP_J" => THP("fixed_j", sparse)
-      case "MTTKRP_IJ" => MTTKRP("fixed_ij")
-      case "MTTKRP_I" => MTTKRP("fixed_i")
-      case "MTTKRP_J" => MTTKRP("fixed_j")
+      case "MTTKRP_IJ" => MTTKRP("fixed_ij", sparse)
+      case "MTTKRP_I" => MTTKRP("fixed_i", sparse)
+      case "MTTKRP_J" => MTTKRP("fixed_j", sparse)
       case "E2E_LR" => E2E_PRK(1)
       case "E2E_PR2" => E2E_PRK(2)
       case _ => println(help)
