@@ -1866,8 +1866,8 @@ object Main extends App {
     })
   }
 
-  def codeGen(tensorComputation: Rule, dimInfo: Seq[DimInfo], uniqueSets: Map[Exp, Rule], redundancyMaps: Map[Exp, Rule], codeGenMode: Int = 0, peqMode: Boolean = true, variableReplacementFlag: Boolean = true, codeMotion: Boolean = true, dataLayoutMap: Map[Exp, Function[Seq[Variable], Seq[Index]]] = Map()): String = {
-    val variables: Seq[Variable] = getVariables(tensorComputation)
+  def codeGen(tensorComputation: Rule, dimInfo: Seq[DimInfo], uniqueSets: Map[Exp, Rule], redundancyMaps: Map[Exp, Rule], codeGenMode: Int = 0, peqMode: Boolean = true, variableReplacementFlag: Boolean = true, codeMotion: Boolean = true, dataLayoutMap: Map[Exp, Function[Seq[Variable], Seq[Index]]] = Map(), varReverse: Boolean = false): String = {
+    val variables: Seq[Variable] = if (varReverse) getVariables(tensorComputation).reverse else getVariables(tensorComputation)
     val (outUS, outRM, outDI) = infer(tensorComputation, dimInfo, uniqueSets, redundancyMaps)
     val allDimVars: Seq[Variable] = dimInfo.toVarsMap.values.foldLeft(Seq.empty[Dim])((acc, dimSeq) => acc ++ dimSeq).foldLeft(Seq.empty[Variable])((acc, d) => acc ++ getVariables(d))
     
@@ -5815,6 +5815,142 @@ s"""
     write2File(s"outputs/$outName.hpp", code)
   }
 
+
+  def oneDConvolution(mode: Int = 0, sparse: Boolean = false) = {
+    val head: Access = Access("Y", Seq("i".toVar), Tensor)
+    val var1: Access = Access("H",  Seq("i".toVar, "j".toVar), Tensor)
+    val var2: Access = Access("X",  Seq("j".toVar), Tensor)
+    
+
+    val prods: Prod = Prod(Seq(var1, var2))
+    val body: SoP = SoP(Seq(prods))
+    val tensorComputation: Rule = Rule(head, body)
+
+    val dim1: DimInfo = DimInfo(var1, Seq(Arithmetic("-", Arithmetic("+", "M".toVar, "N".toVar), ConstantInt(1)), "N".toVar))
+    val dim2: DimInfo = DimInfo(var2, Seq("N".toVar))
+    val dimInfo: Seq[DimInfo] = Seq(dim1, dim2)
+
+
+    val var1HeadUS: Access = Access(var1.name.uniqueName, var1.vars, UniqueSet)
+    val var1ExpUS1: Exp = Comparison(">", "M".toVar, "i".toVar)
+    val var1ExpUS2: Exp = Comparison("=", ConstantInt(0), "j".toVar)
+    val var1ProdsUS: Prod = Prod(Seq(var1ExpUS1, var1ExpUS2))
+    val var1BodyUS: SoP = multSoP(Seq(dim1.toSoP, SoP(Seq(var1ProdsUS))))
+    val var1US: Rule = Rule(var1HeadUS, var1BodyUS)
+
+    val var1HeadRM: Access = Access(var1.name.redundancyName, var1.vars.redundancyVarsInplace, RedundancyMap)
+    val var1ExpRM1: Exp = Comparison("<=", ConstantInt(1), "j".toVar)
+    val var1ExpRM2: Exp = Comparison("<=", "j".toVar, "i".toVar)
+    val var1ExpRM3: Exp = Comparison(">", Arithmetic("+", "j".toVar, "M".toVar), "i".toVar)
+    val var1ExpRM4: Exp = Comparison("=", ConstantInt(0), "j".toVar.redundancyVars)
+    val var1ExpRM5: Exp = Comparison("=", Arithmetic("-", "i".toVar, "j".toVar), "i".toVar.redundancyVars)
+    val var1ProdsRM: Prod = Prod(Seq(var1ExpRM1, var1ExpRM2, var1ExpRM3, var1ExpRM4, var1ExpRM5))
+    val var1BodyRM: SoP = multSoP(Seq(SoP(Seq(var1ProdsRM)), dim1.toSoP))
+    val var1RM: Rule = Rule(var1HeadRM, var1BodyRM)
+
+    val var1DL: Function[Seq[Variable], Seq[Index]] = (x: Seq[Variable]) => Seq(Arithmetic("-", x(0), x(1)))
+
+    val var2HeadUS: Access = Access(var2.name.uniqueName, var2.vars, UniqueSet)
+    val var2BodyUS: SoP = dim2.toSoP
+    val var2US: Rule = Rule(var2HeadUS, var2BodyUS)
+
+    val var2HeadRM: Access = Access(var2.name.redundancyName, var2.vars.redundancyVarsInplace, RedundancyMap)
+    val var2BodyRM: SoP = emptySoP()
+    val var2RM: Rule = Rule(var2HeadRM, var2BodyRM)
+
+    val uniqueSets: Map[Exp, Rule] = Map(var1 -> var1US, var2 -> var2US)
+    val redundancyMap: Map[Exp, Rule] = Map(var1 -> var1RM, var2 -> var2RM)
+    val dataLayoutMap: Map[Exp, Function[Seq[Variable], Seq[Index]]] = if (sparse) Map(var1 -> var1DL) else Map()
+
+    if (mode == 0) {
+      println(codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, dataLayoutMap=dataLayoutMap, varReverse=true))
+
+      (tensorComputation, infer(tensorComputation, dimInfo, uniqueSets, redundancyMap))
+    } else codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, 1, dataLayoutMap=dataLayoutMap, varReverse=true)
+  }
+
+  def ODC(sparse: Boolean) = {
+    val outName1 = "ODC"
+    val outName = if (sparse) s"${outName1}_Sparse" else outName1
+        val c1 = 
+s"""
+#include <iostream>
+#include <random>
+#include <algorithm>
+#include <chrono>
+
+using namespace std;
+using namespace std::chrono;
+
+int main(int argc, char **argv){
+    srand(0);
+
+    int M = atoi(argv[1]), N = atoi(argv[2]);
+
+    ${if (sparse) 
+s"""
+    double *H = new double[M];
+    for(size_t i = 0; i < M; ++i) {
+        H[i] = (double) (rand() % 1000000) / 1e6;
+    }
+""" 
+    else {
+s"""
+    double **H = new double*[M + N - 1];
+    for(size_t i = 0; i < M + N - 1; ++i){
+        H[i] = new double[N];
+        for(size_t j = 0; j < N; ++j){
+            if (j == 0)
+                H[i][j] = (double) (rand() % 1000000) / 1e6;
+            else if (j <= i && i < M + j) 
+                H[i][j] = H[i - j][0];
+            else 
+                H[i][j] = (double) 0;
+        }
+    }
+"""
+    }}
+
+    double *X = new double[N];
+    for(size_t j = 0; j < N; ++j){
+        X[j] = (double) (rand() % 1000000) / 1e6;
+    }
+
+    double *Y = new double[M + N - 1];
+    for (size_t i = 0; i < M + N - 1; ++i) {
+        Y[i] = (double) 0;
+    }
+
+    long time = 0, start, end;
+    start = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
+"""
+    val c2 = oneDConvolution(1, sparse)
+
+    val c3 = 
+s"""
+    end = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
+    time += end - start;
+
+    cerr << Y[M + N - 2] << "\\n";
+    cout<<time;
+
+    ${if (sparse) "" else 
+s"""
+    for(size_t i = 0; i < M + N - 1; ++i){
+        delete[] H[i];
+    }
+""" }
+    delete[] H;
+    delete[] X;
+    delete[] Y;
+    return 0;
+}
+"""
+
+    val code = s"$c1$c2$c3"
+    write2File(s"outputs/$outName.cpp", code)
+  }
+
   
 
 
@@ -5837,6 +5973,7 @@ MTTKRP_I  = MTTKRP: Fixed i
 MTTKRP_J  = MTTKRP: Fixed j
 E2E_LR    = E2E - Linear Regression
 E2E_PR2   = E2E - Polynomial Regression Degree 2
+ODC       = One-Dimensional Convolution
 """
   if (args.length >= 1) {
     val sparse: Boolean = if (args.length == 2 && (args(1).toLowerCase() == "sparse" || args(1).toLowerCase() == "s" || args(1).toLowerCase() == "-s") ) true else false
@@ -5858,6 +5995,7 @@ E2E_PR2   = E2E - Polynomial Regression Degree 2
       case "MTTKRP_J" => MTTKRP("fixed_j", sparse)
       case "E2E_LR" => E2E_PRK(1)
       case "E2E_PR2" => E2E_PRK(2)
+      case "ODC" => ODC(sparse)
       case _ => println(help)
     }
   } else println(help)
