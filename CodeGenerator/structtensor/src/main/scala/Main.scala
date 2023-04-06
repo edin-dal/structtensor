@@ -5900,7 +5900,7 @@ s"""
     for(size_t i = 0; i < M + N - 1; ++i){
         H[i] = new double[N];
         for(size_t j = 0; j < N; ++j){
-            if (j == 0)
+            if (j == 0 && i < M)
                 H[i][j] = (double) (rand() % 1000000) / 1e6;
             else if (j <= i && i < M + j) 
                 H[i][j] = H[i - j][0];
