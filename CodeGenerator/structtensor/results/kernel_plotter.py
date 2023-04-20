@@ -65,8 +65,8 @@ if __name__ == '__main__':
     plt.plot('x_axis', 'y_axis', data=st_df, label="StructTensor", color='c', marker='o')
     plt.xlabel('# Features')
     plt.ylabel('Time (s)')
-    if out_name == 'LR_Covar':
-        plt.legend(loc=4, ncol=1, fontsize='small')
+    # if out_name == 'LR_Covar':
+    #     plt.legend(loc=4, ncol=1, fontsize='small')
     plt.title(title)
     plt.grid(axis='y', color = 'gray', linestyle = '--', linewidth = 0.4)
     plt.subplots_adjust(left=0.15, bottom=0.15, right=0.95, top=0.9)

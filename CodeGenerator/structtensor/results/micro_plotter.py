@@ -58,9 +58,10 @@ if __name__ == '__main__':
     plt.plot('x_axis', 'y_axis', data=taco_dense_df, label="TACO (Dense)", color='y', marker='o')
     plt.plot('x_axis', 'y_axis', data= taco_sparse_df, label="TACO (Sparse)", color='#703be7', marker='o')
     plt.plot('x_axis', 'y_axis', data=taco_smart_df, label="TACO (Smart)", color='#6e750e', marker='o')
-    plt.plot('x_axis', 'y_axis', data=nst_df, label="StructTensor (Naive)", color='m', marker='o')
-    plt.plot('x_axis', 'y_axis', data=st_df, label="StructTensor", color='c', marker='o')
-    plt.plot('x_axis', 'y_axis', data=dl_st_df, label="StructTensor (DL)", color='#121145', marker='o')
+    plt.plot('x_axis', 'y_axis', data=nst_df, label="Naive", color='m', marker='o')
+    # plt.plot('x_axis', 'y_axis', data=st_df, label="StructTensor", color='c', marker='o')
+    # plt.plot('x_axis', 'y_axis', data=dl_st_df, label="StructTensor (DL)", color='#121145', marker='o')
+    plt.plot('x_axis', 'y_axis', data=dl_st_df, label="StructTensor", color='c', marker='o')
     plt.xlabel('Dimension Size')
     plt.ylabel('Time (s)')
     if "TTM: Upper" in title:
