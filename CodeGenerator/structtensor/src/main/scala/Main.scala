@@ -80,6 +80,16 @@ case class Access(name: String, vars: Seq[Variable], kind: AccessType) extends E
   def cFormat(): String = vars.foldLeft(name)((acc, cur) => s"$acc[${cur.cFormat}]")
   def cFormat(m: Map[Variable, Index]): String = vars.foldLeft(name)((acc, cur) => s"$acc[${cur.cFormat(m)}]")
   def cFormat(m: Map[Variable, Index], dl: Function[Seq[Variable], Seq[Index]]): String = dl(vars).foldLeft(name)((acc, cur) => s"$acc[${cur.cFormat(m)}]")
+  def loadMLIR(m: Map[Variable, Index]): String = {
+    val (varsStr, sizeStr, indexStr) = vars.foldLeft(("", "", ""))((acc2, v) => {
+      val (varsStr, sizeStr, indexStr) = acc2
+      val newVarStr = if (varsStr.length == 0) s"%${v.cFormat(m)}" else s"$varsStr, %${v.cFormat(m)}"
+      val newSizeStr = s"${sizeStr}?x"
+      val newIndexStr = if (indexStr.length == 0) s"index" else s"$indexStr, index"
+      (newVarStr, newSizeStr, newIndexStr)
+    })
+    s""""memref.load"(%$name, $varsStr) : (memref<${sizeStr}f64>, $indexStr) -> f64\n"""
+  }
 }
 
 case class Comparison(op: String, index: Index, variable: Variable) extends Exp {
@@ -113,6 +123,28 @@ case class Prod(exps: Seq[Exp]) {
     if (exps.length == 0) "∅"
     else s"(${pr.substring(3, pr.length)})"
   }
+  def MLIRFormat(m: Map[Variable, Index]): String = {
+    val accesses = exps.filter(e => e.isInstanceOf[Access]).map(e => e.asInstanceOf[Access])
+    var cnt = 0
+    val (vars, varsCode): (Seq[String], String) = accesses.foldLeft((Seq.empty[String], ""))((acc, cur) => {
+      val allVars = acc._1
+      val code = acc._2
+      val newVar = s"tmp$cnt"
+      val newCode = s"""%$newVar = ${cur.loadMLIR(m)}"""
+      cnt += 1
+      (allVars :+ newVar, code + newCode)
+    })
+    val (multCode, lastMult) = vars.slice(1, vars.length - 1).foldLeft(("", vars(0)))((acc, cur) => {
+      val code = acc._1
+      val last = acc._2
+      val newProd = s"prod$cnt"
+      val newCode = s"""%$newProd = "arith.mulf"(%$last, %$cur) : (f64, f64) -> f64\n"""
+      cnt += 1
+      (code + newCode, newProd)
+    })
+    val finalMultCode = s"""%final_sum = "arith.mulf"(%$lastMult, %${vars(vars.length - 1)}) : (f64, f64) -> f64\n"""
+    s"$varsCode$multCode$finalMultCode"
+  } 
   
 }
 
@@ -1436,6 +1468,20 @@ object Main extends App {
     if (str.length > 0) str.substring(2, str.length)
     else str
   }
+  
+  def getMinMaxMLIR(indexSeq: Seq[Index], m: Map[Variable, Index], minmax: String): (String, String) = {
+    val first = indexSeq(0).cFormat(m)
+    val firstVar = getVar("op")
+    val arithM = if (minmax == "min") "arith.minui" else "arith.maxui"
+    val (code, finalOP) = indexSeq.slice(1, indexSeq.length - 1).foldLeft((s"""%$firstVar = "${arithM}"(%$first, """, firstVar))((acc, index) => {
+      val str = acc._1
+      val v = acc._2
+      val op = getVar("op")
+      (s"""$acc${index.cFormat(m)}) : (index, index) -> index\n%$op = \"${arithM}\"(%$v, """, op)
+    })
+    val last = indexSeq(indexSeq.length - 1).cFormat(m)
+    (s"$code$last) : (index, index) -> index\n", finalOP)
+  }
 
   def simplifyMath(arith: Arithmetic): Index = {
     arith match {
@@ -1866,7 +1912,241 @@ object Main extends App {
     })
   }
 
-  def codeGen(tensorComputation: Rule, dimInfo: Seq[DimInfo], uniqueSets: Map[Exp, Rule], redundancyMaps: Map[Exp, Rule], codeGenMode: Int = 0, peqMode: Boolean = true, variableReplacementFlag: Boolean = true, codeMotion: Boolean = true, dataLayoutMap: Map[Exp, Function[Seq[Variable], Seq[Index]]] = Map(), varReverse: Boolean = false): String = {
+  def codeGenRuleMLIR(tensorComputation: Rule, dimInfo: Seq[DimInfo], variables: Seq[Variable], intervals: Seq[Map[Variable, Interval]], equalityVarMap: Seq[Map[Variable, Index]], genType: AccessType, peqMode: Boolean = true, codeMotion: Boolean = false, dataLayoutMap: Map[Exp, Function[Seq[Variable], Seq[Index]]] = Map()): String = {
+    // we should make sure that all the variables that are in the right hand side of an addition, we have a condition over them or we don't add them at all. Look at e2eLRDimInfo3.txt, first for loop, for this!
+    val vars = if (genType == RedundancyMap) variables.redundancyVarsInplace else variables
+    val dimMap: Map[Access, Seq[Dim]] = dimInfo.toAccessMap
+    val dimVarMap: Map[Variable, Seq[Dim]] = dimInfo.toVarsMap
+    val tcBodya: SoP = getNoComparisonSoP(tensorComputation.body) 
+    val tcBodyEQ: SoP = getNoComparisonButEQSoP(tensorComputation.body)
+
+    if (intervals == Seq.empty[Map[Variable, Interval]]) {
+      return s"${tensorComputation.head.cFormat} += ${tcBodya.cFormat};"
+    }
+
+    (intervals zip equalityVarMap).foldLeft("")((acc, mapEqVar) => {
+      val map: Map[Variable, Interval] = mapEqVar._1
+      val eqVar: Map[Variable, Index] = mapEqVar._2
+      // println("eqVar:")
+      // eqVar.foldLeft()((_, cur) => println(cur._1.prettyFormat  + " -> " + cur._2.prettyFormat))
+      var cntVars: Seq[Variable] = Seq.empty[Variable]
+      val (tc, nestedLoops, di, finalHeadComputation): (Rule, String, Seq[DimInfo], Access) = vars.zipWithIndex.foldLeft((Rule(tensorComputation.head, tcBodya), "", dimInfo, Access("", Seq.empty[Variable], Tensor)))((acc2, variableInd) => {
+        val variable: Variable = variableInd._1
+        val interval = map.getOrElse(variable, Interval(Seq(), Seq()))
+        val (areEquals, index, (b, e)) = areBeginAndEndEqual(interval)
+        val newInterval: Interval = if((b, e) == (-1, -1)) interval // new interval without equal value
+                          else Interval(interval.begin.zipWithIndex.filter(indexID => indexID._2 != b).map(indexID => indexID._1),
+                                interval.end.zipWithIndex.filter(indexID => indexID._2 != e).map(indexID => indexID._1))
+        val newInterval2: Interval = newInterval
+        val (beginCode, beginVar) = if(newInterval2.begin.size > 1) {
+          getMinMaxMLIR(newInterval2.begin, eqVar, "max")
+        } else if (newInterval2.begin.size == 1) {
+          ("", newInterval2.begin(0).cFormat(eqVar))
+        } else ("", "")
+        val (endCode, endVar) = if(newInterval2.end.size > 1) {
+          getMinMaxMLIR(newInterval2.end, eqVar, "min")
+        } else if (newInterval2.end.size == 1) { 
+          ("", newInterval2.end(0).cFormat(eqVar))
+        } else ("", "")
+        val code = if(eqVar.contains(variable)) {
+          cntVars = cntVars :+ variable
+          ""
+        } else if (areEquals) { // in this case all conditions should not be checked since it might have forward referencing
+          val init = if (index.cFormat(eqVar) != variable.cFormat) s"""%${variable.cFormat} = "arith.constant"() {"value" = %${index.cFormat(eqVar)} : index} : () -> index """ else s"""%${variable.cFormat} = "arith.constant"() {"value" = %${index.cFormat} : index} : () -> index """ 
+          // eqVar = mergeMap(Seq(eqVar, Map(variable -> index)))((v1, v2) => v2)
+          val rest = if (beginVar != "" && endVar != "") s"if ($beginVar <= ${index.cFormat(eqVar)} && ${index.cFormat} < $endVar) {" 
+          else if (beginVar != "" && endVar == "") s"if ($beginVar <= ${index.cFormat(eqVar)}) {" 
+          else if (beginVar == "" && endVar != "") s"if (${index.cFormat(eqVar)} < $endVar) {" 
+          else {
+            cntVars = cntVars :+ variable
+            s""
+          } // needs to be fixed using arith.cmpi, scf.if
+          s"$init\n$rest"
+        } else {
+            if (beginVar != "" && endVar != "") {
+              if (!vars.slice(0, variableInd._2 + 1).toSet.subsetOf(tensorComputation.head.vars.toSet)) s"""%${variable.cFormat(eqVar)}_sum = "scf.for"(%$beginVar, %$endVar, %1, %zerof) ({\n^bb0(%${variable.cFormat(eqVar)}: index, %iter_sum_${variable.cFormat(eqVar)}: f64):\n"""
+              else s""""scf.for"(%$beginVar, %$endVar, %1) ({\n^bb0(%${variable.cFormat(eqVar)}: index):\n"""
+            }
+            else if (beginVar != "" && endVar == "") {
+              cntVars = cntVars :+ variable
+              s"int ${variable.cFormat} = $beginVar;" 
+            }
+            else if (beginVar == "" && endVar != "") {
+              cntVars = cntVars :+ variable
+              s"int ${variable.cFormat} = $endVar - 1;" 
+            } 
+            else {
+              cntVars = cntVars :+ variable
+              ""
+            } // compelete the rest of the code similar to first if
+        }
+        // if (codeMotion) {
+        //   // if current variable is equal to first element of each of the variables of accesses in the map, do code motion for it
+        //   // update the map in a way that previous variables that include code motion be removed and new variable with .slice(1, length) of variables be in it
+        //   val tc: Rule = acc2._1
+        //   val di: Seq[DimInfo] = acc2._3
+        //   val diMap: Map[Access, Seq[Dim]] = di.toAccessMap
+
+        //   val (head, headCode): (Access, String) = if ((variableInd._2 != vars.length - 1 && genType == UniqueSet) || (variableInd._2 != vars.length / 2 - 1 && genType == RedundancyMap) || (tc.body.prods.length > 1 && genType != RedundancyMap)) {
+        //     if (tc.head.vars.length > 0 && tc.head.vars(0) == variable) {
+        //       if (tc.head.vars.length == 1) {
+        //         val head = Access("tmp", Seq.empty[Variable], Tensor)
+        //         val headCode = s"double tmp = 0.0;\n"
+        //         (head, headCode)
+        //       } else {
+        //         val head = Access(getVar(s"cm"), tc.head.vars.slice(1, tc.head.vars.length), tc.head.kind) 
+        //         val headCode = s"auto &${head.name} = ${tc.head.name}[${variable.cFormat(eqVar)}];\n"
+        //         (head, headCode) 
+        //       }
+        //     } else (tc.head, "")
+        //   } else (tc.head, "")
+
+        //   val allVars: Set[Variable] = tc.head.vars.toSet ++ eqVar.keySet
+          
+        //   val (bodyProdSeq, bodyCode, newDI): (Seq[Prod], String, Seq[DimInfo]) = if (variableInd._2 != vars.length - 1 && genType != RedundancyMap) {
+        //     tc.body.prods.foldLeft((Seq.empty[Prod], "", di))((acc4, prod) => {
+        //       val allRHSVars: Set[Variable] = prod.exps.foldLeft(Set.empty[Variable])((accRHS, exp) => {
+        //         exp match {
+        //           case Access(name, vars, kind) => accRHS ++ vars.toSet
+        //           case _ => accRHS
+        //         }
+        //       })
+        //       val di: Seq[DimInfo] = acc4._3
+        //       val diMap: Map[Access, Seq[Dim]] = di.toAccessMap
+
+        //       val (newProd, cmCode, newDI): (Seq[Exp], String, Seq[DimInfo]) = // if (allRHSVars.subsetOf(allVars)) {  // --> should the subset be the other way around?
+        //         prod.exps.foldLeft((Seq.empty[Exp], "", Seq.empty[DimInfo]))((acc3, exp) => {
+        //           val access: Access = exp.asInstanceOf[Access]
+        //           if (dataLayoutMap.contains(access)) (acc3._1 :+ access, acc3._2, acc3._3)
+        //           else {
+        //             val (newAcc, accCode, newDI): (Access, String, Seq[DimInfo]) = if (access.vars.length > 0 && access.vars(0) == variable) {
+        //               val newAcc = Access(getVar(s"cm"), access.vars.slice(1, access.vars.length), access.kind)
+        //               val newDims: Seq[Dim] = if (diMap.contains(access)) diMap.get(access).get.slice(1, access.vars.length) else Seq.empty[Dim]
+        //               val newDI: Seq[DimInfo] = if (newDims.length > 0) Seq(DimInfo(newAcc, newDims)) else Seq.empty[DimInfo]
+
+        //               val conds: String = if (diMap.contains(access)) {
+        //                 val v: Variable = variable
+        //                 val d: Dim = diMap.get(access).get(0)
+        //                 val b: Seq[Index] = if (map.contains(v)) map.get(v).get.begin else Seq.empty[Index]
+        //                 val e: Seq[Index] = if (map.contains(v)) map.get(v).get.end else Seq.empty[Index]
+        //                 val fb: Boolean = b.foldLeft(false)((acc, beginInd) => {
+        //                   val res: Seq[Index] = indexMin(beginInd, d)
+        //                   if (res.length == 1 && res(0) == d) acc || true else acc
+        //                 })
+        //                 val fe: Boolean = e.foldLeft(false)((acc, endInd) => {
+        //                   val res: Seq[Index] = indexMin(endInd, d)
+        //                   if (res.length == 1 && res(0) == endInd && res(0) != d) acc || true else acc
+        //                 })
+        //                 if (fb) "NOT!HAPPENING!" else if (fe) s"${v.cFormat(eqVar)} < ${d.cFormat(eqVar)}" else ""
+        //               } else ""
+
+        //               val accCode = if (conds.contains("NOT!HAPPENING!")) "" else if (conds == "") s"auto &${newAcc.name} = ${access.name}[${variable.cFormat(eqVar)}];\n" else s"auto &${newAcc.name} = ($conds) ? ${access.name}[${variable.cFormat(eqVar)}] : 0;\n"
+        //               (newAcc, accCode, newDI)
+        //             } else (access, "", Seq.empty[DimInfo])
+        //             (acc3._1 :+ newAcc, s"${acc3._2}$accCode", acc3._3 ++ newDI)
+        //           }
+        //         })
+        //       // } else (Seq.empty[Exp], "", Seq.empty[DimInfo]) //
+              
+        //       if (!(newProd == Seq.empty[Exp] && cmCode == "")) (acc4._1 :+ Prod(newProd), s"${acc4._2}$cmCode", acc4._3 ++ newDI) else acc4
+        //     })
+        //   } else (tc.body.prods, "", di)
+        //   val body = SoP(bodyProdSeq)
+
+        //   val newTC: Rule = Rule(head, body)
+        //   val oH: Access = if (head.name == "tmp" && acc2._4.name == "") tc.head else acc2._4
+        //   (newTC, s"${acc2._2}\n$code\n$headCode\n$bodyCode", newDI, oH)
+        // } else 
+        (acc2._1, s"${acc2._2}\n$beginCode$endCode$code", acc2._3, acc2._4)
+      })
+
+      val defaultDataLayout = (x: Seq[Variable]) => x
+
+      // why constants are not exp as well? Then I could replace the comparison below by ConstantInt(1) instead.
+      val tcBody: SoP = if (tc.body == emptySoP()) SoP(Seq(Prod(Seq(Comparison("=", ConstantInt(0), getVar("rndVar").toVar))))) else tc.body // if it's only comparison, then it was just a bunch of comparison multiplications so their value is only 1. Their ranges is inside unique set and redundancy maps already.
+      val allVars: Set[Variable] = tensorComputation.head.vars.toSet ++ eqVar.keySet
+      val body = if (genType == RedundancyMap) s"${tc.head.cFormat(eqVar, dataLayoutMap.getOrElse(tc.head, defaultDataLayout))} = ${Access(tensorComputation.head.name, tensorComputation.head.vars.redundancyVars, tensorComputation.head.kind).cFormat(eqVar, dataLayoutMap.getOrElse(tc.head, defaultDataLayout))};" else {
+        if (tcBody.prods.length == 1) s"${tcBody.prods(0).MLIRFormat(eqVar)}"
+        else (tcBody.prods zip tcBodya.prods).foldLeft("")((acc, prodAProd) => {
+          val prod: Prod = prodAProd._1
+          val aProd: Prod = prodAProd._2
+          val allRHSVars: Set[Variable] = aProd.exps.foldLeft(Set.empty[Variable])((acc2, exp) => {
+            exp match {
+              case Access(name, vars, kind) => acc2 ++ vars.toSet
+              case _ => acc2
+            }
+          })
+          if (allRHSVars.subsetOf(allVars)) {
+            val conds: String = aProd.exps.foldLeft("")((acc2, exp) => {
+              exp match {
+                case Access(name, vars, kind) => {
+                  val access: Access = exp.asInstanceOf[Access]
+                  val conds: String = if (dimMap.contains(access)) {
+                    (vars zip dimMap.get(access).get).foldLeft("")((acc3, varDim) => {
+                      val v: Variable = varDim._1
+                      val d: Dim = varDim._2
+                      val b: Seq[Index] = if (map.contains(v)) map.get(v).get.begin else Seq.empty[Index]
+                      val e: Seq[Index] = if (map.contains(v)) map.get(v).get.end else Seq.empty[Index]
+                      val fb: Boolean = b.foldLeft(false)((acc, beginInd) => {
+                        val res: Seq[Index] = indexMin(beginInd, d)
+                        if (res.length == 1 && res(0) == d) acc || true else acc
+                      })
+                      val fe: Boolean = e.foldLeft(false)((acc, endInd) => {
+                        val res: Seq[Index] = indexMin(endInd, d)
+                        if (res.length == 1 && res(0) == endInd && res(0) != d) acc || true else acc
+                      })
+                      if (fb) "NOT!HAPPENING!" else if (fe) {
+                        if (acc3 != "" ) s"$acc3 && ${v.cFormat(eqVar)} < ${d.cFormat(eqVar)}" else s"${v.cFormat(eqVar)} < ${d.cFormat(eqVar)}"
+                      } else acc3
+                    })
+                  } else ""
+                  if (acc2 == "") conds else if (conds == "") acc2 else s"$acc2 && $conds"
+                }
+                case _ => acc2
+              }
+            })
+            if (conds.contains("NOT!HAPPENING!")) acc else if (conds != "") {
+              s"$acc\nif ($conds) {\n${tc.head.cFormat(eqVar, dataLayoutMap.getOrElse(tc.head, defaultDataLayout))} += ${prod.cFormat(eqVar, dataLayoutMap)};\n}"
+            } else s"$acc\n${tc.head.cFormat(eqVar, dataLayoutMap.getOrElse(tc.head, defaultDataLayout))} += ${prod.cFormat(eqVar, dataLayoutMap)};\n"
+          } else acc
+        })
+      } // change wrt code motion and use the newest variables with the corresponding list to them
+      // val body = if (genType == RedundancyMap) s"${tensorComputation.head.cFormat} = ${tensorComputation.head.cRedFormat};" else tensorComputation.cPeqFormat
+
+      val filteredVars = vars.reverse.filter(e => !cntVars.contains(e))
+      val finalBrackets = filteredVars.zipWithIndex.foldLeft("")((acc, vi) => {
+        val v = vi._1
+        val i = vi._2
+        if (codeMotion && finalHeadComputation.vars.length > 0 && finalHeadComputation.vars(0) == v) s"$acc${finalHeadComputation.cFormat(eqVar, dataLayoutMap.getOrElse(finalHeadComputation, defaultDataLayout))} += tmp;\n}\n"
+        else {
+          val nc = if (i == 0) s"""%new_sum_${v.cFormat(eqVar)} = "arith.addf"(%final_sum, %iter_sum_${v.cFormat(eqVar)}) : (f64, f64) -> f64\n"scf.yield"(%new_sum_${v.cFormat(eqVar)}): (f64) -> ()\n}) : (index, index, index, f64) -> f64"""
+          else if (tensorComputation.head.vars.toSet.subsetOf(filteredVars.slice(i, filteredVars.length).toSet) && filteredVars.slice(i, filteredVars.length).toSet != tensorComputation.head.vars.toSet) s"""%new_sum_${v.cFormat(eqVar)} = "arith.addf"(%${filteredVars(i - 1).cFormat(eqVar)}_sum, %iter_sum_${v.cFormat(eqVar)}) : (f64, f64) -> f64\n"scf.yield"(%new_sum_${v.cFormat(eqVar)}): (f64) -> ()\n}) : (index, index, index, f64) -> f64"""
+          else if (filteredVars.slice(i, filteredVars.length).toSet == tensorComputation.head.vars.toSet) {
+            val (varsStr, sizeStr, indexStr) = tensorComputation.head.vars.foldLeft(("", "", ""))((acc2, v) => {
+              val (varsStr, sizeStr, indexStr) = acc2
+              val newVarStr = if (varsStr.length == 0) s"%${v.cFormat(eqVar)}" else s"$varsStr, %${v.cFormat(eqVar)}"
+              val newSizeStr = s"${sizeStr}?x"
+              val newIndexStr = if (indexStr.length == 0) s"index" else s"$indexStr, index"
+              (newVarStr, newSizeStr, newIndexStr)
+            }) // TODO: if peqMode, first load the value, add it to the sum, and then store it again
+            if (peqMode) {
+              val peqVal = getVar("peqVal")
+              val preVal = getVar("preVal")
+              val preValCode = s"""%$preVal = ${tensorComputation.head.loadMLIR(eqVar)}"""
+              val peqValCode = s"""%$peqVal = "arith.addf"(%${filteredVars(i - 1).cFormat(eqVar)}_sum, %$preVal) : (f64, f64) -> f64\n"""
+              s"""$preValCode$peqValCode"memref.store"(%$peqVal, %${tensorComputation.head.name}, $varsStr) : (f64, memref<${sizeStr}f64>, $indexStr) -> ()\n"scf.yield"() : () -> ()\n}) : (index, index, index) -> ()"""
+            } else s""""memref.store"(%${filteredVars(i - 1).cFormat(eqVar)}_sum, %${tensorComputation.head.name}, $varsStr) : (f64, memref<${sizeStr}f64>, $indexStr) -> ()\n"scf.yield"() : () -> ()\n}) : (index, index, index) -> ()"""
+          }
+          else s""""scf.yield"() : () -> ()\n}) : (index, index, index) -> ()"""
+          s"$acc\n$nc"
+        }
+      })
+      
+      s"$acc\n$nestedLoops\n$body\n$finalBrackets"
+    })
+  }
+
+  def codeGen(tensorComputation: Rule, dimInfo: Seq[DimInfo], uniqueSets: Map[Exp, Rule], redundancyMaps: Map[Exp, Rule], codeGenMode: Int = 0, peqMode: Boolean = true, variableReplacementFlag: Boolean = true, codeMotion: Boolean = true, dataLayoutMap: Map[Exp, Function[Seq[Variable], Seq[Index]]] = Map(), varReverse: Boolean = false, codeLang: String = "CPP"): String = {
     val variables: Seq[Variable] = if (varReverse) getVariables(tensorComputation).reverse else getVariables(tensorComputation)
     val (outUS, outRM, outDI) = infer(tensorComputation, dimInfo, uniqueSets, redundancyMaps)
     val allDimVars: Seq[Variable] = dimInfo.toVarsMap.values.foldLeft(Seq.empty[Dim])((acc, dimSeq) => acc ++ dimSeq).foldLeft(Seq.empty[Variable])((acc, d) => acc ++ getVariables(d))
@@ -2001,10 +2281,17 @@ object Main extends App {
     // pprint(finalRM)
     // println("==================")
 
-    if (codeGenMode == 0) "void compute() {\n" + codeGenRule(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedUS, eqVarMapUS, UniqueSet, peqMode, codeMotion, dataLayoutMap) + "\n}\n\n\nvoid reconstruct() {\n" + codeGenRule(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedRM, eqVarMapRM, RedundancyMap, peqMode, codeMotion, dataLayoutMap) + "\n}\n"
-    else if (codeGenMode == 1) codeGenRule(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedUS, eqVarMapUS, UniqueSet, peqMode, codeMotion, dataLayoutMap)
-    else if (codeGenMode == 2) codeGenRule(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedRM, eqVarMapRM, RedundancyMap, peqMode, codeMotion, dataLayoutMap)
-    else ""
+    if (codeLang == "MLIR") {
+      if (codeGenMode == 0) "void compute() {\n" + codeGenRuleMLIR(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedUS, eqVarMapUS, UniqueSet, peqMode, codeMotion, dataLayoutMap) + "\n}\n\n\nvoid reconstruct() {\n" + codeGenRuleMLIR(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedRM, eqVarMapRM, RedundancyMap, peqMode, codeMotion, dataLayoutMap) + "\n}\n"
+      else if (codeGenMode == 1) codeGenRuleMLIR(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedUS, eqVarMapUS, UniqueSet, peqMode, codeMotion, dataLayoutMap)
+      else if (codeGenMode == 2) codeGenRuleMLIR(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedRM, eqVarMapRM, RedundancyMap, peqMode, codeMotion, dataLayoutMap)
+      else ""
+    } else {
+      if (codeGenMode == 0) "void compute() {\n" + codeGenRule(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedUS, eqVarMapUS, UniqueSet, peqMode, codeMotion, dataLayoutMap) + "\n}\n\n\nvoid reconstruct() {\n" + codeGenRule(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedRM, eqVarMapRM, RedundancyMap, peqMode, codeMotion, dataLayoutMap) + "\n}\n"
+      else if (codeGenMode == 1) codeGenRule(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedUS, eqVarMapUS, UniqueSet, peqMode, codeMotion, dataLayoutMap)
+      else if (codeGenMode == 2) codeGenRule(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedRM, eqVarMapRM, RedundancyMap, peqMode, codeMotion, dataLayoutMap)
+      else ""
+    }
   }
 
   def getAllVariables(sop: SoP): Seq[Variable] = sop.prods.foldLeft(Seq.empty[Variable])((acc, prod) => acc ++ prod.exps.foldLeft(Seq.empty[Variable])((acc2, exp) => acc2 ++ getAllVariables(exp)))
@@ -4070,7 +4357,7 @@ object Main extends App {
     } else codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, 1)
   }
 
-  def mttkrp_n(structure: String, mode: Int = 0, sparse: Boolean = false) = {
+  def mttkrp_n(structure: String, mode: Int = 0, sparse: Boolean = false, codeLang: String = "CPP") = {
     val head: Access = Access("A", Seq("i".toVar, "j".toVar), Tensor)
     val var1: Access = Access("B",  Seq("i".toVar, "k".toVar, "l".toVar), Tensor)
     val var2: Access = Access("C",  Seq("k".toVar, "j".toVar), Tensor)
@@ -4140,7 +4427,7 @@ object Main extends App {
     val dataLayoutMap: Map[Exp, Function[Seq[Variable], Seq[Index]]] = if (sparse) Map(var1 -> var1DL, var3 -> var3DL) else Map()
 
     if (mode == 0) {
-      println(codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, dataLayoutMap=dataLayoutMap))
+      println(codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, dataLayoutMap=dataLayoutMap, codeLang=codeLang))
 
       (tensorComputation, infer(tensorComputation, dimInfo, uniqueSets, redundancyMap))
     } else codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, 1, dataLayoutMap=dataLayoutMap)
@@ -6281,7 +6568,7 @@ PGLM      = Population Growth Leslie Matrix
       case "PGLM" => PGLM(sparse)
       case _ => println(help)
     }
-  } else println(help)
+  } else mttkrp_n("", codeLang="MLIR")// println(help)
   
 
   // println(Variable("a").equals(Variable("a")))
