@@ -1965,6 +1965,7 @@ object Main extends App {
       // println("eqVar:")
       // eqVar.foldLeft()((_, cur) => println(cur._1.prettyFormat  + " -> " + cur._2.prettyFormat))
       var cntVars: Seq[Variable] = Seq.empty[Variable]
+      var beginEndEqVars: Seq[Variable] = Seq.empty[Variable]
       val (tc, nestedLoops, di, finalHeadComputation): (Rule, String, Seq[DimInfo], Access) = vars.zipWithIndex.foldLeft((Rule(tensorComputation.head, tcBodya), "", dimInfo, Access("", Seq.empty[Variable], Tensor)))((acc2, variableInd) => {
         val variable: Variable = variableInd._1
         val interval = map.getOrElse(variable, Interval(Seq(), Seq()))
@@ -1987,6 +1988,7 @@ object Main extends App {
           cntVars = cntVars :+ variable
           ""
         } else if (areEquals) { // in this case all conditions should not be checked since it might have forward referencing
+          beginEndEqVars = beginEndEqVars :+ variable
           val init = if (index.cFormat(eqVar) != variable.cFormat) s"""%${variable.cFormat} = "arith.addi"(%0, %${index.cFormat(eqVar)}) : (index, index) -> index """ else s"""%${variable.cFormat} = "arith.addi"(%0, %${index.cFormat}) : (index, index) -> index """ 
           // eqVar = mergeMap(Seq(eqVar, Map(variable -> index)))((v1, v2) => v2)
           val rest = if (beginVar != "" && endVar != "") {
@@ -2036,12 +2038,13 @@ object Main extends App {
       // why constants are not exp as well? Then I could replace the comparison below by ConstantInt(1) instead.
       val tcBody: SoP = if (tc.body == emptySoP()) SoP(Seq(Prod(Seq(Comparison("=", ConstantInt(0), getVar("rndVar").toVar))))) else tc.body // if it's only comparison, then it was just a bunch of comparison multiplications so their value is only 1. Their ranges is inside unique set and redundancy maps already.
       val allVars: Set[Variable] = tensorComputation.head.vars.toSet ++ eqVar.keySet
+      val finalV: String = getVar("finalV")
       val body = if (genType == RedundancyMap) { // TODO: write this in MLIR
         s"${tc.head.cFormat(eqVar, dataLayoutMap.getOrElse(tc.head, defaultDataLayout))} = ${Access(tensorComputation.head.name, tensorComputation.head.vars.redundancyVars, tensorComputation.head.kind).cFormat(eqVar, dataLayoutMap.getOrElse(tc.head, defaultDataLayout))};" 
       }
       else {
-        if (tcBody.prods.length == 1) s"${tcBody.prods(0).MLIRFormat(eqVar)}"
-        else tcBody.MLIRFormat(eqVar)
+        if (tcBody.prods.length == 1) s"${tcBody.prods(0).MLIRFormat(eqVar, finalV)}"
+        else tcBody.MLIRFormat(eqVar, finalV)
         // else (tcBody.prods zip tcBodya.prods).foldLeft("")((acc, prodAProd) => {
         //   val prod: Prod = prodAProd._1
         //   val aProd: Prod = prodAProd._2
@@ -2094,25 +2097,30 @@ object Main extends App {
         val i = vi._2
         if (codeMotion && finalHeadComputation.vars.length > 0 && finalHeadComputation.vars(0) == v) s"$acc${finalHeadComputation.cFormat(eqVar, dataLayoutMap.getOrElse(finalHeadComputation, defaultDataLayout))} += tmp;\n}\n"
         else {
-          val nc = if (i == 0) s"""%new_sum_${v.cFormat(eqVar)} = "arith.addf"(%final_sum, %iter_sum_${v.cFormat(eqVar)}) : (f64, f64) -> f64\n"scf.yield"(%new_sum_${v.cFormat(eqVar)}): (f64) -> ()\n}) : (index, index, index, f64) -> f64"""
-          else if (tensorComputation.head.vars.toSet.subsetOf(filteredVars.slice(i, filteredVars.length).toSet) && filteredVars.slice(i, filteredVars.length).toSet != tensorComputation.head.vars.toSet) s"""%new_sum_${v.cFormat(eqVar)} = "arith.addf"(%${filteredVars(i - 1).cFormat(eqVar)}_sum, %iter_sum_${v.cFormat(eqVar)}) : (f64, f64) -> f64\n"scf.yield"(%new_sum_${v.cFormat(eqVar)}): (f64) -> ()\n}) : (index, index, index, f64) -> f64"""
-          else if (filteredVars.slice(i, filteredVars.length).toSet == tensorComputation.head.vars.toSet) {
+          val containsV = beginEndEqVars.contains(v)
+          val nc = if (i == 0) {
+            if (containsV) s""""scf.yield"(%$finalV): (f64) -> ()\n}, {"scf.yield"(%zerof): (f64) -> ()}) : (i1) -> f64"""
+            else s"""%new_sum_${v.cFormat(eqVar)} = "arith.addf"(%$finalV, %iter_sum_${v.cFormat(eqVar)}) : (f64, f64) -> f64\n"scf.yield"(%new_sum_${v.cFormat(eqVar)}): (f64) -> ()\n}) : (index, index, index, f64) -> f64"""
+          } else if (tensorComputation.head.vars.toSet.subsetOf(filteredVars.slice(i, filteredVars.length).toSet) && filteredVars.slice(i, filteredVars.length).toSet != tensorComputation.head.vars.toSet) {
+            if (containsV) s""""scf.yield"(%${filteredVars(i - 1).cFormat(eqVar)}_sum): (f64) -> ()\n}, {"scf.yield"(%zerof): (f64) -> ()}) : (i1) -> f64"""
+            else s"""%new_sum_${v.cFormat(eqVar)} = "arith.addf"(%${filteredVars(i - 1).cFormat(eqVar)}_sum, %iter_sum_${v.cFormat(eqVar)}) : (f64, f64) -> f64\n"scf.yield"(%new_sum_${v.cFormat(eqVar)}): (f64) -> ()\n}) : (index, index, index, f64) -> f64"""
+          } else if (filteredVars.slice(i, filteredVars.length).toSet == tensorComputation.head.vars.toSet) {
             val (varsStr, sizeStr, indexStr) = tensorComputation.head.vars.foldLeft(("", "", ""))((acc2, v) => {
               val (varsStr, sizeStr, indexStr) = acc2
               val newVarStr = if (varsStr.length == 0) s"%${v.cFormat(eqVar)}" else s"$varsStr, %${v.cFormat(eqVar)}"
               val newSizeStr = s"${sizeStr}?x"
               val newIndexStr = if (indexStr.length == 0) s"index" else s"$indexStr, index"
               (newVarStr, newSizeStr, newIndexStr)
-            }) // TODO: if peqMode, first load the value, add it to the sum, and then store it again
+            })
             if (peqMode) {
               val peqVal = getVar("peqVal")
               val preVal = getVar("preVal")
               val preValCode = s"""%$preVal = ${tensorComputation.head.loadMLIR(eqVar)}"""
               val peqValCode = s"""%$peqVal = "arith.addf"(%${filteredVars(i - 1).cFormat(eqVar)}_sum, %$preVal) : (f64, f64) -> f64\n"""
-              s"""$preValCode$peqValCode"memref.store"(%$peqVal, %${tensorComputation.head.name}, $varsStr) : (f64, memref<${sizeStr}f64>, $indexStr) -> ()\n"scf.yield"() : () -> ()\n}) : (index, index, index) -> ()"""
-            } else s""""memref.store"(%${filteredVars(i - 1).cFormat(eqVar)}_sum, %${tensorComputation.head.name}, $varsStr) : (f64, memref<${sizeStr}f64>, $indexStr) -> ()\n"scf.yield"() : () -> ()\n}) : (index, index, index) -> ()"""
+              s"""$preValCode$peqValCode"memref.store"(%$peqVal, %${tensorComputation.head.name}, $varsStr) : (f64, memref<${sizeStr}f64>, $indexStr) -> ()\n"scf.yield"() : () -> ()\n}${if (containsV) s""", {"scf.yield"(): () -> ()}""" else ""}) : ${if (containsV) "(i1) -> ()" else "(index, index, index) -> ()"}"""
+            } else s""""memref.store"(%${filteredVars(i - 1).cFormat(eqVar)}_sum, %${tensorComputation.head.name}, $varsStr) : (f64, memref<${sizeStr}f64>, $indexStr) -> ()\n"scf.yield"() : () -> ()\n}${if (containsV) s""", {"scf.yield"(): () -> ()}""" else ""}) : ${if (containsV) "(i1) -> ()" else "(index, index, index) -> ()"}"""
           }
-          else s""""scf.yield"() : () -> ()\n}) : (index, index, index) -> ()"""
+          else s""""scf.yield"() : () -> ()\n}${if (containsV) s""", {"scf.yield"(): () -> ()}""" else ""}) : ${if (containsV) "(i1) -> ()" else "(index, index, index) -> ()"}"""
           s"$acc\n$nc"
         }
       })
