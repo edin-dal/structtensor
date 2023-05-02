@@ -99,6 +99,7 @@ case class Comparison(op: String, index: Index, variable: Variable) extends Exp 
 }
 
 case class Prod(exps: Seq[Exp]) {
+  var cnt = 0
   def prettyFormat(): String = {
     val pr = exps.foldLeft("")((acc, cur) => s"$acc * ${cur.prettyFormat}")
     if (exps.length == 0) "∅"
@@ -123,14 +124,13 @@ case class Prod(exps: Seq[Exp]) {
     if (exps.length == 0) "∅"
     else s"(${pr.substring(3, pr.length)})"
   }
-  def MLIRFormat(m: Map[Variable, Index]): String = {
+  def MLIRFormat(m: Map[Variable, Index], final_sum: String = "final_sum"): String = {
     val accesses = exps.filter(e => e.isInstanceOf[Access]).map(e => e.asInstanceOf[Access])
-    var cnt = 0
     val (vars, varsCode): (Seq[String], String) = accesses.foldLeft((Seq.empty[String], ""))((acc, cur) => {
       val allVars = acc._1
       val code = acc._2
       val newVar = s"tmp$cnt"
-      val newCode = s"""%$newVar = ${cur.loadMLIR(m)}"""
+      val newCode = s"""%$newVar = ${cur.loadMLIR(m)}\n"""
       cnt += 1
       (allVars :+ newVar, code + newCode)
     })
@@ -142,13 +142,14 @@ case class Prod(exps: Seq[Exp]) {
       cnt += 1
       (code + newCode, newProd)
     })
-    val finalMultCode = s"""%final_sum = "arith.mulf"(%$lastMult, %${vars(vars.length - 1)}) : (f64, f64) -> f64\n"""
+    val finalMultCode = s"""%$final_sum = "arith.mulf"(%$lastMult, %${vars(vars.length - 1)}) : (f64, f64) -> f64\n"""
     s"$varsCode$multCode$finalMultCode"
   } 
   
 }
 
 case class SoP(prods: Seq[Prod]) {
+  var cnt = 0
   def prettyFormat(): String = {
     val pr = prods.foldLeft("")((acc, cur) => s"$acc + ${cur.prettyFormat}")
     if (prods.length == 0) "∅"
@@ -164,14 +165,48 @@ case class SoP(prods: Seq[Prod]) {
     if (prods.length == 0) "∅"
     else s"(${pr.substring(3, pr.length)})"
   }
+  def MLIRFormat(m: Map[Variable, Index], final_val: String = "final_val"): String = {
+    val (vars, varsCode) = prods.foldLeft((Seq.empty[String], ""))((acc, cur) => {
+      val allVars = acc._1
+      val code = acc._2
+      val newVar = s"tmpS$cnt"
+      val newCode = cur.MLIRFormat(m, newVar)
+      cnt += 1
+      (allVars :+ newVar, code + newCode)
+    })
+    val (sumCode, lastSum) = vars.slice(1, vars.length - 1).foldLeft(("", vars(0)))((acc, cur) => {
+      val code = acc._1
+      val last = acc._2
+      val newSum = s"sum$cnt"
+      val newCode = s"""%$newSum = "arith.addf"(%$last, %$cur) : (f64, f64) -> f64\n"""
+      cnt += 1
+      (code + newCode, newSum)
+    })
+    val finalSumCode = s"""%$final_val = "arith.addf"(%$lastSum, %${vars(vars.length - 1)}) : (f64, f64) -> f64\n"""
+    s"$varsCode$sumCode$finalSumCode"
+  }
 }
 
 case class Rule(head: Access, body: SoP) {
+  var cnt = 0
   def prettyFormat(): String = s"${head.prettyFormat} := ${body.prettyFormat}"
   def cFormat(): String = s"${head.cFormat} = ${body.cFormat};"
   def cPeqFormat(): String = s"${head.cFormat} += ${body.cFormat};"
   def cFormat(m: Map[Variable, Index]): String = s"${head.cFormat(m)} = ${body.cFormat(m)};"
   def cPeqFormat(m: Map[Variable, Index]): String = s"${head.cFormat(m)} += ${body.cFormat(m)};"
+  def MLIRFormat(m: Map[Variable, Index]): String = {
+    val final_val = s"final_val$cnt"
+    cnt += 1
+    val bodyCode = body.MLIRFormat(m, final_val)
+    val (varsStr, sizeStr, indexStr) = head.vars.foldLeft(("", "", ""))((acc2, v) => {
+      val (varsStr, sizeStr, indexStr) = acc2
+      val newVarStr = if (varsStr.length == 0) s"%${v.cFormat(m)}" else s"$varsStr, %${v.cFormat(m)}"
+      val newSizeStr = s"${sizeStr}?x"
+      val newIndexStr = if (indexStr.length == 0) s"index" else s"$indexStr, index"
+      (newVarStr, newSizeStr, newIndexStr)
+    })
+    s""""memref.store"(%$final_val, %${head.name}, $varsStr) : (f64, memref<${sizeStr}f64>, $indexStr) -> ()\n"""
+  }
 }
 
 case class Interval(begin: Seq[Index], end: Seq[Index])
@@ -1952,15 +1987,28 @@ object Main extends App {
           cntVars = cntVars :+ variable
           ""
         } else if (areEquals) { // in this case all conditions should not be checked since it might have forward referencing
-          val init = if (index.cFormat(eqVar) != variable.cFormat) s"""%${variable.cFormat} = "arith.constant"() {"value" = %${index.cFormat(eqVar)} : index} : () -> index """ else s"""%${variable.cFormat} = "arith.constant"() {"value" = %${index.cFormat} : index} : () -> index """ 
+          val init = if (index.cFormat(eqVar) != variable.cFormat) s"""%${variable.cFormat} = "arith.addi"(%0, %${index.cFormat(eqVar)}) : (index, index) -> index """ else s"""%${variable.cFormat} = "arith.addi"(%0, %${index.cFormat}) : (index, index) -> index """ 
           // eqVar = mergeMap(Seq(eqVar, Map(variable -> index)))((v1, v2) => v2)
-          val rest = if (beginVar != "" && endVar != "") s"if ($beginVar <= ${index.cFormat(eqVar)} && ${index.cFormat} < $endVar) {" 
-          else if (beginVar != "" && endVar == "") s"if ($beginVar <= ${index.cFormat(eqVar)}) {" 
-          else if (beginVar == "" && endVar != "") s"if (${index.cFormat(eqVar)} < $endVar) {" 
-          else {
+          val rest = if (beginVar != "" && endVar != "") {
+            val tmp = getVar("cmpval")
+            val cmp1 = s"""%$tmp = "arith.cmpi"(%$beginVar, %${variable.cFormat}) {predicate = 3 : i64} : (index, index) -> i1"""
+            val tmp2 = getVar("cmpval")
+            val cmp2 = s"""%$tmp2 = "arith.cmpi"(%${variable.cFormat}, %$endVar) {predicate = 2 : i64} : (index, index) -> i1"""
+            val tmp3 = getVar("cmpval")
+            val cmp3 = s"""%$tmp3 = "arith.andi"(%$tmp, %$tmp2) : (i1, i1) -> i1"""
+            s"""$cmp1\n$cmp2\n$cmp3\n"scf.if"(%$tmp3) ({\n"""
+          } else if (beginVar != "" && endVar == "") {
+            val tmp = getVar("cmpval")
+            val cmp1 = s"""%$tmp = "arith.cmpi"(%$beginVar, %${variable.cFormat}) {predicate = 3 : i64} : (index, index) -> i1"""
+            s"""$cmp1\n"scf.if"(%$tmp) ({\n"""
+          } else if (beginVar == "" && endVar != "") {
+            val tmp2 = getVar("cmpval")
+            val cmp2 = s"""%$tmp2 = "arith.cmpi"(%${variable.cFormat}, %$endVar) {predicate = 2 : i64} : (index, index) -> i1"""
+            s"""$cmp2\n"scf.if"(%$tmp2) ({\n"""
+          } else {
             cntVars = cntVars :+ variable
             s""
-          } // needs to be fixed using arith.cmpi, scf.if
+          }
           s"$init\n$rest"
         } else {
             if (beginVar != "" && endVar != "") {
@@ -1969,94 +2017,17 @@ object Main extends App {
             }
             else if (beginVar != "" && endVar == "") {
               cntVars = cntVars :+ variable
-              s"int ${variable.cFormat} = $beginVar;" 
+              s"""%${variable.cFormat} = "arith.addi"(%0, %$beginVar) : (index, index) -> index"""
             }
             else if (beginVar == "" && endVar != "") {
               cntVars = cntVars :+ variable
-              s"int ${variable.cFormat} = $endVar - 1;" 
+              s"""%${variable.cFormat} = "arith.subi"(%$endVar, %1) : (index, index) -> index"""
             } 
             else {
               cntVars = cntVars :+ variable
               ""
-            } // compelete the rest of the code similar to first if
+            }
         }
-        // if (codeMotion) {
-        //   // if current variable is equal to first element of each of the variables of accesses in the map, do code motion for it
-        //   // update the map in a way that previous variables that include code motion be removed and new variable with .slice(1, length) of variables be in it
-        //   val tc: Rule = acc2._1
-        //   val di: Seq[DimInfo] = acc2._3
-        //   val diMap: Map[Access, Seq[Dim]] = di.toAccessMap
-
-        //   val (head, headCode): (Access, String) = if ((variableInd._2 != vars.length - 1 && genType == UniqueSet) || (variableInd._2 != vars.length / 2 - 1 && genType == RedundancyMap) || (tc.body.prods.length > 1 && genType != RedundancyMap)) {
-        //     if (tc.head.vars.length > 0 && tc.head.vars(0) == variable) {
-        //       if (tc.head.vars.length == 1) {
-        //         val head = Access("tmp", Seq.empty[Variable], Tensor)
-        //         val headCode = s"double tmp = 0.0;\n"
-        //         (head, headCode)
-        //       } else {
-        //         val head = Access(getVar(s"cm"), tc.head.vars.slice(1, tc.head.vars.length), tc.head.kind) 
-        //         val headCode = s"auto &${head.name} = ${tc.head.name}[${variable.cFormat(eqVar)}];\n"
-        //         (head, headCode) 
-        //       }
-        //     } else (tc.head, "")
-        //   } else (tc.head, "")
-
-        //   val allVars: Set[Variable] = tc.head.vars.toSet ++ eqVar.keySet
-          
-        //   val (bodyProdSeq, bodyCode, newDI): (Seq[Prod], String, Seq[DimInfo]) = if (variableInd._2 != vars.length - 1 && genType != RedundancyMap) {
-        //     tc.body.prods.foldLeft((Seq.empty[Prod], "", di))((acc4, prod) => {
-        //       val allRHSVars: Set[Variable] = prod.exps.foldLeft(Set.empty[Variable])((accRHS, exp) => {
-        //         exp match {
-        //           case Access(name, vars, kind) => accRHS ++ vars.toSet
-        //           case _ => accRHS
-        //         }
-        //       })
-        //       val di: Seq[DimInfo] = acc4._3
-        //       val diMap: Map[Access, Seq[Dim]] = di.toAccessMap
-
-        //       val (newProd, cmCode, newDI): (Seq[Exp], String, Seq[DimInfo]) = // if (allRHSVars.subsetOf(allVars)) {  // --> should the subset be the other way around?
-        //         prod.exps.foldLeft((Seq.empty[Exp], "", Seq.empty[DimInfo]))((acc3, exp) => {
-        //           val access: Access = exp.asInstanceOf[Access]
-        //           if (dataLayoutMap.contains(access)) (acc3._1 :+ access, acc3._2, acc3._3)
-        //           else {
-        //             val (newAcc, accCode, newDI): (Access, String, Seq[DimInfo]) = if (access.vars.length > 0 && access.vars(0) == variable) {
-        //               val newAcc = Access(getVar(s"cm"), access.vars.slice(1, access.vars.length), access.kind)
-        //               val newDims: Seq[Dim] = if (diMap.contains(access)) diMap.get(access).get.slice(1, access.vars.length) else Seq.empty[Dim]
-        //               val newDI: Seq[DimInfo] = if (newDims.length > 0) Seq(DimInfo(newAcc, newDims)) else Seq.empty[DimInfo]
-
-        //               val conds: String = if (diMap.contains(access)) {
-        //                 val v: Variable = variable
-        //                 val d: Dim = diMap.get(access).get(0)
-        //                 val b: Seq[Index] = if (map.contains(v)) map.get(v).get.begin else Seq.empty[Index]
-        //                 val e: Seq[Index] = if (map.contains(v)) map.get(v).get.end else Seq.empty[Index]
-        //                 val fb: Boolean = b.foldLeft(false)((acc, beginInd) => {
-        //                   val res: Seq[Index] = indexMin(beginInd, d)
-        //                   if (res.length == 1 && res(0) == d) acc || true else acc
-        //                 })
-        //                 val fe: Boolean = e.foldLeft(false)((acc, endInd) => {
-        //                   val res: Seq[Index] = indexMin(endInd, d)
-        //                   if (res.length == 1 && res(0) == endInd && res(0) != d) acc || true else acc
-        //                 })
-        //                 if (fb) "NOT!HAPPENING!" else if (fe) s"${v.cFormat(eqVar)} < ${d.cFormat(eqVar)}" else ""
-        //               } else ""
-
-        //               val accCode = if (conds.contains("NOT!HAPPENING!")) "" else if (conds == "") s"auto &${newAcc.name} = ${access.name}[${variable.cFormat(eqVar)}];\n" else s"auto &${newAcc.name} = ($conds) ? ${access.name}[${variable.cFormat(eqVar)}] : 0;\n"
-        //               (newAcc, accCode, newDI)
-        //             } else (access, "", Seq.empty[DimInfo])
-        //             (acc3._1 :+ newAcc, s"${acc3._2}$accCode", acc3._3 ++ newDI)
-        //           }
-        //         })
-        //       // } else (Seq.empty[Exp], "", Seq.empty[DimInfo]) //
-              
-        //       if (!(newProd == Seq.empty[Exp] && cmCode == "")) (acc4._1 :+ Prod(newProd), s"${acc4._2}$cmCode", acc4._3 ++ newDI) else acc4
-        //     })
-        //   } else (tc.body.prods, "", di)
-        //   val body = SoP(bodyProdSeq)
-
-        //   val newTC: Rule = Rule(head, body)
-        //   val oH: Access = if (head.name == "tmp" && acc2._4.name == "") tc.head else acc2._4
-        //   (newTC, s"${acc2._2}\n$code\n$headCode\n$bodyCode", newDI, oH)
-        // } else 
         (acc2._1, s"${acc2._2}\n$beginCode$endCode$code", acc2._3, acc2._4)
       })
 
@@ -2065,51 +2036,55 @@ object Main extends App {
       // why constants are not exp as well? Then I could replace the comparison below by ConstantInt(1) instead.
       val tcBody: SoP = if (tc.body == emptySoP()) SoP(Seq(Prod(Seq(Comparison("=", ConstantInt(0), getVar("rndVar").toVar))))) else tc.body // if it's only comparison, then it was just a bunch of comparison multiplications so their value is only 1. Their ranges is inside unique set and redundancy maps already.
       val allVars: Set[Variable] = tensorComputation.head.vars.toSet ++ eqVar.keySet
-      val body = if (genType == RedundancyMap) s"${tc.head.cFormat(eqVar, dataLayoutMap.getOrElse(tc.head, defaultDataLayout))} = ${Access(tensorComputation.head.name, tensorComputation.head.vars.redundancyVars, tensorComputation.head.kind).cFormat(eqVar, dataLayoutMap.getOrElse(tc.head, defaultDataLayout))};" else {
+      val body = if (genType == RedundancyMap) { // TODO: write this in MLIR
+        s"${tc.head.cFormat(eqVar, dataLayoutMap.getOrElse(tc.head, defaultDataLayout))} = ${Access(tensorComputation.head.name, tensorComputation.head.vars.redundancyVars, tensorComputation.head.kind).cFormat(eqVar, dataLayoutMap.getOrElse(tc.head, defaultDataLayout))};" 
+      }
+      else {
         if (tcBody.prods.length == 1) s"${tcBody.prods(0).MLIRFormat(eqVar)}"
-        else (tcBody.prods zip tcBodya.prods).foldLeft("")((acc, prodAProd) => {
-          val prod: Prod = prodAProd._1
-          val aProd: Prod = prodAProd._2
-          val allRHSVars: Set[Variable] = aProd.exps.foldLeft(Set.empty[Variable])((acc2, exp) => {
-            exp match {
-              case Access(name, vars, kind) => acc2 ++ vars.toSet
-              case _ => acc2
-            }
-          })
-          if (allRHSVars.subsetOf(allVars)) {
-            val conds: String = aProd.exps.foldLeft("")((acc2, exp) => {
-              exp match {
-                case Access(name, vars, kind) => {
-                  val access: Access = exp.asInstanceOf[Access]
-                  val conds: String = if (dimMap.contains(access)) {
-                    (vars zip dimMap.get(access).get).foldLeft("")((acc3, varDim) => {
-                      val v: Variable = varDim._1
-                      val d: Dim = varDim._2
-                      val b: Seq[Index] = if (map.contains(v)) map.get(v).get.begin else Seq.empty[Index]
-                      val e: Seq[Index] = if (map.contains(v)) map.get(v).get.end else Seq.empty[Index]
-                      val fb: Boolean = b.foldLeft(false)((acc, beginInd) => {
-                        val res: Seq[Index] = indexMin(beginInd, d)
-                        if (res.length == 1 && res(0) == d) acc || true else acc
-                      })
-                      val fe: Boolean = e.foldLeft(false)((acc, endInd) => {
-                        val res: Seq[Index] = indexMin(endInd, d)
-                        if (res.length == 1 && res(0) == endInd && res(0) != d) acc || true else acc
-                      })
-                      if (fb) "NOT!HAPPENING!" else if (fe) {
-                        if (acc3 != "" ) s"$acc3 && ${v.cFormat(eqVar)} < ${d.cFormat(eqVar)}" else s"${v.cFormat(eqVar)} < ${d.cFormat(eqVar)}"
-                      } else acc3
-                    })
-                  } else ""
-                  if (acc2 == "") conds else if (conds == "") acc2 else s"$acc2 && $conds"
-                }
-                case _ => acc2
-              }
-            })
-            if (conds.contains("NOT!HAPPENING!")) acc else if (conds != "") {
-              s"$acc\nif ($conds) {\n${tc.head.cFormat(eqVar, dataLayoutMap.getOrElse(tc.head, defaultDataLayout))} += ${prod.cFormat(eqVar, dataLayoutMap)};\n}"
-            } else s"$acc\n${tc.head.cFormat(eqVar, dataLayoutMap.getOrElse(tc.head, defaultDataLayout))} += ${prod.cFormat(eqVar, dataLayoutMap)};\n"
-          } else acc
-        })
+        else tcBody.MLIRFormat(eqVar)
+        // else (tcBody.prods zip tcBodya.prods).foldLeft("")((acc, prodAProd) => {
+        //   val prod: Prod = prodAProd._1
+        //   val aProd: Prod = prodAProd._2
+        //   val allRHSVars: Set[Variable] = aProd.exps.foldLeft(Set.empty[Variable])((acc2, exp) => {
+        //     exp match {
+        //       case Access(name, vars, kind) => acc2 ++ vars.toSet
+        //       case _ => acc2
+        //     }
+        //   })
+        //   if (allRHSVars.subsetOf(allVars)) {
+        //     val conds: String = aProd.exps.foldLeft("")((acc2, exp) => {
+        //       exp match {
+        //         case Access(name, vars, kind) => {
+        //           val access: Access = exp.asInstanceOf[Access]
+        //           val conds: String = if (dimMap.contains(access)) {
+        //             (vars zip dimMap.get(access).get).foldLeft("")((acc3, varDim) => {
+        //               val v: Variable = varDim._1
+        //               val d: Dim = varDim._2
+        //               val b: Seq[Index] = if (map.contains(v)) map.get(v).get.begin else Seq.empty[Index]
+        //               val e: Seq[Index] = if (map.contains(v)) map.get(v).get.end else Seq.empty[Index]
+        //               val fb: Boolean = b.foldLeft(false)((acc, beginInd) => {
+        //                 val res: Seq[Index] = indexMin(beginInd, d)
+        //                 if (res.length == 1 && res(0) == d) acc || true else acc
+        //               })
+        //               val fe: Boolean = e.foldLeft(false)((acc, endInd) => {
+        //                 val res: Seq[Index] = indexMin(endInd, d)
+        //                 if (res.length == 1 && res(0) == endInd && res(0) != d) acc || true else acc
+        //               })
+        //               if (fb) "NOT!HAPPENING!" else if (fe) {
+        //                 if (acc3 != "" ) s"$acc3 && ${v.cFormat(eqVar)} < ${d.cFormat(eqVar)}" else s"${v.cFormat(eqVar)} < ${d.cFormat(eqVar)}"
+        //               } else acc3
+        //             })
+        //           } else ""
+        //           if (acc2 == "") conds else if (conds == "") acc2 else s"$acc2 && $conds"
+        //         }
+        //         case _ => acc2
+        //       }
+        //     })
+        //     if (conds.contains("NOT!HAPPENING!")) acc else if (conds != "") {
+        //       s"$acc\nif ($conds) {\n${tc.head.cFormat(eqVar, dataLayoutMap.getOrElse(tc.head, defaultDataLayout))} += ${prod.cFormat(eqVar, dataLayoutMap)};\n}"
+        //     } else s"$acc\n${tc.head.cFormat(eqVar, dataLayoutMap.getOrElse(tc.head, defaultDataLayout))} += ${prod.cFormat(eqVar, dataLayoutMap)};\n"
+        //   } else acc
+        // })
       } // change wrt code motion and use the newest variables with the corresponding list to them
       // val body = if (genType == RedundancyMap) s"${tensorComputation.head.cFormat} = ${tensorComputation.head.cRedFormat};" else tensorComputation.cPeqFormat
 
@@ -6568,7 +6543,7 @@ PGLM      = Population Growth Leslie Matrix
       case "PGLM" => PGLM(sparse)
       case _ => println(help)
     }
-  } else mttkrp_n("", codeLang="MLIR")// println(help)
+  } else mttkrp_n("fixed_ij", codeLang="MLIR")// println(help)
   
 
   // println(Variable("a").equals(Variable("a")))
