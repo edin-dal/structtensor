@@ -124,7 +124,7 @@ case class Prod(exps: Seq[Exp]) {
     if (exps.length == 0) "∅"
     else s"(${pr.substring(3, pr.length)})"
   }
-  def MLIRFormat(m: Map[Variable, Index], final_sum: String = "final_sum"): String = {
+  def MLIRFormat(m: Map[Variable, Index] = Map.empty[Variable, Index], final_sum: String = "final_sum"): String = {
     val accesses = exps.filter(e => e.isInstanceOf[Access]).map(e => e.asInstanceOf[Access])
     val (vars, varsCode): (Seq[String], String) = accesses.foldLeft((Seq.empty[String], ""))((acc, cur) => {
       val allVars = acc._1
@@ -138,11 +138,11 @@ case class Prod(exps: Seq[Exp]) {
       val code = acc._1
       val last = acc._2
       val newProd = s"prod$cnt"
-      val newCode = s"""%$newProd = "arith.mulf"(%$last, %$cur) : (f64, f64) -> f64\n"""
+      val newCode = s"""%$newProd = "arith.mulf"(%$last, %$cur) {"fastmath" = #arith.fastmath<fast,ninf,reassoc,nnan,nsz,arcp,contract,afn>} : (f64, f64) -> f64\n"""
       cnt += 1
       (code + newCode, newProd)
     })
-    val finalMultCode = s"""%$final_sum = "arith.mulf"(%$lastMult, %${vars(vars.length - 1)}) : (f64, f64) -> f64\n"""
+    val finalMultCode = s"""%$final_sum = "arith.mulf"(%$lastMult, %${vars(vars.length - 1)}) {"fastmath" = #arith.fastmath<fast,ninf,reassoc,nnan,nsz,arcp,contract,afn>} : (f64, f64) -> f64\n"""
     s"$varsCode$multCode$finalMultCode"
   } 
   
@@ -165,7 +165,7 @@ case class SoP(prods: Seq[Prod]) {
     if (prods.length == 0) "∅"
     else s"(${pr.substring(3, pr.length)})"
   }
-  def MLIRFormat(m: Map[Variable, Index], final_val: String = "final_val"): String = {
+  def MLIRFormat(m: Map[Variable, Index] = Map.empty[Variable, Index], final_val: String = "final_val"): String = {
     val (vars, varsCode) = prods.foldLeft((Seq.empty[String], ""))((acc, cur) => {
       val allVars = acc._1
       val code = acc._2
@@ -178,11 +178,11 @@ case class SoP(prods: Seq[Prod]) {
       val code = acc._1
       val last = acc._2
       val newSum = s"sum$cnt"
-      val newCode = s"""%$newSum = "arith.addf"(%$last, %$cur) : (f64, f64) -> f64\n"""
+      val newCode = s"""%$newSum = "arith.addf"(%$last, %$cur) {"fastmath" = #arith.fastmath<fast,ninf,reassoc,nnan,nsz,arcp,contract,afn>} : (f64, f64) -> f64\n"""
       cnt += 1
       (code + newCode, newSum)
     })
-    val finalSumCode = s"""%$final_val = "arith.addf"(%$lastSum, %${vars(vars.length - 1)}) : (f64, f64) -> f64\n"""
+    val finalSumCode = s"""%$final_val = "arith.addf"(%$lastSum, %${vars(vars.length - 1)}) {"fastmath" = #arith.fastmath<fast,ninf,reassoc,nnan,nsz,arcp,contract,afn>} : (f64, f64) -> f64\n"""
     s"$varsCode$sumCode$finalSumCode"
   }
 }
@@ -194,7 +194,7 @@ case class Rule(head: Access, body: SoP) {
   def cPeqFormat(): String = s"${head.cFormat} += ${body.cFormat};"
   def cFormat(m: Map[Variable, Index]): String = s"${head.cFormat(m)} = ${body.cFormat(m)};"
   def cPeqFormat(m: Map[Variable, Index]): String = s"${head.cFormat(m)} += ${body.cFormat(m)};"
-  def MLIRFormat(m: Map[Variable, Index]): String = {
+  def MLIRFormat(m: Map[Variable, Index] = Map.empty[Variable, Index], peqMode: Boolean = false): String = {
     val final_val = s"final_val$cnt"
     cnt += 1
     val bodyCode = body.MLIRFormat(m, final_val)
@@ -205,7 +205,8 @@ case class Rule(head: Access, body: SoP) {
       val newIndexStr = if (indexStr.length == 0) s"index" else s"$indexStr, index"
       (newVarStr, newSizeStr, newIndexStr)
     })
-    s""""memref.store"(%$final_val, %${head.name}, $varsStr) : (f64, memref<${sizeStr}f64>, $indexStr) -> ()\n"""
+    if (peqMode) s"""$bodyCode\n"%r236 = memref.load"(%${head.name}, $varsStr) : (memref<${sizeStr}f64>, $indexStr) -> f64\n%r237 = arith.addf(%r236, %$final_val) {"fastmath" = #arith.fastmath<fast,ninf,reassoc,nnan,nsz,arcp,contract,afn>}\n"memref.store"(%r237, %${head.name}, $varsStr) : (f64, memref<${sizeStr}f64>, $indexStr) -> ()\n"""
+    else s"""$bodyCode\n"memref.store"(%$final_val, %${head.name}, $varsStr) : (f64, memref<${sizeStr}f64>, $indexStr) -> ()\n"""
   }
 }
 
@@ -1955,9 +1956,7 @@ object Main extends App {
     val tcBodya: SoP = getNoComparisonSoP(tensorComputation.body) 
     val tcBodyEQ: SoP = getNoComparisonButEQSoP(tensorComputation.body)
 
-    if (intervals == Seq.empty[Map[Variable, Interval]]) {
-      return s"${tensorComputation.head.cFormat} += ${tcBodya.cFormat};"
-    }
+    if (intervals == Seq.empty[Map[Variable, Interval]]) return tensorComputation.MLIRFormat(peqMode=peqMode)
 
     (intervals zip equalityVarMap).foldLeft("")((acc, mapEqVar) => {
       val map: Map[Variable, Interval] = mapEqVar._1
@@ -1989,23 +1988,23 @@ object Main extends App {
           ""
         } else if (areEquals) { // in this case all conditions should not be checked since it might have forward referencing
           beginEndEqVars = beginEndEqVars :+ variable
-          val init = if (index.cFormat(eqVar) != variable.cFormat) s"""%${variable.cFormat} = "arith.addi"(%0, %${index.cFormat(eqVar)}) : (index, index) -> index """ else s"""%${variable.cFormat} = "arith.addi"(%0, %${index.cFormat}) : (index, index) -> index """ 
+          val init = if (index.cFormat(eqVar) != variable.cFormat) s"""%${variable.cFormat} = "arith.addi"(%0, %${index.cFormat(eqVar)}) {"fastmath" = #arith.fastmath<fast,ninf,reassoc,nnan,nsz,arcp,contract,afn>} : (index, index) -> index """ else s"""%${variable.cFormat} = "arith.addi"(%0, %${index.cFormat}) : (index, index) -> index """ 
           // eqVar = mergeMap(Seq(eqVar, Map(variable -> index)))((v1, v2) => v2)
           val rest = if (beginVar != "" && endVar != "") {
             val tmp = getVar("cmpval")
-            val cmp1 = s"""%$tmp = "arith.cmpi"(%$beginVar, %${variable.cFormat}) {predicate = 3 : i64} : (index, index) -> i1"""
+            val cmp1 = s"""%$tmp = "arith.cmpi"(%$beginVar, %${variable.cFormat}) {predicate = 3 : i64, "fastmath" = #arith.fastmath<fast,ninf,reassoc,nnan,nsz,arcp,contract,afn>} : (index, index) -> i1"""
             val tmp2 = getVar("cmpval")
-            val cmp2 = s"""%$tmp2 = "arith.cmpi"(%${variable.cFormat}, %$endVar) {predicate = 2 : i64} : (index, index) -> i1"""
+            val cmp2 = s"""%$tmp2 = "arith.cmpi"(%${variable.cFormat}, %$endVar) {predicate = 2 : i64, "fastmath" = #arith.fastmath<fast,ninf,reassoc,nnan,nsz,arcp,contract,afn>} : (index, index) -> i1"""
             val tmp3 = getVar("cmpval")
-            val cmp3 = s"""%$tmp3 = "arith.andi"(%$tmp, %$tmp2) : (i1, i1) -> i1"""
+            val cmp3 = s"""%$tmp3 = "arith.andi"(%$tmp, %$tmp2) {"fastmath" = #arith.fastmath<fast,ninf,reassoc,nnan,nsz,arcp,contract,afn>} : (i1, i1) -> i1"""
             s"""$cmp1\n$cmp2\n$cmp3\n"scf.if"(%$tmp3) ({\n"""
           } else if (beginVar != "" && endVar == "") {
             val tmp = getVar("cmpval")
-            val cmp1 = s"""%$tmp = "arith.cmpi"(%$beginVar, %${variable.cFormat}) {predicate = 3 : i64} : (index, index) -> i1"""
+            val cmp1 = s"""%$tmp = "arith.cmpi"(%$beginVar, %${variable.cFormat}) {predicate = 3 : i64, "fastmath" = #arith.fastmath<fast,ninf,reassoc,nnan,nsz,arcp,contract,afn>} : (index, index) -> i1"""
             s"""$cmp1\n"scf.if"(%$tmp) ({\n"""
           } else if (beginVar == "" && endVar != "") {
             val tmp2 = getVar("cmpval")
-            val cmp2 = s"""%$tmp2 = "arith.cmpi"(%${variable.cFormat}, %$endVar) {predicate = 2 : i64} : (index, index) -> i1"""
+            val cmp2 = s"""%$tmp2 = "arith.cmpi"(%${variable.cFormat}, %$endVar) {predicate = 2 : i64, "fastmath" = #arith.fastmath<fast,ninf,reassoc,nnan,nsz,arcp,contract,afn>} : (index, index) -> i1"""
             s"""$cmp2\n"scf.if"(%$tmp2) ({\n"""
           } else {
             cntVars = cntVars :+ variable
@@ -2019,11 +2018,11 @@ object Main extends App {
             }
             else if (beginVar != "" && endVar == "") {
               cntVars = cntVars :+ variable
-              s"""%${variable.cFormat} = "arith.addi"(%0, %$beginVar) : (index, index) -> index"""
+              s"""%${variable.cFormat} = "arith.addi"(%0, %$beginVar) {"fastmath" = #arith.fastmath<fast,ninf,reassoc,nnan,nsz,arcp,contract,afn>} : (index, index) -> index"""
             }
             else if (beginVar == "" && endVar != "") {
               cntVars = cntVars :+ variable
-              s"""%${variable.cFormat} = "arith.subi"(%$endVar, %1) : (index, index) -> index"""
+              s"""%${variable.cFormat} = "arith.subi"(%$endVar, %1) {"fastmath" = #arith.fastmath<fast,ninf,reassoc,nnan,nsz,arcp,contract,afn>} : (index, index) -> index"""
             } 
             else {
               cntVars = cntVars :+ variable
@@ -2100,10 +2099,10 @@ object Main extends App {
           val containsV = beginEndEqVars.contains(v)
           val nc = if (i == 0) {
             if (containsV) s""""scf.yield"(%$finalV): (f64) -> ()\n}, {"scf.yield"(%zerof): (f64) -> ()}) : (i1) -> f64"""
-            else s"""%new_sum_${v.cFormat(eqVar)} = "arith.addf"(%$finalV, %iter_sum_${v.cFormat(eqVar)}) : (f64, f64) -> f64\n"scf.yield"(%new_sum_${v.cFormat(eqVar)}): (f64) -> ()\n}) : (index, index, index, f64) -> f64"""
+            else s"""%new_sum_${v.cFormat(eqVar)} = "arith.addf"(%$finalV, %iter_sum_${v.cFormat(eqVar)}) {"fastmath" = #arith.fastmath<fast,ninf,reassoc,nnan,nsz,arcp,contract,afn>} : (f64, f64) -> f64\n"scf.yield"(%new_sum_${v.cFormat(eqVar)}): (f64) -> ()\n}) : (index, index, index, f64) -> f64"""
           } else if (tensorComputation.head.vars.toSet.subsetOf(filteredVars.slice(i, filteredVars.length).toSet) && filteredVars.slice(i, filteredVars.length).toSet != tensorComputation.head.vars.toSet) {
             if (containsV) s""""scf.yield"(%${filteredVars(i - 1).cFormat(eqVar)}_sum): (f64) -> ()\n}, {"scf.yield"(%zerof): (f64) -> ()}) : (i1) -> f64"""
-            else s"""%new_sum_${v.cFormat(eqVar)} = "arith.addf"(%${filteredVars(i - 1).cFormat(eqVar)}_sum, %iter_sum_${v.cFormat(eqVar)}) : (f64, f64) -> f64\n"scf.yield"(%new_sum_${v.cFormat(eqVar)}): (f64) -> ()\n}) : (index, index, index, f64) -> f64"""
+            else s"""%new_sum_${v.cFormat(eqVar)} = "arith.addf"(%${filteredVars(i - 1).cFormat(eqVar)}_sum, %iter_sum_${v.cFormat(eqVar)}) {"fastmath" = #arith.fastmath<fast,ninf,reassoc,nnan,nsz,arcp,contract,afn>} : (f64, f64) -> f64\n"scf.yield"(%new_sum_${v.cFormat(eqVar)}): (f64) -> ()\n}) : (index, index, index, f64) -> f64"""
           } else if (filteredVars.slice(i, filteredVars.length).toSet == tensorComputation.head.vars.toSet) {
             val (varsStr, sizeStr, indexStr) = tensorComputation.head.vars.foldLeft(("", "", ""))((acc2, v) => {
               val (varsStr, sizeStr, indexStr) = acc2
@@ -2116,7 +2115,7 @@ object Main extends App {
               val peqVal = getVar("peqVal")
               val preVal = getVar("preVal")
               val preValCode = s"""%$preVal = ${tensorComputation.head.loadMLIR(eqVar)}"""
-              val peqValCode = s"""%$peqVal = "arith.addf"(%${filteredVars(i - 1).cFormat(eqVar)}_sum, %$preVal) : (f64, f64) -> f64\n"""
+              val peqValCode = s"""%$peqVal = "arith.addf"(%${filteredVars(i - 1).cFormat(eqVar)}_sum, %$preVal) {"fastmath" = #arith.fastmath<fast,ninf,reassoc,nnan,nsz,arcp,contract,afn>} : (f64, f64) -> f64\n"""
               s"""$preValCode$peqValCode"memref.store"(%$peqVal, %${tensorComputation.head.name}, $varsStr) : (f64, memref<${sizeStr}f64>, $indexStr) -> ()\n"scf.yield"() : () -> ()\n}${if (containsV) s""", {"scf.yield"(): () -> ()}""" else ""}) : ${if (containsV) "(i1) -> ()" else "(index, index, index) -> ()"}"""
             } else s""""memref.store"(%${filteredVars(i - 1).cFormat(eqVar)}_sum, %${tensorComputation.head.name}, $varsStr) : (f64, memref<${sizeStr}f64>, $indexStr) -> ()\n"scf.yield"() : () -> ()\n}${if (containsV) s""", {"scf.yield"(): () -> ()}""" else ""}) : ${if (containsV) "(i1) -> ()" else "(index, index, index) -> ()"}"""
           }
@@ -4413,7 +4412,7 @@ object Main extends App {
       println(codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, dataLayoutMap=dataLayoutMap, codeLang=codeLang))
 
       (tensorComputation, infer(tensorComputation, dimInfo, uniqueSets, redundancyMap))
-    } else codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, 1, dataLayoutMap=dataLayoutMap)
+    } else codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, 1, dataLayoutMap=dataLayoutMap, codeLang=codeLang)
   }
 
   def e2eConstructor(n: Int, mode: Int = 0) = {
@@ -6502,6 +6501,134 @@ s"""
     write2File(s"outputs/$outName.cpp", code)
   }
 
+  def MLIR_init_code(): String = s"""
+"builtin.module"() ({
+  "func.func"() ({}) {function_type = (!llvm.ptr<i8>) -> i32, sym_name = "puts", sym_visibility = "private"} : () -> ()
+  "func.func"() ({}) {function_type = (!llvm.ptr<i8>) -> i32, sym_name = "atoi", sym_visibility = "private"} : () -> ()
+  "func.func"() ({}) {function_type = (i32) -> (), sym_name = "srand", sym_visibility = "private"} : () -> ()
+  "func.func"() ({}) {function_type = () -> (i32), sym_name = "rand", sym_visibility = "private"} : () -> ()
+  "func.func"() ({}) {function_type = (i32) -> (), sym_name = "print_i32", sym_visibility = "private"} : () -> ()
+  "func.func"() ({}) {function_type = (i64) -> (), sym_name = "print_i64", sym_visibility = "private"} : () -> ()
+  "func.func"() ({}) {function_type = (f64) -> (), sym_name = "print_f64_cerr", sym_visibility = "private"} : () -> ()
+  "func.func"() ({}) {function_type = () -> (i64), sym_name = "timer", sym_visibility = "private"} : () -> ()
+  "func.func"() ({}) {function_type = (i64) -> (i64), sym_name = "timer_elapsed", sym_visibility = "private"} : () -> ()
+
+  "func.func"() ({
+    ^bb0(%argc : i32, %argv : !llvm.ptr<!llvm.ptr<i8>>):
+    %0 = "arith.constant"() {"value" = 0 : index} : () -> index
+    %zi32 = "arith.constant"() {"value" = 0 : i32} : () -> i32
+    %zerof = "arith.constant"() {"value" = 0.0 : f64} : () -> f64
+    %1 = "arith.constant"() {"value" = 1 : index} : () -> index
+    %oi1 = "arith.constant"() {"value" = 1 : i1} : () -> i1
+    %oi0 = "arith.constant"() {"value" = 0 : i1} : () -> i1
+    "func.call"(%zi32) {callee = @srand} : (i32) -> ()
+    %1000000 = "arith.constant"() {"value" = 1000000 : i32} : () -> i32
+    %f1000000 = "arith.constant"() {"value" = 1000000.0 : f64} : () -> f64
+"""
+
+  def MLIR_read_argv(argv_names: Seq[String]): String = {
+    argv_names.zipWithIndex.foldLeft("")((acc, nameId) => {
+      val (name, i) = nameId
+      val id = i + 1
+      acc + s"""
+    %argvv$id = llvm.getelementptr %argv[$id] : (!llvm.ptr<!llvm.ptr<i8>>) -> !llvm.ptr<!llvm.ptr<i8>>
+    %argv$id = "llvm.load"(%argvv$id) : (!llvm.ptr<!llvm.ptr<i8>>) -> !llvm.ptr<i8>
+    %${name}i32 = "func.call"(%argv$id) {callee = @atoi} : (!llvm.ptr<i8>) -> i32
+    %$name = arith.index_cast %${name}i32 : i32 to index
+"""
+    })
+  }
+
+  def MLIR_gen_random_number(var_name: String, dimensions: Seq[String], condition: (Int, String, Any, Int)): String = {
+    val ivars_nostr = dimensions.map(e => getVar("%i"))
+    val cond3 = if (condition._3.isInstanceOf[Int]) ivars_nostr(condition._3.asInstanceOf[Int]) else s"%${condition._3.asInstanceOf[String]}"
+    val c0 = if (condition._1 == -1) "" else s"""
+    %${condition._2} = "arith.cmpi"(${ivars_nostr(condition._1)}, ${cond3}) {predicate = ${condition._4} : i64} : (index, index) -> i1   
+"""
+    val c1 = dimensions.zipWithIndex.foldLeft("")((acc, dimId) => {
+      val (dim, i) = dimId
+      acc + s"""
+    "scf.for"(%0, %$dim, %1) ({
+    ^bb0(${ivars_nostr(i)}: index):
+"""
+    })
+    val ivars = ivars_nostr.mkString(", ")
+    val qvars = dimensions.map(e => s"?").mkString("x") + "x"
+    val index_vars = dimensions.map(e => s"index").mkString(", ")
+
+    val rval1 = getVar("rval")
+    val rval2 = getVar("rval")
+    val rval3 = getVar("rval")
+    val rval4 = getVar("rval")
+    val c2 = s"""
+    "scf.if"(%${condition._2}) ({
+      %$rval1 = "func.call"() {callee = @rand} : () -> i32
+      %$rval2 = "arith.remui"(%$rval1, %1000000) : (i32, i32) -> i32
+      %$rval3 = "arith.sitofp"(%$rval2) : (i32) -> f64
+      %$rval4 = "arith.divf"(%$rval3, %f1000000) : (f64, f64) -> f64
+      "memref.store"(%$rval4, %$var_name, $ivars): (f64, memref<${qvars}f64>, $index_vars) -> ()
+      "scf.yield"() : () -> ()
+    }, {
+      "memref.store"(%zerof, %$var_name, $ivars): (f64, memref<${qvars}f64>, $index_vars) -> ()
+      "scf.yield"() : () -> ()
+    }) : (i1) -> ()
+"""
+    val c3 = dimensions.foldLeft("")((acc, dim) => {
+      acc + s"""
+    "scf.yield"() : () -> ()
+    }) : (index, index, index) -> ()
+"""
+    })
+    return c1 + c0 + c2 + c3
+  }
+
+  def MLIR_start_timer_code(): String = s"""
+    %stime = "func.call"() {callee = @timer} : () -> i64
+"""
+
+  def MLIR_end_code(cerr_load: String = ""): String = {
+    s"""
+    %time = "func.call"(%stime) {callee = @timer_elapsed} : (i64) -> i64
+    ${cerr_load}
+    "func.call"(%last) {callee = @print_f64_cerr} : (f64) -> ()
+    "func.call"(%time) {callee = @print_i64} : (i64) -> ()
+    
+    "func.return"() : () -> ()
+    })  {function_type = (i32, !llvm.ptr<!llvm.ptr<i8>>) -> (), sym_name = "main", sym_visibility = "private"} : () -> ()
+}) : () -> ()
+"""
+  }
+
+  def getDefaultCondition(condName: String): (Int, String, String, Int) = (-1, condName, "", -1)
+
+  def MTTKRP_MLIR(structure: String, sparse: Boolean) = {
+    val outName1 = if (structure == "fixed_ij") "MTTKRP_IJ" else if (structure == "fixed_i") "MTTKRP_I" else if (structure == "fixed_j") "MTTKRP_J" else "MTTKRP"
+    val outName = if (sparse) s"${outName1}_Sparse" else outName1
+    val c1 = MLIR_init_code()
+    val argv_names = if (structure == "fixed_ij") Seq("M", "N", "P", "Q", "I", "J") else if (structure == "fixed_i") Seq("M", "N", "P", "Q", "I") else if (structure == "fixed_j") Seq("M", "N", "P", "Q", "J") else Seq("M", "N", "P", "Q")
+    val c2 = MLIR_read_argv(argv_names)
+    val c3 = s"""
+    %A = memref.alloc(%M, %Q) : memref<?x?xf64>
+    %B = memref.alloc(%M, %N, %P) : memref<?x?x?xf64>
+    %C = memref.alloc(%N, %Q) : memref<?x?xf64>
+    %D = memref.alloc(%P, %Q) : memref<?x?xf64>
+"""
+    val condition1 = if (structure == "fixed_ij" || structure == "fixed_i") (0, getVar("gen_cond"), "I", 0) else getDefaultCondition("oi1")
+    val c4 = MLIR_gen_random_number("B", Seq("M", "N", "P"), condition1)
+    val c5 = MLIR_gen_random_number("C", Seq("N", "Q"), getDefaultCondition("oi1"))
+    val condition2 = if (structure == "fixed_ij" || structure == "fixed_j") (1, getVar("gen_cond"), "J", 0) else getDefaultCondition("oi1")
+    val c6 = MLIR_gen_random_number("D", Seq("P", "Q"), condition2)
+    val c7 = MLIR_gen_random_number("A", Seq("M", "Q"), getDefaultCondition("oi0"))
+    val c8 = MLIR_start_timer_code()
+    val c9 = mttkrp_n(structure, 1, sparse, "MLIR")
+    val cerr_load = s"""
+    %last = "memref.load"(%A, %0, %0) : (memref<?x?xf64>, index, index) -> f64
+"""
+    val c10 = MLIR_end_code(cerr_load)
+    val code = s"$c1\n$c2\n$c3\n$c4\n$c5\n$c6\n$c7\n$c8\n$c9\n$c10"
+    write2File(s"outputs_mlir/$outName.mlir", code)
+  }
+
 
   val help: String = s"""
 Please specify the experiment name and select whether you want sparse datalayout for the input [use `sbt "run <exp> [sparse]"`]:
@@ -6527,31 +6654,58 @@ ODCC      = One-Dimensional Circular Convolution
 PGLM      = Population Growth Leslie Matrix
 """
   if (args.length >= 1) {
-    val sparse: Boolean = if (args.length == 2 && (args(1).toLowerCase() == "sparse" || args(1).toLowerCase() == "s" || args(1).toLowerCase() == "-s") ) true else false
-    args(0) match {
-      case "LRC" => LRC()
-      case "PR2C" => PR2C()
-      case "PR3C" => PR3C()
-      case "LRA" => LRA()
-      case "PR2A" => PR2A()
-      case "PR3A" => PR3A()
-      case "TTM_DP" => TTM("diag_p", sparse)
-      case "TTM_J" => TTM("fixed_j", sparse)
-      case "TTM_UT" => TTM("uhc", sparse)
-      case "THP_DP" => THP("diag_p", sparse)
-      case "THP_I" => THP("fixed_i", sparse)
-      case "THP_J" => THP("fixed_j", sparse)
-      case "MTTKRP_IJ" => MTTKRP("fixed_ij", sparse)
-      case "MTTKRP_I" => MTTKRP("fixed_i", sparse)
-      case "MTTKRP_J" => MTTKRP("fixed_j", sparse)
-      case "E2E_LR" => E2E_PRK(1)
-      case "E2E_PR2" => E2E_PRK(2)
-      case "ODC" => ODC(sparse)
-      case "ODCC" => ODCC(sparse)
-      case "PGLM" => PGLM(sparse)
-      case _ => println(help)
-    }
-  } else mttkrp_n("fixed_ij", codeLang="MLIR")// println(help)
+    val sparse: Boolean = if (args.length >= 2 && (args(1).toLowerCase() == "sparse" || args(1).toLowerCase() == "s" || args(1).toLowerCase() == "-s") ) true else false
+    val codeLang: String = if (args.length >= 3) args(2) else "CPP"
+    if (codeLang == "CPP") {
+      args(0) match {
+        case "LRC" => LRC()
+        case "PR2C" => PR2C()
+        case "PR3C" => PR3C()
+        case "LRA" => LRA()
+        case "PR2A" => PR2A()
+        case "PR3A" => PR3A()
+        case "TTM_DP" => TTM("diag_p", sparse)
+        case "TTM_J" => TTM("fixed_j", sparse)
+        case "TTM_UT" => TTM("uhc", sparse)
+        case "THP_DP" => THP("diag_p", sparse)
+        case "THP_I" => THP("fixed_i", sparse)
+        case "THP_J" => THP("fixed_j", sparse)
+        case "MTTKRP_IJ" => MTTKRP("fixed_ij", sparse)
+        case "MTTKRP_I" => MTTKRP("fixed_i", sparse)
+        case "MTTKRP_J" => MTTKRP("fixed_j", sparse)
+        case "E2E_LR" => E2E_PRK(1)
+        case "E2E_PR2" => E2E_PRK(2)
+        case "ODC" => ODC(sparse)
+        case "ODCC" => ODCC(sparse)
+        case "PGLM" => PGLM(sparse)
+        case _ => println(help)
+      }
+    } else if (codeLang == "MLIR") {
+      args(0) match {
+        // case "LRC" => LRC_MLIR()
+        // case "PR2C" => PR2C_MLIR()
+        // case "PR3C" => PR3C_MLIR()
+        // case "LRA" => LRA_MLIR()
+        // case "PR2A" => PR2A_MLIR()
+        // case "PR3A" => PR3A_MLIR()
+        // case "TTM_DP" => TTM_MLIR("diag_p", sparse)
+        // case "TTM_J" => TTM_MLIR("fixed_j", sparse)
+        // case "TTM_UT" => TTM_MLIR("uhc", sparse)
+        // case "THP_DP" => THP_MLIR("diag_p", sparse)
+        // case "THP_I" => THP_MLIR("fixed_i", sparse)
+        // case "THP_J" => THP_MLIR("fixed_j", sparse)
+        case "MTTKRP_IJ" => MTTKRP_MLIR("fixed_ij", sparse)
+        case "MTTKRP_I" => MTTKRP_MLIR("fixed_i", sparse)
+        case "MTTKRP_J" => MTTKRP_MLIR("fixed_j", sparse)
+        // case "E2E_LR" => E2E_PRK_MLIR(1)
+        // case "E2E_PR2" => E2E_PRK_MLIR(2)
+        // case "ODC" => ODC_MLIR(sparse)
+        // case "ODCC" => ODCC_MLIR(sparse)
+        // case "PGLM" => PGLM_MLIR(sparse)
+        case _ => println(help)
+      }
+    } else println(help)
+  } else println(help)
   
 
   // println(Variable("a").equals(Variable("a")))
