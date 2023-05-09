@@ -2011,7 +2011,7 @@ object Main extends App {
           s"$init\n$rest"
         } else {
             if (beginVar != "" && endVar != "") {
-              if (!vars.slice(0, variableInd._2 + 1).toSet.subsetOf(tensorComputation.head.vars.toSet)) s"""%${variable.cFormat(eqVar)}_sum = affine.for %${variable.cFormat(eqVar)} = %$beginVar to %$endVar step 1 iter_args(%iter_sum_${variable.cFormat(eqVar)} = %zerof) -> (f64) {\n"""
+              if (!vars.slice(0, variableInd._2 + 1).toSet.subsetOf(tensorComputation.head.vars.toSet) || vars.slice(0, variableInd._2 + 1).toSet == tensorComputation.head.vars.toSet) s"""%${variable.cFormat(eqVar)}_sum = affine.for %${variable.cFormat(eqVar)} = %$beginVar to %$endVar step 1 iter_args(%iter_sum_${variable.cFormat(eqVar)} = %zerof) -> (f64) {\n"""
               else s"""affine.for %${variable.cFormat(eqVar)} = %$beginVar to %$endVar step 1 {\n"""
               // if (!vars.slice(0, variableInd._2 + 1).toSet.subsetOf(tensorComputation.head.vars.toSet)) s"""%${variable.cFormat(eqVar)}_sum = "scf.for"(%$beginVar, %$endVar, %1, %zerof) ({\n^bb0(%${variable.cFormat(eqVar)}: index, %iter_sum_${variable.cFormat(eqVar)}: f64):\n"""
               // else s""""scf.for"(%$beginVar, %$endVar, %1) ({\n^bb0(%${variable.cFormat(eqVar)}: index):\n"""
@@ -2022,7 +2022,7 @@ object Main extends App {
             }
             else if (beginVar == "" && endVar != "") {
               cntVars = cntVars :+ variable
-              s"""%${variable.cFormat} = affine.apply affine_map<(i) -> (i)>(%${endVar} - 1)"""
+              s"""%${variable.cFormat} = affine.apply affine_map<(i) -> (i - 1)>(%${endVar})"""
             } 
             else {
               cntVars = cntVars :+ variable
@@ -4193,7 +4193,7 @@ object Main extends App {
     } else codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, 1, dataLayoutMap=dataLayoutMap, codeLang=codeLang)
   }
 
-  def thp(structure: String, mode: Int = 0, sparse: Boolean = false) = {
+  def thp(structure: String, mode: Int = 0, sparse: Boolean = false, codeLang: String = "CPP") = {
     val head: Access = Access("A", Seq("i".toVar, "j".toVar, "k".toVar), Tensor)
     val var1: Access = Access("B",  Seq("i".toVar, "j".toVar, "k".toVar), Tensor)
     val var2: Access = Access("C",  Seq("i".toVar, "j".toVar, "k".toVar), Tensor)
@@ -4251,10 +4251,10 @@ object Main extends App {
     val dataLayoutMap: Map[Exp, Function[Seq[Variable], Seq[Index]]] = if (sparse) Map(var1 -> var1DL) else Map()
 
     if (mode == 0) {
-      println(codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, dataLayoutMap=dataLayoutMap))
+      println(codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, dataLayoutMap=dataLayoutMap, codeLang=codeLang))
 
       (tensorComputation, infer(tensorComputation, dimInfo, uniqueSets, redundancyMap))
-    } else codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, 1, dataLayoutMap=dataLayoutMap)
+    } else codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, 1, dataLayoutMap=dataLayoutMap, codeLang=codeLang)
   }
 
   def mttkrp(structure: String, mode: Int = 0) = {
@@ -6655,6 +6655,31 @@ s"""
     write2File(s"outputs_mlir/$outName.mlir", code)
   }
 
+  def THP_MLIR(structure: String, sparse: Boolean) = {
+    val outName1 = if (structure == "diag_p") "THP_DP" else if (structure == "fixed_i") "THP_I" else if (structure == "fixed_j") "THP_J" else "THP"
+    val outName = if (sparse) s"${outName1}_Sparse" else outName1
+    val c1 = MLIR_init_code()
+    val argv_names = if (structure == "fixed_i") Seq("M", "N", "P", "I") else if (structure == "fixed_j") Seq("M", "N", "P", "J") else Seq("M", "N", "P")
+    val c2 = MLIR_read_argv(argv_names)
+    val c3 = s"""
+    %A = memref.alloc(%M, %N, %P) : memref<?x?x?xf64>
+    %B = memref.alloc(%M, %N, %P) : memref<?x?x?xf64>
+    %C = memref.alloc(%M, %N, %P) : memref<?x?x?xf64>
+"""
+    val condition1 = if (structure == "diag_p") (0, getVar("gen_cond"), 1, 0) else if (structure == "fixed_i") (0, getVar("gen_cond"), "I", 0) else if (structure == "fixed_j") (1, getVar("gen_cond"), "J", 0) else getDefaultCondition("oi1")
+    val c4 = MLIR_gen_random_number("B", Seq("M", "N", "P"), condition1)
+    val c5 = MLIR_gen_random_number("C", Seq("M", "N", "P"), getDefaultCondition("oi1"))
+    val c6 = MLIR_gen_random_number("A", Seq("M", "N", "P"), getDefaultCondition("oi0"))
+    val c7 = MLIR_start_timer_code()
+    val c8 = thp(structure, 1, sparse, "MLIR")
+    val cerr_load = s"""
+    %last = "memref.load"(%A, %0, %0, %0) : (memref<?x?x?xf64>, index, index, index) -> f64
+"""
+    val c9 = MLIR_end_code(cerr_load)
+    val code = s"$c1\n$c2\n$c3\n$c4\n$c5\n$c6\n$c7\n$c8\n$c9"
+    write2File(s"outputs_mlir/$outName.mlir", code)
+  }
+
 
   val help: String = s"""
 Please specify the experiment name and select whether you want sparse datalayout for the input [use `sbt "run <exp> [sparse]"`]:
@@ -6717,9 +6742,9 @@ PGLM      = Population Growth Leslie Matrix
         case "TTM_DP" => TTM_MLIR("diag_p", sparse)
         case "TTM_J" => TTM_MLIR("fixed_j", sparse)
         case "TTM_UT" => TTM_MLIR("uhc", sparse)
-        // case "THP_DP" => THP_MLIR("diag_p", sparse)
-        // case "THP_I" => THP_MLIR("fixed_i", sparse)
-        // case "THP_J" => THP_MLIR("fixed_j", sparse)
+        case "THP_DP" => THP_MLIR("diag_p", sparse)
+        case "THP_I" => THP_MLIR("fixed_i", sparse)
+        case "THP_J" => THP_MLIR("fixed_j", sparse)
         case "MTTKRP_IJ" => MTTKRP_MLIR("fixed_ij", sparse)
         case "MTTKRP_I" => MTTKRP_MLIR("fixed_i", sparse)
         case "MTTKRP_J" => MTTKRP_MLIR("fixed_j", sparse)
