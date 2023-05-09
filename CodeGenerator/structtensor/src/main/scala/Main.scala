@@ -80,7 +80,7 @@ case class Access(name: String, vars: Seq[Variable], kind: AccessType) extends E
   def cFormat(): String = vars.foldLeft(name)((acc, cur) => s"$acc[${cur.cFormat}]")
   def cFormat(m: Map[Variable, Index]): String = vars.foldLeft(name)((acc, cur) => s"$acc[${cur.cFormat(m)}]")
   def cFormat(m: Map[Variable, Index], dl: Function[Seq[Variable], Seq[Index]]): String = dl(vars).foldLeft(name)((acc, cur) => s"$acc[${cur.cFormat(m)}]")
-  def loadMLIR(m: Map[Variable, Index]): String = {
+  def loadMLIR(m: Map[Variable, Index], kind: String = "affine"): String = {
     val (varsStr, sizeStr, indexStr) = vars.foldLeft(("", "", ""))((acc2, v) => {
       val (varsStr, sizeStr, indexStr) = acc2
       val newVarStr = if (varsStr.length == 0) s"%${v.cFormat(m)}" else s"$varsStr, %${v.cFormat(m)}"
@@ -88,7 +88,8 @@ case class Access(name: String, vars: Seq[Variable], kind: AccessType) extends E
       val newIndexStr = if (indexStr.length == 0) s"index" else s"$indexStr, index"
       (newVarStr, newSizeStr, newIndexStr)
     })
-    s""""memref.load"(%$name, $varsStr) : (memref<${sizeStr}f64>, $indexStr) -> f64\n"""
+    if (kind == "affine") s"""affine.load %$name[$varsStr] : memref<${sizeStr}f64>\n"""
+    else s""""memref.load"(%$name, $varsStr) : (memref<${sizeStr}f64>, $indexStr) -> f64\n"""
   }
 }
 
@@ -138,11 +139,11 @@ case class Prod(exps: Seq[Exp]) {
       val code = acc._1
       val last = acc._2
       val newProd = s"prod$cnt"
-      val newCode = s"""%$newProd = "arith.mulf"(%$last, %$cur) {"fastmath" = #arith.fastmath<fast,ninf,reassoc,nnan,nsz,arcp,contract,afn>} : (f64, f64) -> f64\n"""
+      val newCode = s"""%$newProd = "arith.mulf"(%$last, %$cur) {"fastmath" = #arith.fastmath<fast>} : (f64, f64) -> f64\n"""
       cnt += 1
       (code + newCode, newProd)
     })
-    val finalMultCode = s"""%$final_sum = "arith.mulf"(%$lastMult, %${vars(vars.length - 1)}) {"fastmath" = #arith.fastmath<fast,ninf,reassoc,nnan,nsz,arcp,contract,afn>} : (f64, f64) -> f64\n"""
+    val finalMultCode = s"""%$final_sum = "arith.mulf"(%$lastMult, %${vars(vars.length - 1)}) {"fastmath" = #arith.fastmath<fast>} : (f64, f64) -> f64\n"""
     s"$varsCode$multCode$finalMultCode"
   } 
   
@@ -178,11 +179,11 @@ case class SoP(prods: Seq[Prod]) {
       val code = acc._1
       val last = acc._2
       val newSum = s"sum$cnt"
-      val newCode = s"""%$newSum = "arith.addf"(%$last, %$cur) {"fastmath" = #arith.fastmath<fast,ninf,reassoc,nnan,nsz,arcp,contract,afn>} : (f64, f64) -> f64\n"""
+      val newCode = s"""%$newSum = "arith.addf"(%$last, %$cur) {"fastmath" = #arith.fastmath<fast>} : (f64, f64) -> f64\n"""
       cnt += 1
       (code + newCode, newSum)
     })
-    val finalSumCode = s"""%$final_val = "arith.addf"(%$lastSum, %${vars(vars.length - 1)}) {"fastmath" = #arith.fastmath<fast,ninf,reassoc,nnan,nsz,arcp,contract,afn>} : (f64, f64) -> f64\n"""
+    val finalSumCode = s"""%$final_val = "arith.addf"(%$lastSum, %${vars(vars.length - 1)}) {"fastmath" = #arith.fastmath<fast>} : (f64, f64) -> f64\n"""
     s"$varsCode$sumCode$finalSumCode"
   }
 }
@@ -205,8 +206,8 @@ case class Rule(head: Access, body: SoP) {
       val newIndexStr = if (indexStr.length == 0) s"index" else s"$indexStr, index"
       (newVarStr, newSizeStr, newIndexStr)
     })
-    if (peqMode) s"""$bodyCode\n"%r236 = memref.load"(%${head.name}, $varsStr) : (memref<${sizeStr}f64>, $indexStr) -> f64\n%r237 = arith.addf(%r236, %$final_val) {"fastmath" = #arith.fastmath<fast,ninf,reassoc,nnan,nsz,arcp,contract,afn>}\n"memref.store"(%r237, %${head.name}, $varsStr) : (f64, memref<${sizeStr}f64>, $indexStr) -> ()\n"""
-    else s"""$bodyCode\n"memref.store"(%$final_val, %${head.name}, $varsStr) : (f64, memref<${sizeStr}f64>, $indexStr) -> ()\n"""
+    if (peqMode) s"""$bodyCode\n"%r236 = affine.load %${head.name}[$varsStr] : memref<${sizeStr}f64>\n%r237 = arith.addf(%r236, %$final_val) {"fastmath" = #arith.fastmath<fast>}\naffine.store %r237, %${head.name}[$varsStr] : memref<${sizeStr}f64>\n"""
+    else s"""$bodyCode\naffine.store %$final_val, %${head.name}[$varsStr] : memref<${sizeStr}f64>\n"""
   }
 }
 
@@ -1516,7 +1517,7 @@ object Main extends App {
       (s"""$acc${index.cFormat(m)}) : (index, index) -> index\n%$op = \"${arithM}\"(%$v, """, op)
     })
     val last = indexSeq(indexSeq.length - 1).cFormat(m)
-    (s"$code$last) : (index, index) -> index\n", finalOP)
+    (s"$code%$last) : (index, index) -> index\n", finalOP)
   }
 
   def simplifyMath(arith: Arithmetic): Index = {
@@ -1965,6 +1966,7 @@ object Main extends App {
       // eqVar.foldLeft()((_, cur) => println(cur._1.prettyFormat  + " -> " + cur._2.prettyFormat))
       var cntVars: Seq[Variable] = Seq.empty[Variable]
       var beginEndEqVars: Seq[Variable] = Seq.empty[Variable]
+      var conditionSetsMap: Map[Variable, (String, String)] = Map.empty[Variable, (String, String)]
       val (tc, nestedLoops, di, finalHeadComputation): (Rule, String, Seq[DimInfo], Access) = vars.zipWithIndex.foldLeft((Rule(tensorComputation.head, tcBodya), "", dimInfo, Access("", Seq.empty[Variable], Tensor)))((acc2, variableInd) => {
         val variable: Variable = variableInd._1
         val interval = map.getOrElse(variable, Interval(Seq(), Seq()))
@@ -1988,24 +1990,20 @@ object Main extends App {
           ""
         } else if (areEquals) { // in this case all conditions should not be checked since it might have forward referencing
           beginEndEqVars = beginEndEqVars :+ variable
-          val init = if (index.cFormat(eqVar) != variable.cFormat) s"""%${variable.cFormat} = "arith.addi"(%0, %${index.cFormat(eqVar)}) {"fastmath" = #arith.fastmath<fast,ninf,reassoc,nnan,nsz,arcp,contract,afn>} : (index, index) -> index """ else s"""%${variable.cFormat} = "arith.addi"(%0, %${index.cFormat}) : (index, index) -> index """ 
+          val init = if (index.cFormat(eqVar) != variable.cFormat) s"""%${variable.cFormat} = affine.apply affine_map<(i) -> (i)>(%${index.cFormat(eqVar)})""" else s"""%${variable.cFormat} = affine.apply affine_map<(i) -> (i)>(%${index.cFormat})""" 
           // eqVar = mergeMap(Seq(eqVar, Map(variable -> index)))((v1, v2) => v2)
           val rest = if (beginVar != "" && endVar != "") {
-            val tmp = getVar("cmpval")
-            val cmp1 = s"""%$tmp = "arith.cmpi"(%$beginVar, %${variable.cFormat}) {predicate = 3 : i64, "fastmath" = #arith.fastmath<fast,ninf,reassoc,nnan,nsz,arcp,contract,afn>} : (index, index) -> i1"""
-            val tmp2 = getVar("cmpval")
-            val cmp2 = s"""%$tmp2 = "arith.cmpi"(%${variable.cFormat}, %$endVar) {predicate = 2 : i64, "fastmath" = #arith.fastmath<fast,ninf,reassoc,nnan,nsz,arcp,contract,afn>} : (index, index) -> i1"""
-            val tmp3 = getVar("cmpval")
-            val cmp3 = s"""%$tmp3 = "arith.andi"(%$tmp, %$tmp2) {"fastmath" = #arith.fastmath<fast,ninf,reassoc,nnan,nsz,arcp,contract,afn>} : (i1, i1) -> i1"""
-            s"""$cmp1\n$cmp2\n$cmp3\n"scf.if"(%$tmp3) ({\n"""
+            val cmpSet = s"""{condition = affine_set<(d0)[s0, s1]: (s0 <= d0, d0 <= s1 - 1)>}"""
+            conditionSetsMap += (variable -> (cmpSet, "index,index,index"))
+            s""""affine.if"(%${variable.cFormat}, %$beginVar, %$endVar) ({\n"""
           } else if (beginVar != "" && endVar == "") {
-            val tmp = getVar("cmpval")
-            val cmp1 = s"""%$tmp = "arith.cmpi"(%$beginVar, %${variable.cFormat}) {predicate = 3 : i64, "fastmath" = #arith.fastmath<fast,ninf,reassoc,nnan,nsz,arcp,contract,afn>} : (index, index) -> i1"""
-            s"""$cmp1\n"scf.if"(%$tmp) ({\n"""
+            val cmpSet = s"""{condition = affine_set<(d0)[s0]: (s0 <= d0)>}"""
+            conditionSetsMap += (variable -> (cmpSet, "index,index"))
+            s""""affine.if"(%${variable.cFormat}, %$beginVar) ({\n"""
           } else if (beginVar == "" && endVar != "") {
-            val tmp2 = getVar("cmpval")
-            val cmp2 = s"""%$tmp2 = "arith.cmpi"(%${variable.cFormat}, %$endVar) {predicate = 2 : i64, "fastmath" = #arith.fastmath<fast,ninf,reassoc,nnan,nsz,arcp,contract,afn>} : (index, index) -> i1"""
-            s"""$cmp2\n"scf.if"(%$tmp2) ({\n"""
+            val cmpSet = s"""{condition = affine_set<(d0)[s1]: (d0 <= s1 - 1)>}"""
+            conditionSetsMap += (variable -> (cmpSet, "index,index"))
+            s""""affine.if"(%${variable.cFormat}, %$endVar) ({\n"""
           } else {
             cntVars = cntVars :+ variable
             s""
@@ -2013,16 +2011,18 @@ object Main extends App {
           s"$init\n$rest"
         } else {
             if (beginVar != "" && endVar != "") {
-              if (!vars.slice(0, variableInd._2 + 1).toSet.subsetOf(tensorComputation.head.vars.toSet)) s"""%${variable.cFormat(eqVar)}_sum = "scf.for"(%$beginVar, %$endVar, %1, %zerof) ({\n^bb0(%${variable.cFormat(eqVar)}: index, %iter_sum_${variable.cFormat(eqVar)}: f64):\n"""
-              else s""""scf.for"(%$beginVar, %$endVar, %1) ({\n^bb0(%${variable.cFormat(eqVar)}: index):\n"""
+              if (!vars.slice(0, variableInd._2 + 1).toSet.subsetOf(tensorComputation.head.vars.toSet)) s"""%${variable.cFormat(eqVar)}_sum = affine.for %${variable.cFormat(eqVar)} = %$beginVar to %$endVar step 1 iter_args(%iter_sum_${variable.cFormat(eqVar)} = %zerof) -> (f64) {\n"""
+              else s"""affine.for %${variable.cFormat(eqVar)} = %$beginVar to %$endVar step 1 {\n"""
+              // if (!vars.slice(0, variableInd._2 + 1).toSet.subsetOf(tensorComputation.head.vars.toSet)) s"""%${variable.cFormat(eqVar)}_sum = "scf.for"(%$beginVar, %$endVar, %1, %zerof) ({\n^bb0(%${variable.cFormat(eqVar)}: index, %iter_sum_${variable.cFormat(eqVar)}: f64):\n"""
+              // else s""""scf.for"(%$beginVar, %$endVar, %1) ({\n^bb0(%${variable.cFormat(eqVar)}: index):\n"""
             }
             else if (beginVar != "" && endVar == "") {
               cntVars = cntVars :+ variable
-              s"""%${variable.cFormat} = "arith.addi"(%0, %$beginVar) {"fastmath" = #arith.fastmath<fast,ninf,reassoc,nnan,nsz,arcp,contract,afn>} : (index, index) -> index"""
+              s"""%${variable.cFormat} = affine.apply affine_map<(i) -> (i)>(%${beginVar})"""
             }
             else if (beginVar == "" && endVar != "") {
               cntVars = cntVars :+ variable
-              s"""%${variable.cFormat} = "arith.subi"(%$endVar, %1) {"fastmath" = #arith.fastmath<fast,ninf,reassoc,nnan,nsz,arcp,contract,afn>} : (index, index) -> index"""
+              s"""%${variable.cFormat} = affine.apply affine_map<(i) -> (i)>(%${endVar} - 1)"""
             } 
             else {
               cntVars = cntVars :+ variable
@@ -2097,12 +2097,13 @@ object Main extends App {
         if (codeMotion && finalHeadComputation.vars.length > 0 && finalHeadComputation.vars(0) == v) s"$acc${finalHeadComputation.cFormat(eqVar, dataLayoutMap.getOrElse(finalHeadComputation, defaultDataLayout))} += tmp;\n}\n"
         else {
           val containsV = beginEndEqVars.contains(v)
+          val (cmpSet, ind) = conditionSetsMap.getOrElse(v, ("", ""))
           val nc = if (i == 0) {
-            if (containsV) s""""scf.yield"(%$finalV): (f64) -> ()\n}, {"scf.yield"(%zerof): (f64) -> ()}) : (i1) -> f64"""
-            else s"""%new_sum_${v.cFormat(eqVar)} = "arith.addf"(%$finalV, %iter_sum_${v.cFormat(eqVar)}) {"fastmath" = #arith.fastmath<fast,ninf,reassoc,nnan,nsz,arcp,contract,afn>} : (f64, f64) -> f64\n"scf.yield"(%new_sum_${v.cFormat(eqVar)}): (f64) -> ()\n}) : (index, index, index, f64) -> f64"""
+            if (containsV) s""""affine.yield"(%$finalV): (f64) -> ()\n}, {"affine.yield"(%zerof): (f64) -> ()}) $cmpSet : ($ind) -> f64"""
+            else s"""%new_sum_${v.cFormat(eqVar)} = "arith.addf"(%$finalV, %iter_sum_${v.cFormat(eqVar)}) {"fastmath" = #arith.fastmath<fast>} : (f64, f64) -> f64\n"affine.yield"(%new_sum_${v.cFormat(eqVar)}): (f64) -> ()\n}"""
           } else if (tensorComputation.head.vars.toSet.subsetOf(filteredVars.slice(i, filteredVars.length).toSet) && filteredVars.slice(i, filteredVars.length).toSet != tensorComputation.head.vars.toSet) {
-            if (containsV) s""""scf.yield"(%${filteredVars(i - 1).cFormat(eqVar)}_sum): (f64) -> ()\n}, {"scf.yield"(%zerof): (f64) -> ()}) : (i1) -> f64"""
-            else s"""%new_sum_${v.cFormat(eqVar)} = "arith.addf"(%${filteredVars(i - 1).cFormat(eqVar)}_sum, %iter_sum_${v.cFormat(eqVar)}) {"fastmath" = #arith.fastmath<fast,ninf,reassoc,nnan,nsz,arcp,contract,afn>} : (f64, f64) -> f64\n"scf.yield"(%new_sum_${v.cFormat(eqVar)}): (f64) -> ()\n}) : (index, index, index, f64) -> f64"""
+            if (containsV) s""""affine.yield"(%${filteredVars(i - 1).cFormat(eqVar)}_sum): (f64) -> ()\n}, {"affine.yield"(%zerof): (f64) -> ()}) $cmpSet : ($ind) -> f64"""
+            else s"""%new_sum_${v.cFormat(eqVar)} = "arith.addf"(%${filteredVars(i - 1).cFormat(eqVar)}_sum, %iter_sum_${v.cFormat(eqVar)}) {"fastmath" = #arith.fastmath<fast>} : (f64, f64) -> f64\n"affine.yield"(%new_sum_${v.cFormat(eqVar)}): (f64) -> ()\n}"""
           } else if (filteredVars.slice(i, filteredVars.length).toSet == tensorComputation.head.vars.toSet) {
             val (varsStr, sizeStr, indexStr) = tensorComputation.head.vars.foldLeft(("", "", ""))((acc2, v) => {
               val (varsStr, sizeStr, indexStr) = acc2
@@ -2115,11 +2116,11 @@ object Main extends App {
               val peqVal = getVar("peqVal")
               val preVal = getVar("preVal")
               val preValCode = s"""%$preVal = ${tensorComputation.head.loadMLIR(eqVar)}"""
-              val peqValCode = s"""%$peqVal = "arith.addf"(%${filteredVars(i - 1).cFormat(eqVar)}_sum, %$preVal) {"fastmath" = #arith.fastmath<fast,ninf,reassoc,nnan,nsz,arcp,contract,afn>} : (f64, f64) -> f64\n"""
-              s"""$preValCode$peqValCode"memref.store"(%$peqVal, %${tensorComputation.head.name}, $varsStr) : (f64, memref<${sizeStr}f64>, $indexStr) -> ()\n"scf.yield"() : () -> ()\n}${if (containsV) s""", {"scf.yield"(): () -> ()}""" else ""}) : ${if (containsV) "(i1) -> ()" else "(index, index, index) -> ()"}"""
-            } else s""""memref.store"(%${filteredVars(i - 1).cFormat(eqVar)}_sum, %${tensorComputation.head.name}, $varsStr) : (f64, memref<${sizeStr}f64>, $indexStr) -> ()\n"scf.yield"() : () -> ()\n}${if (containsV) s""", {"scf.yield"(): () -> ()}""" else ""}) : ${if (containsV) "(i1) -> ()" else "(index, index, index) -> ()"}"""
+              val peqValCode = s"""%$peqVal = "arith.addf"(%${filteredVars(i - 1).cFormat(eqVar)}_sum, %$preVal) {"fastmath" = #arith.fastmath<fast>} : (f64, f64) -> f64\n"""
+              s"""$preValCode${peqValCode}affine.store %$peqVal, %${tensorComputation.head.name}[$varsStr] : memref<${sizeStr}f64>\n"affine.yield"() : () -> ()\n}${if (containsV) s""", {"affine.yield"(): () -> ()}) $cmpSet : ($ind) -> ()""" else ""}"""
+            } else s"""affine.store %${filteredVars(i - 1).cFormat(eqVar)}_sum, %${tensorComputation.head.name}[$varsStr] : memref<${sizeStr}f64>\n"affine.yield"() : () -> ()\n}${if (containsV) s""", {"affine.yield"(): () -> ()}) $cmpSet : ($ind) -> ()""" else ""}"""
           }
-          else s""""scf.yield"() : () -> ()\n}${if (containsV) s""", {"scf.yield"(): () -> ()}""" else ""}) : ${if (containsV) "(i1) -> ()" else "(index, index, index) -> ()"}"""
+          else s""""affine.yield"() : () -> ()\n}${if (containsV) s""", {"affine.yield"(): () -> ()}) $cmpSet : ($ind) -> ()""" else ""}"""
           s"$acc\n$nc"
         }
       })
@@ -4128,7 +4129,7 @@ object Main extends App {
     (tensorComputation, infer(tensorComputation, dimInfo, uniqueSets, redundancyMap))
   }
 
-  def ttm(structure: String, mode: Int = 0, sparse: Boolean = false) = {
+  def ttm(structure: String, mode: Int = 0, sparse: Boolean = false, codeLang: String = "CPP") = {
     val head: Access = Access("A", Seq("i".toVar, "j".toVar, "k".toVar), Tensor)
     val var1: Access = Access("B",  Seq("i".toVar, "j".toVar, "l".toVar), Tensor)
     val var2: Access = Access("C",  Seq("k".toVar, "l".toVar), Tensor)
@@ -4186,10 +4187,10 @@ object Main extends App {
     val dataLayoutMap: Map[Exp, Function[Seq[Variable], Seq[Index]]] = if (sparse) Map(var1 -> var1DL) else Map()
 
     if (mode == 0) {
-      println(codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, dataLayoutMap=dataLayoutMap))
+      println(codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, dataLayoutMap=dataLayoutMap, codeLang=codeLang))
 
       (tensorComputation, infer(tensorComputation, dimInfo, uniqueSets, redundancyMap))
-    } else codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, 1, dataLayoutMap=dataLayoutMap)
+    } else codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, 1, dataLayoutMap=dataLayoutMap, codeLang=codeLang)
   }
 
   def thp(structure: String, mode: Int = 0, sparse: Boolean = false) = {
@@ -6629,6 +6630,31 @@ s"""
     write2File(s"outputs_mlir/$outName.mlir", code)
   }
 
+  def TTM_MLIR(structure: String, sparse: Boolean) = {
+    val outName1 = if (structure == "diag_p") "TTM_DP" else if (structure == "fixed_j") "TTM_J" else if (structure == "uhc") "TTM_UT" else "TTM"
+    val outName = if(sparse) s"${outName1}_Sparse" else outName1
+    val c1 = MLIR_init_code()
+    val argv_names = if (structure == "fixed_j") Seq("M", "N", "Q", "P", "J") else Seq("M", "N", "Q", "P")
+    val c2 = MLIR_read_argv(argv_names)
+    val c3 = s"""
+    %A = memref.alloc(%M, %N, %P) : memref<?x?x?xf64>
+    %B = memref.alloc(%M, %N, %Q) : memref<?x?x?xf64>
+    %C = memref.alloc(%P, %Q) : memref<?x?xf64>
+"""
+    val condition1 = if (structure == "diag_p") (0, getVar("gen_cond"), 1, 0) else if (structure == "fixed_j") (1, getVar("gen_cond"), "J", 0) else if (structure == "uhc") (0, getVar("gen_cond"), 1, 3) else getDefaultCondition("oi1")
+    val c4 = MLIR_gen_random_number("B", Seq("M", "N", "Q"), condition1)
+    val c5 = MLIR_gen_random_number("C", Seq("P", "Q"), getDefaultCondition("oi1"))
+    val c6 = MLIR_gen_random_number("A", Seq("M", "N", "P"), getDefaultCondition("oi0"))
+    val c7 = MLIR_start_timer_code()
+    val c8 = ttm(structure, 1, sparse, "MLIR")
+    val cerr_load = s"""
+    %last = "memref.load"(%A, %0, %0, %0) : (memref<?x?x?xf64>, index, index, index) -> f64
+"""
+    val c9 = MLIR_end_code(cerr_load)
+    val code = s"$c1\n$c2\n$c3\n$c4\n$c5\n$c6\n$c7\n$c8\n$c9"
+    write2File(s"outputs_mlir/$outName.mlir", code)
+  }
+
 
   val help: String = s"""
 Please specify the experiment name and select whether you want sparse datalayout for the input [use `sbt "run <exp> [sparse]"`]:
@@ -6688,9 +6714,9 @@ PGLM      = Population Growth Leslie Matrix
         // case "LRA" => LRA_MLIR()
         // case "PR2A" => PR2A_MLIR()
         // case "PR3A" => PR3A_MLIR()
-        // case "TTM_DP" => TTM_MLIR("diag_p", sparse)
-        // case "TTM_J" => TTM_MLIR("fixed_j", sparse)
-        // case "TTM_UT" => TTM_MLIR("uhc", sparse)
+        case "TTM_DP" => TTM_MLIR("diag_p", sparse)
+        case "TTM_J" => TTM_MLIR("fixed_j", sparse)
+        case "TTM_UT" => TTM_MLIR("uhc", sparse)
         // case "THP_DP" => THP_MLIR("diag_p", sparse)
         // case "THP_I" => THP_MLIR("fixed_i", sparse)
         // case "THP_J" => THP_MLIR("fixed_j", sparse)
