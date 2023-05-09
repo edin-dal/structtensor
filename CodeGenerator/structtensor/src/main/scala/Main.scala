@@ -100,7 +100,6 @@ case class Comparison(op: String, index: Index, variable: Variable) extends Exp 
 }
 
 case class Prod(exps: Seq[Exp]) {
-  var cnt = 0
   def prettyFormat(): String = {
     val pr = exps.foldLeft("")((acc, cur) => s"$acc * ${cur.prettyFormat}")
     if (exps.length == 0) "∅"
@@ -125,7 +124,8 @@ case class Prod(exps: Seq[Exp]) {
     if (exps.length == 0) "∅"
     else s"(${pr.substring(3, pr.length)})"
   }
-  def MLIRFormat(m: Map[Variable, Index] = Map.empty[Variable, Index], final_sum: String = "final_sum"): String = {
+  def MLIRFormat(m: Map[Variable, Index] = Map.empty[Variable, Index], final_sum: String = "final_sum", cnt_inc: Int = 0): String = {
+    var cnt = cnt_inc
     val accesses = exps.filter(e => e.isInstanceOf[Access]).map(e => e.asInstanceOf[Access])
     val (vars, varsCode): (Seq[String], String) = accesses.foldLeft((Seq.empty[String], ""))((acc, cur) => {
       val allVars = acc._1
@@ -166,12 +166,13 @@ case class SoP(prods: Seq[Prod]) {
     if (prods.length == 0) "∅"
     else s"(${pr.substring(3, pr.length)})"
   }
-  def MLIRFormat(m: Map[Variable, Index] = Map.empty[Variable, Index], final_val: String = "final_val"): String = {
+  def MLIRFormat(m: Map[Variable, Index] = Map.empty[Variable, Index], final_val: String = "final_val", cnt_inc: Int = 0): String = {
+    var cnt = cnt_inc
     val (vars, varsCode) = prods.foldLeft((Seq.empty[String], ""))((acc, cur) => {
       val allVars = acc._1
       val code = acc._2
       val newVar = s"tmpS$cnt"
-      val newCode = cur.MLIRFormat(m, newVar)
+      val newCode = cur.MLIRFormat(m, newVar, cnt_inc=cnt_inc)
       cnt += 1
       (allVars :+ newVar, code + newCode)
     })
@@ -180,7 +181,6 @@ case class SoP(prods: Seq[Prod]) {
       val last = acc._2
       val newSum = s"sum$cnt"
       val newCode = s"""%$newSum = "arith.addf"(%$last, %$cur) {"fastmath" = #arith.fastmath<fast>} : (f64, f64) -> f64\n"""
-      cnt += 1
       (code + newCode, newSum)
     })
     val finalSumCode = s"""%$final_val = "arith.addf"(%$lastSum, %${vars(vars.length - 1)}) {"fastmath" = #arith.fastmath<fast>} : (f64, f64) -> f64\n"""
@@ -189,16 +189,14 @@ case class SoP(prods: Seq[Prod]) {
 }
 
 case class Rule(head: Access, body: SoP) {
-  var cnt = 0
   def prettyFormat(): String = s"${head.prettyFormat} := ${body.prettyFormat}"
   def cFormat(): String = s"${head.cFormat} = ${body.cFormat};"
   def cPeqFormat(): String = s"${head.cFormat} += ${body.cFormat};"
   def cFormat(m: Map[Variable, Index]): String = s"${head.cFormat(m)} = ${body.cFormat(m)};"
   def cPeqFormat(m: Map[Variable, Index]): String = s"${head.cFormat(m)} += ${body.cFormat(m)};"
-  def MLIRFormat(m: Map[Variable, Index] = Map.empty[Variable, Index], peqMode: Boolean = false): String = {
-    val final_val = s"final_val$cnt"
-    cnt += 1
-    val bodyCode = body.MLIRFormat(m, final_val)
+  def MLIRFormat(m: Map[Variable, Index] = Map.empty[Variable, Index], peqMode: Boolean = false, cnt_inc: Int = 0): String = {
+    val final_val = s"final_val$cnt_inc"
+    val bodyCode = body.MLIRFormat(m, final_val, cnt_inc=cnt_inc)
     val (varsStr, sizeStr, indexStr) = head.vars.foldLeft(("", "", ""))((acc2, v) => {
       val (varsStr, sizeStr, indexStr) = acc2
       val newVarStr = if (varsStr.length == 0) s"%${v.cFormat(m)}" else s"$varsStr, %${v.cFormat(m)}"
@@ -1957,7 +1955,7 @@ object Main extends App {
     val tcBodya: SoP = getNoComparisonSoP(tensorComputation.body) 
     val tcBodyEQ: SoP = getNoComparisonButEQSoP(tensorComputation.body)
 
-    if (intervals == Seq.empty[Map[Variable, Interval]]) return tensorComputation.MLIRFormat(peqMode=peqMode)
+    if (intervals == Seq.empty[Map[Variable, Interval]]) return tensorComputation.MLIRFormat(peqMode=peqMode, cnt_inc=cnt)
 
     (intervals zip equalityVarMap).foldLeft("")((acc, mapEqVar) => {
       val map: Map[Variable, Interval] = mapEqVar._1
@@ -2042,8 +2040,8 @@ object Main extends App {
         s"${tc.head.cFormat(eqVar, dataLayoutMap.getOrElse(tc.head, defaultDataLayout))} = ${Access(tensorComputation.head.name, tensorComputation.head.vars.redundancyVars, tensorComputation.head.kind).cFormat(eqVar, dataLayoutMap.getOrElse(tc.head, defaultDataLayout))};" 
       }
       else {
-        if (tcBody.prods.length == 1) s"${tcBody.prods(0).MLIRFormat(eqVar, finalV)}"
-        else tcBody.MLIRFormat(eqVar, finalV)
+        if (tcBody.prods.length == 1) {s"${tcBody.prods(0).MLIRFormat(eqVar, finalV, cnt_inc = cnt)}" ; cnt += 200}
+        else {tcBody.MLIRFormat(eqVar, finalV, cnt_inc = cnt); cnt += 200}
         // else (tcBody.prods zip tcBodya.prods).foldLeft("")((acc, prodAProd) => {
         //   val prod: Prod = prodAProd._1
         //   val aProd: Prod = prodAProd._2
@@ -6782,6 +6780,53 @@ s"""
     write2File(s"outputs_mlir/$outName.mlir", code)
   }
 
+  def LRA_MLIR(sparse: Boolean = false) = {
+    val outName = if (sparse) "LRA_Sparse" else "LRA"
+    val c1 = MLIR_init_code()
+    val argv_names = Seq("CONT_SZ")
+    val c2 = MLIR_read_argv(argv_names)
+    val c3 = s"""
+    %cont_sum1 = memref.alloc(%CONT_SZ) : memref<?xf64>
+    %other_cont_sum1 = memref.alloc(%CONT_SZ) : memref<?xf64>
+    %cont_degree2 = memref.alloc(%CONT_SZ, %CONT_SZ) : memref<?x?xf64>
+    %other_cont_degree2 = memref.alloc(%CONT_SZ, %CONT_SZ) : memref<?x?xf64>
+"""
+    val c4 = MLIR_gen_random_number("cont_sum1", Seq("CONT_SZ"), getDefaultCondition("oi1"))
+    val c5 = MLIR_gen_random_number("other_cont_sum1", Seq("CONT_SZ"), getDefaultCondition("oi1"))
+    val c6 = MLIR_gen_random_number("cont_degree2", Seq("CONT_SZ", "CONT_SZ"), getDefaultCondition("oi0"))
+    val c7 = MLIR_gen_random_number("other_cont_degree2", Seq("CONT_SZ", "CONT_SZ"), getDefaultCondition("oi0"))
+    
+    val k = 1
+    val allDegs = (2 to 2 * k)
+    val (const_tensorComputation, const_dimInfo, const_uniqueSets, const_redundancyMap) = allDegs.foldLeft((Seq.empty[Rule], Seq.empty[DimInfo], Map.empty[Exp, Rule], Map.empty[Exp, Rule]))((acc, d) => {
+      val res = e2eConstructor(d)
+      (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2))
+    })
+    val (other_const_tensorComputation, other_const_dimInfo, other_const_uniqueSets, other_const_redundancyMap) = allDegs.foldLeft((Seq.empty[Rule], Seq.empty[DimInfo], Map.empty[Exp, Rule], Map.empty[Exp, Rule]))((acc, d) => {
+      val res = e2eConstructor(d, 1)
+      (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2))
+    })
+    val addus2: Map[Exp, Rule] = const_uniqueSets.map{case (k, v) => (Access("other_" + k.asInstanceOf[Access].name, k.asInstanceOf[Access].vars, k.asInstanceOf[Access].kind) -> Rule(Access("other_" + v.head.name, v.head.vars, v.head.kind), v.body))}.toMap
+    val addrm2: Map[Exp, Rule] = const_redundancyMap.map{case (k, v) => (Access("other_" + k.asInstanceOf[Access].name, k.asInstanceOf[Access].vars, k.asInstanceOf[Access].kind) -> Rule(Access("other_" + v.head.name, v.head.vars, v.head.kind), v.body))}.toMap
+    val addus: Map[Exp, Rule] = mergeMap(Seq(const_uniqueSets, addus2))((v1, v2) => v1)
+    val addrm: Map[Exp, Rule] = mergeMap(Seq(const_redundancyMap, addrm2))((v1, v2) => v1)
+    val (peq_tensorComputation, peq_dimInfo, peq_uniqueSets, peq_redundancyMap) = allDegs.foldLeft((Seq.empty[Rule], const_dimInfo, addus, addrm))((acc, d) => {
+      val res = e2eAddition(d, acc._3, acc._4, 1)
+      (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2))
+    })
+    val c8 = const_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, const_dimInfo, const_uniqueSets, const_redundancyMap, 1, sparse, codeLang="MLIR")}")
+    val c9 = other_const_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, other_const_dimInfo, other_const_uniqueSets, other_const_redundancyMap, 1, sparse, codeLang="MLIR")}")
+
+    val c10 = MLIR_start_timer_code()
+    val c11 = peq_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, peq_dimInfo, peq_uniqueSets, peq_redundancyMap, 1, sparse, codeLang="MLIR")}")
+    val cerr_load = s"""
+    %last = "memref.load"(%cont_degree2, %0, %0) : (memref<?x?xf64>, index, index) -> f64
+"""
+    val c12 = MLIR_end_code(cerr_load)
+    val code = s"$c1\n$c2\n$c3\n$c4\n$c5\n$c6\n$c7\n$c8\n$c9\n$c10\n$c11\n$c12"
+    write2File(s"outputs_mlir/$outName.mlir", code)
+  }
+
 
   val help: String = s"""
 Please specify the experiment name and select whether you want sparse datalayout for the input [use `sbt "run <exp> [sparse]"`]:
@@ -6838,7 +6883,7 @@ PGLM      = Population Growth Leslie Matrix
         case "LRC" => LRC_MLIR()
         case "PR2C" => PR2C_MLIR()
         case "PR3C" => PR3C_MLIR()
-        // case "LRA" => LRA_MLIR()
+        case "LRA" => LRA_MLIR()
         // case "PR2A" => PR2A_MLIR()
         // case "PR3A" => PR3A_MLIR()
         case "TTM_DP" => TTM_MLIR("diag_p", sparse)
