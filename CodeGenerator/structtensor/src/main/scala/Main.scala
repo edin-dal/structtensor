@@ -2251,16 +2251,21 @@ object Main extends App {
     val allDimVars: Seq[Variable] = dimInfo.toVarsMap.values.foldLeft(Seq.empty[Dim])((acc, dimSeq) => acc ++ dimSeq).foldLeft(Seq.empty[Variable])((acc, d) => acc ++ getVariables(d))
     
     val (comparisonsC, tensorComputationC): (SoP, SoP) = (getOnlyComparisonSoP(outC.body), getNoComparisonSoP(outC.body))
+    val (comparisonsRC, tensorComputationRC): (SoP, SoP) = (SoPTimesSoP(outRM.body, comparisonsC.vars2RedundancyVars), tensorComputationC.vars2RedundancyVars)
     val ruleCompC = Rule(outC.head, comparisonsC)
+    val ruleCompRC = Rule(outRM.head, comparisonsRC)
     val ruleTCC = Rule(outC.head, comparisonsC)
     
     val variableConditionMapUS: Seq[Map[Variable, Seq[(String, Index)]]] = getVariableConditionMap(variables, outUS)
     val variableConditionMapRM: Seq[Map[Variable, Seq[(String, Index)]]] = getVariableConditionMap(variables, outRM)
     val variableConditionMapC: Seq[Map[Variable, Seq[(String, Index)]]] = getVariableConditionMap(variables, ruleCompC)
+    val variableConditionMapRC: Seq[Map[Variable, Seq[(String, Index)]]] = getVariableConditionMap(variables, ruleCompRC)
+    
 
     val (unifiedVariableConditionMapUS, _): (Seq[Map[Variable, Seq[(String, Index)]]], Seq[Map[Variable, Variable]]) = unifyEqualVariableConditionMap(variables, variableConditionMapUS)
     val (unifiedVariableConditionMapRM, _): (Seq[Map[Variable, Seq[(String, Index)]]], Seq[Map[Variable, Variable]]) = unifyEqualVariableConditionMap(variables, variableConditionMapRM)
     val (unifiedVariableConditionMapC, _): (Seq[Map[Variable, Seq[(String, Index)]]], Seq[Map[Variable, Variable]]) = unifyEqualVariableConditionMap(variables, variableConditionMapC)
+    val (unifiedVariableConditionMapRC, _): (Seq[Map[Variable, Seq[(String, Index)]]], Seq[Map[Variable, Variable]]) = unifyEqualVariableConditionMap(variables, variableConditionMapRC)
 
     val unifiedOutUS: Rule = Rule(outUS.head, getSoP(unifiedVariableConditionMapUS))
     val unifiedOutRM: Rule = Rule(outRM.head, getSoP(unifiedVariableConditionMapRM))
@@ -2270,52 +2275,70 @@ object Main extends App {
       acc :+ prodTimesProd(compProd, accessProd)
     }))
     val unifiedOutC: Rule = Rule(outC.head, unifiedBodyC)
+    val unifiedBodyRC1: SoP = getSoP(unifiedVariableConditionMapRC)
+    val unifiedBodyRC: SoP = SoP((unifiedBodyRC1.prods zip tensorComputationRC.prods).foldLeft(Seq.empty[Prod])((acc, prods) => {
+      val (compProd, accessProd) = prods
+      acc :+ prodTimesProd(compProd, accessProd)
+    }))
+    val unifiedOutRC: Rule = Rule(outRM.head, unifiedBodyRC)
 
     val distinctOutUS: Rule = keepDistinct(unifiedOutUS)
     val distinctOutRM: Rule = keepDistinct(unifiedOutRM)
     val distinctOutC: Rule = keepDistinct(unifiedOutC)
+    val distinctOutRC: Rule = keepDistinct(unifiedOutRC)
 
     val simplifiedOutUS: Rule = simplify(distinctOutUS)
     val simplifiedOutRM: Rule = simplify(distinctOutRM)
     val simplifiedOutC: Rule = simplify(distinctOutC)
+    val simplifiedOutRC: Rule = simplify(distinctOutRC)
 
     val (comparisonsC2, tensorComputationC2): (SoP, SoP) = (getOnlyComparisonSoP(simplifiedOutC.body), getNoComparisonSoP(simplifiedOutC.body))
+    val (comparisonsRC2, tensorComputationRC2): (SoP, SoP) = (getOnlyComparisonSoP(simplifiedOutRC.body), getNoComparisonSoP(simplifiedOutRC.body))
     val ruleCompC2 = Rule(outC.head, comparisonsC2)
+    val ruleCompRC2 = Rule(outRM.head, comparisonsRC2)
 
     val distinctConditionMapUS: Seq[Map[Variable, Seq[(String, Index)]]] = getVariableConditionMap(variables, simplifiedOutUS)
     val distinctConditionMapRM: Seq[Map[Variable, Seq[(String, Index)]]] = getVariableConditionMap(variables, simplifiedOutRM)
     val distinctConditionMapC: Seq[Map[Variable, Seq[(String, Index)]]] = getVariableConditionMap(variables, ruleCompC2)
+    val distinctConditionMapRC: Seq[Map[Variable, Seq[(String, Index)]]] = getVariableConditionMap(variables, ruleCompRC2)
 
     val fixedConditionOrderUS: Seq[Map[Variable, Seq[(String, Index)]]] = fixConditionOrder(variables, distinctConditionMapUS)
     val fixedConditionOrderRM: Seq[Map[Variable, Seq[(String, Index)]]] = fixConditionOrder(variables, distinctConditionMapRM)
     val fixedConditionOrderC: Seq[Map[Variable, Seq[(String, Index)]]] = fixConditionOrder(variables, distinctConditionMapC)
+    val fixedConditionOrderRC: Seq[Map[Variable, Seq[(String, Index)]]] = fixConditionOrder(variables, distinctConditionMapRC)
 
-    val (fixedConditionOrderUS2, fixedConditionOrderRM2, fixedConditionOrderC2, eqVarMapUS, eqVarMapRM, eqVarMapC) = if (variableReplacementFlag) {
+    val (fixedConditionOrderUS2, fixedConditionOrderRM2, fixedConditionOrderC2, fixedConditionOrderRC2, eqVarMapUS, eqVarMapRM, eqVarMapC, eqVarMapRC) = if (variableReplacementFlag) {
       val (removedNonLHSVarsUS, equalityVarMapUS): (Seq[Map[Variable, Seq[(String, Index)]]], Seq[Map[Variable, Index]]) = removeNonLHSEQVars(tensorComputation.head.vars, fixedConditionOrderUS)
       val (removedNonLHSVarsRM, equalityVarMapRM): (Seq[Map[Variable, Seq[(String, Index)]]], Seq[Map[Variable, Index]]) = removeNonLHSEQVars(tensorComputation.head.vars.redundancyVarsInplace, fixedConditionOrderRM)
       val (removedNonLHSVarsC, equalityVarMapC): (Seq[Map[Variable, Seq[(String, Index)]]], Seq[Map[Variable, Index]]) = removeNonLHSEQVars(tensorComputation.head.vars, fixedConditionOrderC)
+      val (removedNonLHSVarsRC, equalityVarMapRC): (Seq[Map[Variable, Seq[(String, Index)]]], Seq[Map[Variable, Index]]) = removeNonLHSEQVars(tensorComputation.head.vars, fixedConditionOrderRC)
 
       val (_, eqRepsUS): (Seq[Map[Variable, Seq[(String, Index)]]], Seq[Map[Variable, Variable]]) = unifyEqualVariableConditionMap(variables, fixedConditionOrderUS)
       val (_, eqRepsRM): (Seq[Map[Variable, Seq[(String, Index)]]], Seq[Map[Variable, Variable]]) = unifyEqualVariableConditionMap(variables, fixedConditionOrderRM)
       val (_, eqRepsC): (Seq[Map[Variable, Seq[(String, Index)]]], Seq[Map[Variable, Variable]]) = unifyEqualVariableConditionMap(variables, fixedConditionOrderC)
+      val (_, eqRepsRC): (Seq[Map[Variable, Seq[(String, Index)]]], Seq[Map[Variable, Variable]]) = unifyEqualVariableConditionMap(variables, fixedConditionOrderRC)
 
       val eqVarMapUS: Seq[Map[Variable, Index]] = (eqRepsUS zip equalityVarMapUS).map{case(e1, e2) => mergeMap(Seq(e1, e2))((v1, v2) => v1)}
       val eqVarMapRM: Seq[Map[Variable, Index]] = (eqRepsRM zip equalityVarMapRM).map{case(e1, e2) => mergeMap(Seq(e1, e2))((v1, v2) => v1)}
       val eqVarMapC: Seq[Map[Variable, Index]] = (eqRepsC zip equalityVarMapC).map{case(e1, e2) => mergeMap(Seq(e1, e2))((v1, v2) => v1)}
+      val eqVarMapRC: Seq[Map[Variable, Index]] = (eqRepsRC zip equalityVarMapRC).map{case(e1, e2) => mergeMap(Seq(e1, e2))((v1, v2) => v1)}
 
       val fixedConditionOrderUS2: Seq[Map[Variable, Seq[(String, Index)]]] = fixConditionOrder(variables, removedNonLHSVarsUS)
       val fixedConditionOrderRM2: Seq[Map[Variable, Seq[(String, Index)]]] = fixConditionOrder(variables, removedNonLHSVarsRM)
       val fixedConditionOrderC2: Seq[Map[Variable, Seq[(String, Index)]]] = fixConditionOrder(variables, removedNonLHSVarsC)
-      (fixedConditionOrderUS2, fixedConditionOrderRM2, fixedConditionOrderC2, eqVarMapUS, eqVarMapRM, eqVarMapC)
-    } else (fixedConditionOrderUS, fixedConditionOrderRM, fixedConditionOrderC, fixedConditionOrderUS.map(_ => Map.empty[Variable, Index]), fixedConditionOrderRM.map(_ => Map.empty[Variable, Index]), fixedConditionOrderC.map(_ => Map.empty[Variable, Index]))
+      val fixedConditionOrderRC2: Seq[Map[Variable, Seq[(String, Index)]]] = fixConditionOrder(variables, removedNonLHSVarsRC)
+      (fixedConditionOrderUS2, fixedConditionOrderRM2, fixedConditionOrderC2, fixedConditionOrderRC2, eqVarMapUS, eqVarMapRM, eqVarMapC, eqVarMapRC)
+    } else (fixedConditionOrderUS, fixedConditionOrderRM, fixedConditionOrderC, fixedConditionOrderRC, fixedConditionOrderUS.map(_ => Map.empty[Variable, Index]), fixedConditionOrderRM.map(_ => Map.empty[Variable, Index]), fixedConditionOrderC.map(_ => Map.empty[Variable, Index]), fixedConditionOrderRC.map(_ => Map.empty[Variable, Index]))
 
     val intervalsUS: Seq[Map[Variable, Interval]] = getIntervals(variables, fixedConditionOrderUS2, eqVarMapUS)
     val intervalsRM: Seq[Map[Variable, Interval]] = getIntervals(variables, fixedConditionOrderRM2, eqVarMapRM)
     val intervalsC: Seq[Map[Variable, Interval]] = getIntervals(variables, fixedConditionOrderC2, eqVarMapC)
+    val intervalsRC: Seq[Map[Variable, Interval]] = getIntervals(variables, fixedConditionOrderRC2, eqVarMapRC)
 
     val intervalsSimplifiedUS: Seq[Map[Variable, Interval]] = simplifyIntervals(intervalsUS)
     val intervalsSimplifiedRM: Seq[Map[Variable, Interval]] = simplifyIntervals(intervalsRM)
     val intervalsSimplifiedC: Seq[Map[Variable, Interval]] = simplifyIntervals(intervalsC)
+    val intervalsSimplifiedRC: Seq[Map[Variable, Interval]] = simplifyIntervals(intervalsRC)
 
     val finalUS: Rule = Rule(outUS.head, getSoPFromInterval(intervalsSimplifiedUS, eqVarMapUS))
     val finalRM: Rule = Rule(outRM.head, getSoPFromInterval(intervalsSimplifiedRM, eqVarMapRM))
@@ -2325,6 +2348,12 @@ object Main extends App {
       acc :+ prodTimesProd(compProd, accessProd)
     }))
     val finalC: Rule = Rule(outC.head, finalBodyC)
+    val finalBodyRC1: SoP = getSoPFromInterval(intervalsSimplifiedRC, eqVarMapRC)
+    val finalBodyRC: SoP = SoP((finalBodyRC1.prods zip tensorComputationRC2.prods).foldLeft(Seq.empty[Prod])((acc, prods) => {
+      val (compProd, accessProd) = prods
+      acc :+ prodTimesProd(compProd, accessProd)
+    }))
+    val finalRC: Rule = Rule(outRM.head, finalBodyRC)
 
 
     // println("variables:")
@@ -2350,6 +2379,9 @@ object Main extends App {
     // println("------------------")
     println("variableConditionMapC")
     println(variableConditionMapC)
+    println("------------------")
+    println("variableConditionMapRC")
+    println(variableConditionMapRC)
     println("==================")
     // println("unifiedVariableConditionMapUS")
     // println(unifiedVariableConditionMapUS)
@@ -2359,6 +2391,9 @@ object Main extends App {
     // println("------------------")
     println("unifiedVariableConditionMapC")
     println(unifiedVariableConditionMapC)
+    println("------------------")
+    println("unifiedVariableConditionMapRC")
+    println(unifiedVariableConditionMapRC)
     println("==================")
     // println("unifiedOutUS")
     // pprint(unifiedOutUS)
@@ -2368,6 +2403,9 @@ object Main extends App {
     // println("------------------")
     println("unifiedOutC")
     pprint(unifiedOutC)
+    println("------------------")
+    println("unifiedOutRC")
+    pprint(unifiedOutRC)
     println("==================")
     // println("distinctOutUS")
     // pprint(distinctOutUS)
@@ -2377,6 +2415,9 @@ object Main extends App {
     // println("------------------")
     println("distinctOutC")
     pprint(distinctOutC)
+    println("------------------")
+    println("distinctOutRC")
+    pprint(distinctOutRC)
     println("==================")
     // println("simplifiedOutUS")
     // pprint(simplifiedOutUS)
@@ -2386,6 +2427,9 @@ object Main extends App {
     // println("------------------")
     println("simplifiedOutC")
     pprint(simplifiedOutC)
+    println("------------------")
+    println("simplifiedOutRC")
+    pprint(simplifiedOutRC)
     println("==================")
     // println("distinctConditionMapUS")
     // println(distinctConditionMapUS)
@@ -2395,6 +2439,9 @@ object Main extends App {
     // println("------------------")
     println("distinctConditionMapC")
     println(distinctConditionMapC)
+    println("------------------")
+    println("distinctConditionMapRC")
+    println(distinctConditionMapRC)
     println("==================")
     // println("fixedConditionOrderUS")
     // println(fixedConditionOrderUS)
@@ -2404,6 +2451,9 @@ object Main extends App {
     // println("------------------")
     println("fixedConditionOrderC")
     println(fixedConditionOrderC)
+    println("------------------")
+    println("fixedConditionOrderRC")
+    println(fixedConditionOrderRC)
     println("==================")
     // println("removedNonLHSVarsUS")
     // println(removedNonLHSVarsUS)
@@ -2422,6 +2472,9 @@ object Main extends App {
     // println("------------------")
     println("eqVarMapC")
     println(eqVarMapC)
+    println("------------------")
+    println("eqVarMapRC")
+    println(eqVarMapRC)
     println("==================")
     // println("intervalsUS")
     // println(intervalsUS)
@@ -2431,6 +2484,9 @@ object Main extends App {
     // println("------------------")
     println("intervalsC")
     println(intervalsC)
+    println("------------------")
+    println("intervalsRC")
+    println(intervalsRC)
     println("==================")
     // println("intervalsSimplifiedUS")
     // println(intervalsSimplifiedUS)
@@ -2440,6 +2496,9 @@ object Main extends App {
     // println("------------------")
     println("intervalsSimplifiedC")
     println(intervalsSimplifiedC)
+    println("------------------")
+    println("intervalsSimplifiedRC")
+    println(intervalsSimplifiedRC)
     println("==================")
     // println("finalUS")
     // pprint(finalUS)
@@ -2449,6 +2508,9 @@ object Main extends App {
     // println("------------------")
     println("finalC")
     pprint(finalC)
+    println("------------------")
+    println("finalRC")
+    pprint(finalRC)
     println("==================")
 
     if (codeLang == "MLIR") {
@@ -2465,9 +2527,17 @@ object Main extends App {
         val res: String = codeGenRule(tensorComputationC, dimInfo :+ outDI, variables, intervalC, eqMapC, UniqueSet, peqC, codeMotion, dataLayoutMap)
         (acc._1 + "\n" + res, true)
       })._1
-      if (codeGenMode == 0) "void compute() {\n" + computation + "\n}\n\n\nvoid reconstruct() {\n" + codeGenRule(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedRM, eqVarMapRM, RedundancyMap, peqMode, codeMotion, dataLayoutMap) + "\n}\n"
+      val reconstruction: String = (finalRC.body.prods zip (intervalsSimplifiedRC zip eqVarMapRC)).foldLeft(("", false))((acc, cur) => {
+        val tensorComputationRC: Rule = Rule(tensorComputation.head, SoP(Seq(cur._1)))
+        val intervalRC: Seq[Map[Variable, Interval]] = Seq(cur._2._1)
+        val eqMapRC: Seq[Map[Variable, Index]] = Seq(cur._2._2)
+        val peqRC: Boolean = peqMode | acc._2
+        val res: String = codeGenRule(tensorComputationRC, dimInfo :+ outDI, variables, intervalRC, eqMapRC, UniqueSet, peqRC, codeMotion, dataLayoutMap)
+        (acc._1 + "\n" + res, true)
+      })._1
+      if (codeGenMode == 0) "void compute() {\n" + computation + "\n}\n\n\nvoid reconstruct() {\n" + reconstruction + "\n}\n"
       else if (codeGenMode == 1) computation
-      else if (codeGenMode == 2) codeGenRule(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedRM, eqVarMapRM, RedundancyMap, peqMode, codeMotion, dataLayoutMap)
+      else if (codeGenMode == 2) reconstruction
       else ""
     }
   }
