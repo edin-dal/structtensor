@@ -2237,6 +2237,31 @@ object Main extends App {
     })
   }
 
+  def getFinalCodeGenPath(head: Access, finalRule: Rule, intervals: Seq[Map[Variable, Interval]], eqVarMap: Seq[Map[Variable, Index]]): Seq[(Rule, Seq[Map[Variable, Interval]], Seq[Map[Variable, Index]])] = {
+    val tensorComputation: Seq[Prod] = getNoComparisonSoP(finalRule.body).prods
+    val equalIntervalGroups: Seq[Set[Int]] = ((intervals zip eqVarMap).zipWithIndex).foldLeft(Seq.empty[Set[Int]])((acc, cur) => {
+      val ((intervals1, eqVarMap1), i): ((Map[Variable, Interval], Map[Variable, Index]), Int) = cur
+      val isIInASet = acc.foldLeft(false)((acc2, set) => acc2 || set.contains(i))
+      if (!isIInASet) {
+        acc :+ ((intervals zip eqVarMap).zipWithIndex.slice(i + 1, intervals.length)).foldLeft(Set(i))((acc2, cur2) => {
+          val ((intervals2, eqVarMap2), j): ((Map[Variable, Interval], Map[Variable, Index]), Int) = cur2
+          if (intervals1.toSeq.toSet == intervals2.toSeq.toSet && eqVarMap1.toSeq.toSet == eqVarMap2.toSeq.toSet) acc2 ++ Set(i, j)
+          else acc2 
+        })
+      } else acc
+    })
+    equalIntervalGroups.foldLeft(Seq.empty[(Rule, Seq[Map[Variable, Interval]], Seq[Map[Variable, Index]])])((acc, eqSet) => {
+      val eqSeq = eqSet.toSeq
+      println(eqSeq)
+      println(eqSeq.length)
+      val body: Seq[Prod] = eqSeq.foldLeft(Seq.empty[Prod])((acc2, index) => acc2 :+ tensorComputation(index))
+      val rule: Rule = Rule(head, SoP(body))
+      val interval: Map[Variable, Interval] = intervals(eqSeq(0))
+      val eqMap: Map[Variable, Index] = eqVarMap(eqSeq(0))
+      acc :+ (rule, Seq(interval), Seq(eqMap))
+    })
+  }
+
   def codeGen(tensorComputation: Rule, dimInfo: Seq[DimInfo], uniqueSets: Map[Exp, Rule], redundancyMaps: Map[Exp, Rule], codeGenMode: Int = 0, peqMode: Boolean = true, variableReplacementFlag: Boolean = true, codeMotion: Boolean = true, dataLayoutMap: Map[Exp, Function[Seq[Variable], Seq[Index]]] = Map(), varReverse: Boolean = false, codeLang: String = "CPP", compressionMaps: Map[Exp, Rule] = Map()): String = {
     val variables: Seq[Variable] = if (varReverse) getVariables(tensorComputation).reverse else getVariables(tensorComputation)
     val compressionMap1: Map[Exp, Rule] = uniqueSets.foldLeft(Seq.empty[(Exp, Rule)])((acc, kv) => {
@@ -2355,6 +2380,13 @@ object Main extends App {
     }))
     val finalRC: Rule = Rule(outRM.head, finalBodyRC)
 
+    val pathC: Seq[(Rule, Seq[Map[Variable, Interval]], Seq[Map[Variable, Index]])] = getFinalCodeGenPath(tensorComputation.head, finalC, intervalsSimplifiedC, eqVarMapC)
+    val pathRC: Seq[(Rule, Seq[Map[Variable, Interval]], Seq[Map[Variable, Index]])] = getFinalCodeGenPath(tensorComputation.head, finalRC, intervalsSimplifiedRC, eqVarMapRC)
+    println("=========================")
+    println("PATHC: ")
+    println(pathC)
+    println("=========================")
+    
 
     // println("variables:")
     // println(variables)
@@ -2519,18 +2551,14 @@ object Main extends App {
       else if (codeGenMode == 2) codeGenRuleMLIR(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedRM, eqVarMapRM, RedundancyMap, peqMode, codeMotion, dataLayoutMap)
       else ""
     } else {
-      val computation: String = (finalC.body.prods zip (intervalsSimplifiedC zip eqVarMapC)).foldLeft(("", false))((acc, cur) => {
-        val tensorComputationC: Rule = Rule(tensorComputation.head, SoP(Seq(cur._1)))
-        val intervalC: Seq[Map[Variable, Interval]] = Seq(cur._2._1)
-        val eqMapC: Seq[Map[Variable, Index]] = Seq(cur._2._2)
+      val computation: String = pathC.foldLeft(("", false))((acc, cur) => {
+        val (tensorComputationC, intervalC, eqMapC): (Rule, Seq[Map[Variable, Interval]], Seq[Map[Variable, Index]]) = cur
         val peqC: Boolean = peqMode | acc._2
         val res: String = codeGenRule(tensorComputationC, dimInfo :+ outDI, variables, intervalC, eqMapC, UniqueSet, peqC, codeMotion, dataLayoutMap)
         (acc._1 + "\n" + res, true)
       })._1
-      val reconstruction: String = (finalRC.body.prods zip (intervalsSimplifiedRC zip eqVarMapRC)).foldLeft(("", false))((acc, cur) => {
-        val tensorComputationRC: Rule = Rule(tensorComputation.head, SoP(Seq(cur._1)))
-        val intervalRC: Seq[Map[Variable, Interval]] = Seq(cur._2._1)
-        val eqMapRC: Seq[Map[Variable, Index]] = Seq(cur._2._2)
+      val reconstruction: String = pathRC.foldLeft(("", false))((acc, cur) => {
+        val (tensorComputationRC, intervalRC, eqMapRC): (Rule, Seq[Map[Variable, Interval]], Seq[Map[Variable, Index]]) = cur
         val peqRC: Boolean = peqMode | acc._2
         val res: String = codeGenRule(tensorComputationRC, dimInfo :+ outDI, variables, intervalRC, eqMapRC, UniqueSet, peqRC, codeMotion, dataLayoutMap)
         (acc._1 + "\n" + res, true)
