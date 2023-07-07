@@ -241,6 +241,8 @@ object Main extends App {
 
   def emptyDimInfo(): DimInfo = DimInfo(emptyAccess(), Seq.empty[Dim])
 
+  def trueComparison(): Comparison = Comparison("<=", "0".toVar, "0".toVar)
+
   def pprint(r: Rule): Unit = println(r.prettyFormat)
 
   def pprintTest(rTURD: (Rule, (Rule, Rule, DimInfo))): Unit = {
@@ -741,7 +743,7 @@ object Main extends App {
         val redSoP: SoP = SoP(redVarMap.map(m => Prod(m.map{case(k, v) => Comparison("=", k, v)}.toSeq)).toSeq)
         val rmReplaced: SoP = replaceVars(redSoP, fullShiftMap)
         val bodyRM: SoP = multSoP(Seq(rmReplaced, headDimSoP, headDimSoP2))
-        val bodyC: SoP = multSoP(Seq(eC, bodyUS))
+        val bodyC: SoP = multSoP(Seq(getNoComparisonSoP(eC), bodyUS))
         return (Rule(headUS, bodyUS), Rule(headRM, bodyRM), Rule(headC, bodyC), headDimInfo)
       }
     }
@@ -1011,7 +1013,7 @@ object Main extends App {
         val e: Exp = exps(0)
         val inpUS: Rule = uniqueSets.getOrElse(e, emptyRule())
         val inpRM: Rule = redundancyMaps.getOrElse(e, emptyRule())
-        val inpC: Rule = redundancyMaps.getOrElse(e, emptyRule())
+        val inpC: Rule = compressionMap.getOrElse(e, emptyRule())
         val shiftMap: Map[Variable, Variable] = getShiftMap(exps, dimInfo, head)
         return shift(head, shiftMap, dimInfo, e.asInstanceOf[Access], exps.slice(1, exps.length).map(elem => elem.asInstanceOf[Comparison]), inpUS, inpRM, inpC)
       }
@@ -1371,7 +1373,7 @@ object Main extends App {
     Rule(rule.head, SoP(bodySet.map(expSet => Prod(uniqueExpSet(expSet).toSeq)).toSeq))
   }
 
-  def getVariableConditionMap(variables: Seq[Variable], rule:Rule): Seq[Map[Variable, Seq[(String, Index)]]] = { 
+  def getVariableConditionMap(variables: Seq[Variable], rule: Rule): Seq[Map[Variable, Seq[(String, Index)]]] = { 
     val varsAndRed = variables.redundancyVarsInplace
     rule.body.prods.foldLeft(Seq.empty[Map[Variable, Seq[(String, Index)]]])((acc, prod) => {
       val prodMap = prod.exps.foldLeft(Map.empty[Variable, Seq[(String, Index)]])((acc2, exp) => {
@@ -1998,7 +2000,7 @@ object Main extends App {
       val defaultDataLayout = (x: Seq[Variable]) => x
 
       // why constants are not exp as well? Then I could replace the comparison below by ConstantInt(1) instead.
-      val tcBody: SoP = if (tc.body == emptySoP()) SoP(Seq(Prod(Seq(Comparison("=", ConstantInt(0), getVar("rndVar").toVar))))) else tc.body // if it's only comparison, then it was just a bunch of comparison multiplications so their value is only 1. Their ranges is inside unique set and redundancy maps already.
+      val tcBody: SoP = if (tc.body == emptySoP()) SoP(Seq(Prod(Seq(trueComparison())))) else tc.body // if it's only comparison, then it was just a bunch of comparison multiplications so their value is only 1. Their ranges is inside unique set and redundancy maps already.
       val allVars: Set[Variable] = tensorComputation.head.vars.toSet ++ eqVar.keySet
       val body = if (genType == RedundancyMap) s"${tc.head.cFormat(eqVar, dataLayoutMap.getOrElse(tc.head, defaultDataLayout))} = ${Access(tensorComputation.head.name, tensorComputation.head.vars.redundancyVars, tensorComputation.head.kind).cFormat(eqVar, dataLayoutMap.getOrElse(tc.head, defaultDataLayout))};" else {
         if (tcBody.prods.length == 1) if(peqMode) s"${tc.head.cFormat(eqVar, dataLayoutMap.getOrElse(tc.head, defaultDataLayout))} += ${tcBody.prods(0).cFormat(eqVar, dataLayoutMap)};" else s"${tc.head.cFormat(eqVar, dataLayoutMap.getOrElse(tc.head, defaultDataLayout))} = ${tcBody.prods(0).cFormat(eqVar, dataLayoutMap)};"
@@ -2143,7 +2145,7 @@ object Main extends App {
       val defaultDataLayout = (x: Seq[Variable]) => x
 
       // why constants are not exp as well? Then I could replace the comparison below by ConstantInt(1) instead.
-      val tcBody: SoP = if (tc.body == emptySoP()) SoP(Seq(Prod(Seq(Comparison("=", ConstantInt(0), getVar("rndVar").toVar))))) else tc.body // if it's only comparison, then it was just a bunch of comparison multiplications so their value is only 1. Their ranges is inside unique set and redundancy maps already.
+      val tcBody: SoP = if (tc.body == emptySoP()) SoP(Seq(Prod(Seq(trueComparison())))) else tc.body // if it's only comparison, then it was just a bunch of comparison multiplications so their value is only 1. Their ranges is inside unique set and redundancy maps already.
       val allVars: Set[Variable] = tensorComputation.head.vars.toSet ++ eqVar.keySet
       val finalV: String = getVar("finalV")
       val body = if (genType == RedundancyMap) { // TODO: write this in MLIR
@@ -2238,6 +2240,7 @@ object Main extends App {
   }
 
   def getFinalCodeGenPath(head: Access, finalRule: Rule, intervals: Seq[Map[Variable, Interval]], eqVarMap: Seq[Map[Variable, Index]]): Seq[(Rule, Seq[Map[Variable, Interval]], Seq[Map[Variable, Index]])] = {
+    if (intervals.length == 0 || getNoComparisonSoP(finalRule.body).prods.length == 0) return Seq((Rule(head, finalRule.body), intervals, eqVarMap))
     val tensorComputation: Seq[Prod] = getNoComparisonSoP(finalRule.body).prods
     val equalIntervalGroups: Seq[Set[Int]] = ((intervals zip eqVarMap).zipWithIndex).foldLeft(Seq.empty[Set[Int]])((acc, cur) => {
       val ((intervals1, eqVarMap1), i): ((Map[Variable, Interval], Map[Variable, Index]), Int) = cur
@@ -2252,8 +2255,6 @@ object Main extends App {
     })
     equalIntervalGroups.foldLeft(Seq.empty[(Rule, Seq[Map[Variable, Interval]], Seq[Map[Variable, Index]])])((acc, eqSet) => {
       val eqSeq = eqSet.toSeq
-      println(eqSeq)
-      println(eqSeq.length)
       val body: Seq[Prod] = eqSeq.foldLeft(Seq.empty[Prod])((acc2, index) => acc2 :+ tensorComputation(index))
       val rule: Rule = Rule(head, SoP(body))
       val interval: Map[Variable, Interval] = intervals(eqSeq(0))
@@ -2268,7 +2269,7 @@ object Main extends App {
       val (exp, us) = kv
       val access = exp.asInstanceOf[Access]
       val compressedHead = Access(access.name.compressedName, access.vars, CompressedTensor)
-      val compressedBody = multSoP(Seq(us.body, SoP(Seq(Prod(Seq(exp))))))
+      val compressedBody = if (access.vars.length > 0) multSoP(Seq(us.body, SoP(Seq(Prod(Seq(exp)))))) else SoP(Seq(Prod(Seq(exp))))
       acc :+ (exp -> Rule(compressedHead, compressedBody))
     }).toMap
     val compressionMap: Map[Exp, Rule] = mergeMap(Seq(compressionMaps, compressionMap1))((v1, v2) => v1)
@@ -2276,21 +2277,17 @@ object Main extends App {
     val allDimVars: Seq[Variable] = dimInfo.toVarsMap.values.foldLeft(Seq.empty[Dim])((acc, dimSeq) => acc ++ dimSeq).foldLeft(Seq.empty[Variable])((acc, d) => acc ++ getVariables(d))
     
     val (comparisonsC, tensorComputationC): (SoP, SoP) = (getOnlyComparisonSoP(outC.body), getNoComparisonSoP(outC.body))
-    val (comparisonsRC, tensorComputationRC): (SoP, SoP) = (SoPTimesSoP(outRM.body, comparisonsC.vars2RedundancyVars), tensorComputationC.vars2RedundancyVars)
     val ruleCompC = Rule(outC.head, comparisonsC)
-    val ruleCompRC = Rule(outRM.head, comparisonsRC)
     val ruleTCC = Rule(outC.head, comparisonsC)
     
     val variableConditionMapUS: Seq[Map[Variable, Seq[(String, Index)]]] = getVariableConditionMap(variables, outUS)
     val variableConditionMapRM: Seq[Map[Variable, Seq[(String, Index)]]] = getVariableConditionMap(variables, outRM)
     val variableConditionMapC: Seq[Map[Variable, Seq[(String, Index)]]] = getVariableConditionMap(variables, ruleCompC)
-    val variableConditionMapRC: Seq[Map[Variable, Seq[(String, Index)]]] = getVariableConditionMap(variables, ruleCompRC)
     
 
     val (unifiedVariableConditionMapUS, _): (Seq[Map[Variable, Seq[(String, Index)]]], Seq[Map[Variable, Variable]]) = unifyEqualVariableConditionMap(variables, variableConditionMapUS)
     val (unifiedVariableConditionMapRM, _): (Seq[Map[Variable, Seq[(String, Index)]]], Seq[Map[Variable, Variable]]) = unifyEqualVariableConditionMap(variables, variableConditionMapRM)
     val (unifiedVariableConditionMapC, _): (Seq[Map[Variable, Seq[(String, Index)]]], Seq[Map[Variable, Variable]]) = unifyEqualVariableConditionMap(variables, variableConditionMapC)
-    val (unifiedVariableConditionMapRC, _): (Seq[Map[Variable, Seq[(String, Index)]]], Seq[Map[Variable, Variable]]) = unifyEqualVariableConditionMap(variables, variableConditionMapRC)
 
     val unifiedOutUS: Rule = Rule(outUS.head, getSoP(unifiedVariableConditionMapUS))
     val unifiedOutRM: Rule = Rule(outRM.head, getSoP(unifiedVariableConditionMapRM))
@@ -2300,103 +2297,85 @@ object Main extends App {
       acc :+ prodTimesProd(compProd, accessProd)
     }))
     val unifiedOutC: Rule = Rule(outC.head, unifiedBodyC)
-    val unifiedBodyRC1: SoP = getSoP(unifiedVariableConditionMapRC)
-    val unifiedBodyRC: SoP = SoP((unifiedBodyRC1.prods zip tensorComputationRC.prods).foldLeft(Seq.empty[Prod])((acc, prods) => {
-      val (compProd, accessProd) = prods
-      acc :+ prodTimesProd(compProd, accessProd)
-    }))
-    val unifiedOutRC: Rule = Rule(outRM.head, unifiedBodyRC)
 
     val distinctOutUS: Rule = keepDistinct(unifiedOutUS)
     val distinctOutRM: Rule = keepDistinct(unifiedOutRM)
     val distinctOutC: Rule = keepDistinct(unifiedOutC)
-    val distinctOutRC: Rule = keepDistinct(unifiedOutRC)
 
     val simplifiedOutUS: Rule = simplify(distinctOutUS)
     val simplifiedOutRM: Rule = simplify(distinctOutRM)
     val simplifiedOutC: Rule = simplify(distinctOutC)
-    val simplifiedOutRC: Rule = simplify(distinctOutRC)
 
     val (comparisonsC2, tensorComputationC2): (SoP, SoP) = (getOnlyComparisonSoP(simplifiedOutC.body), getNoComparisonSoP(simplifiedOutC.body))
-    val (comparisonsRC2, tensorComputationRC2): (SoP, SoP) = (getOnlyComparisonSoP(simplifiedOutRC.body), getNoComparisonSoP(simplifiedOutRC.body))
     val ruleCompC2 = Rule(outC.head, comparisonsC2)
-    val ruleCompRC2 = Rule(outRM.head, comparisonsRC2)
 
     val distinctConditionMapUS: Seq[Map[Variable, Seq[(String, Index)]]] = getVariableConditionMap(variables, simplifiedOutUS)
     val distinctConditionMapRM: Seq[Map[Variable, Seq[(String, Index)]]] = getVariableConditionMap(variables, simplifiedOutRM)
     val distinctConditionMapC: Seq[Map[Variable, Seq[(String, Index)]]] = getVariableConditionMap(variables, ruleCompC2)
-    val distinctConditionMapRC: Seq[Map[Variable, Seq[(String, Index)]]] = getVariableConditionMap(variables, ruleCompRC2)
 
     val fixedConditionOrderUS: Seq[Map[Variable, Seq[(String, Index)]]] = fixConditionOrder(variables, distinctConditionMapUS)
     val fixedConditionOrderRM: Seq[Map[Variable, Seq[(String, Index)]]] = fixConditionOrder(variables, distinctConditionMapRM)
     val fixedConditionOrderC: Seq[Map[Variable, Seq[(String, Index)]]] = fixConditionOrder(variables, distinctConditionMapC)
-    val fixedConditionOrderRC: Seq[Map[Variable, Seq[(String, Index)]]] = fixConditionOrder(variables, distinctConditionMapRC)
 
-    val (fixedConditionOrderUS2, fixedConditionOrderRM2, fixedConditionOrderC2, fixedConditionOrderRC2, eqVarMapUS, eqVarMapRM, eqVarMapC, eqVarMapRC) = if (variableReplacementFlag) {
+      val (fixedConditionOrderUS2, fixedConditionOrderRM2, fixedConditionOrderC2, eqVarMapUS, eqVarMapRM, eqVarMapC) = if (variableReplacementFlag) {
       val (removedNonLHSVarsUS, equalityVarMapUS): (Seq[Map[Variable, Seq[(String, Index)]]], Seq[Map[Variable, Index]]) = removeNonLHSEQVars(tensorComputation.head.vars, fixedConditionOrderUS)
       val (removedNonLHSVarsRM, equalityVarMapRM): (Seq[Map[Variable, Seq[(String, Index)]]], Seq[Map[Variable, Index]]) = removeNonLHSEQVars(tensorComputation.head.vars.redundancyVarsInplace, fixedConditionOrderRM)
       val (removedNonLHSVarsC, equalityVarMapC): (Seq[Map[Variable, Seq[(String, Index)]]], Seq[Map[Variable, Index]]) = removeNonLHSEQVars(tensorComputation.head.vars, fixedConditionOrderC)
-      val (removedNonLHSVarsRC, equalityVarMapRC): (Seq[Map[Variable, Seq[(String, Index)]]], Seq[Map[Variable, Index]]) = removeNonLHSEQVars(tensorComputation.head.vars, fixedConditionOrderRC)
 
       val (_, eqRepsUS): (Seq[Map[Variable, Seq[(String, Index)]]], Seq[Map[Variable, Variable]]) = unifyEqualVariableConditionMap(variables, fixedConditionOrderUS)
       val (_, eqRepsRM): (Seq[Map[Variable, Seq[(String, Index)]]], Seq[Map[Variable, Variable]]) = unifyEqualVariableConditionMap(variables, fixedConditionOrderRM)
       val (_, eqRepsC): (Seq[Map[Variable, Seq[(String, Index)]]], Seq[Map[Variable, Variable]]) = unifyEqualVariableConditionMap(variables, fixedConditionOrderC)
-      val (_, eqRepsRC): (Seq[Map[Variable, Seq[(String, Index)]]], Seq[Map[Variable, Variable]]) = unifyEqualVariableConditionMap(variables, fixedConditionOrderRC)
 
       val eqVarMapUS: Seq[Map[Variable, Index]] = (eqRepsUS zip equalityVarMapUS).map{case(e1, e2) => mergeMap(Seq(e1, e2))((v1, v2) => v1)}
       val eqVarMapRM: Seq[Map[Variable, Index]] = (eqRepsRM zip equalityVarMapRM).map{case(e1, e2) => mergeMap(Seq(e1, e2))((v1, v2) => v1)}
       val eqVarMapC: Seq[Map[Variable, Index]] = (eqRepsC zip equalityVarMapC).map{case(e1, e2) => mergeMap(Seq(e1, e2))((v1, v2) => v1)}
-      val eqVarMapRC: Seq[Map[Variable, Index]] = (eqRepsRC zip equalityVarMapRC).map{case(e1, e2) => mergeMap(Seq(e1, e2))((v1, v2) => v1)}
 
       val fixedConditionOrderUS2: Seq[Map[Variable, Seq[(String, Index)]]] = fixConditionOrder(variables, removedNonLHSVarsUS)
       val fixedConditionOrderRM2: Seq[Map[Variable, Seq[(String, Index)]]] = fixConditionOrder(variables, removedNonLHSVarsRM)
       val fixedConditionOrderC2: Seq[Map[Variable, Seq[(String, Index)]]] = fixConditionOrder(variables, removedNonLHSVarsC)
-      val fixedConditionOrderRC2: Seq[Map[Variable, Seq[(String, Index)]]] = fixConditionOrder(variables, removedNonLHSVarsRC)
-      (fixedConditionOrderUS2, fixedConditionOrderRM2, fixedConditionOrderC2, fixedConditionOrderRC2, eqVarMapUS, eqVarMapRM, eqVarMapC, eqVarMapRC)
-    } else (fixedConditionOrderUS, fixedConditionOrderRM, fixedConditionOrderC, fixedConditionOrderRC, fixedConditionOrderUS.map(_ => Map.empty[Variable, Index]), fixedConditionOrderRM.map(_ => Map.empty[Variable, Index]), fixedConditionOrderC.map(_ => Map.empty[Variable, Index]), fixedConditionOrderRC.map(_ => Map.empty[Variable, Index]))
+      (fixedConditionOrderUS2, fixedConditionOrderRM2, fixedConditionOrderC2, eqVarMapUS, eqVarMapRM, eqVarMapC)
+    } else (fixedConditionOrderUS, fixedConditionOrderRM, fixedConditionOrderC, fixedConditionOrderUS.map(_ => Map.empty[Variable, Index]), fixedConditionOrderRM.map(_ => Map.empty[Variable, Index]), fixedConditionOrderC.map(_ => Map.empty[Variable, Index]))
 
     val intervalsUS: Seq[Map[Variable, Interval]] = getIntervals(variables, fixedConditionOrderUS2, eqVarMapUS)
     val intervalsRM: Seq[Map[Variable, Interval]] = getIntervals(variables, fixedConditionOrderRM2, eqVarMapRM)
     val intervalsC: Seq[Map[Variable, Interval]] = getIntervals(variables, fixedConditionOrderC2, eqVarMapC)
-    val intervalsRC: Seq[Map[Variable, Interval]] = getIntervals(variables, fixedConditionOrderRC2, eqVarMapRC)
 
     val intervalsSimplifiedUS: Seq[Map[Variable, Interval]] = simplifyIntervals(intervalsUS)
     val intervalsSimplifiedRM: Seq[Map[Variable, Interval]] = simplifyIntervals(intervalsRM)
     val intervalsSimplifiedC: Seq[Map[Variable, Interval]] = simplifyIntervals(intervalsC)
-    val intervalsSimplifiedRC: Seq[Map[Variable, Interval]] = simplifyIntervals(intervalsRC)
 
     val finalUS: Rule = Rule(outUS.head, getSoPFromInterval(intervalsSimplifiedUS, eqVarMapUS))
     val finalRM: Rule = Rule(outRM.head, getSoPFromInterval(intervalsSimplifiedRM, eqVarMapRM))
     val finalBodyC1: SoP = getSoPFromInterval(intervalsSimplifiedC, eqVarMapC)
-    val finalBodyC: SoP = SoP((finalBodyC1.prods zip tensorComputationC2.prods).foldLeft(Seq.empty[Prod])((acc, prods) => {
+    val finalBodyC15: SoP = SoP((finalBodyC1.prods zip comparisonsC2.prods).foldLeft(Seq.empty[Prod])((acc, prod) => {
+      val (fProd, compProd): (Prod, Prod) = prod
+      val flag = compProd.exps.foldLeft(false)((acc2, e) => acc2 || e == trueComparison())
+      if (flag) acc :+ Prod(fProd.exps ++ Seq(trueComparison))
+      else acc :+ fProd
+    }))
+    val finalBodyC2: SoP = SoP((finalBodyC15.prods zip tensorComputationC2.prods).foldLeft(Seq.empty[Prod])((acc, prods) => {
       val (compProd, accessProd) = prods
       acc :+ prodTimesProd(compProd, accessProd)
     }))
+    val finalBodyC: SoP = SoP(finalBodyC2.prods.foldLeft(Seq.empty[Prod])((acc, prod) => acc :+ Prod(prod.exps.filter(e => !e.isInstanceOf[Comparison] || e.asInstanceOf[Comparison] != trueComparison()))))
     val finalC: Rule = Rule(outC.head, finalBodyC)
-    val finalBodyRC1: SoP = getSoPFromInterval(intervalsSimplifiedRC, eqVarMapRC)
-    val finalBodyRC: SoP = SoP((finalBodyRC1.prods zip tensorComputationRC2.prods).foldLeft(Seq.empty[Prod])((acc, prods) => {
-      val (compProd, accessProd) = prods
-      acc :+ prodTimesProd(compProd, accessProd)
-    }))
-    val finalRC: Rule = Rule(outRM.head, finalBodyRC)
 
     val pathC: Seq[(Rule, Seq[Map[Variable, Interval]], Seq[Map[Variable, Index]])] = getFinalCodeGenPath(tensorComputation.head, finalC, intervalsSimplifiedC, eqVarMapC)
-    val pathRC: Seq[(Rule, Seq[Map[Variable, Interval]], Seq[Map[Variable, Index]])] = getFinalCodeGenPath(tensorComputation.head, finalRC, intervalsSimplifiedRC, eqVarMapRC)
-    println("=========================")
-    println("PATHC: ")
-    println(pathC)
-    println("=========================")
+    val tensorComputationRC = Rule(tensorComputation.head, SoP(Seq(Prod(Seq(tensorComputation.head.vars2RedundancyVars)))))
     
 
     // println("variables:")
     // println(variables)
     println("==================")
-    // println("outUS")
-    // pprint(outUS)
-    // println("------------------")
-    // println("outRM")
-    // pprint(outRM)
-    // println("------------------")
+    println("Tensor Computation")
+    pprint(tensorComputation)
+    println("==================")
+    println("outUS")
+    pprint(outUS)
+    println("------------------")
+    println("outRM")
+    pprint(outRM)
+    println("------------------")
     println("outC")
     pprint(outC)
     // println("------------------")
@@ -2411,9 +2390,6 @@ object Main extends App {
     // println("------------------")
     println("variableConditionMapC")
     println(variableConditionMapC)
-    println("------------------")
-    println("variableConditionMapRC")
-    println(variableConditionMapRC)
     println("==================")
     // println("unifiedVariableConditionMapUS")
     // println(unifiedVariableConditionMapUS)
@@ -2423,9 +2399,6 @@ object Main extends App {
     // println("------------------")
     println("unifiedVariableConditionMapC")
     println(unifiedVariableConditionMapC)
-    println("------------------")
-    println("unifiedVariableConditionMapRC")
-    println(unifiedVariableConditionMapRC)
     println("==================")
     // println("unifiedOutUS")
     // pprint(unifiedOutUS)
@@ -2435,9 +2408,6 @@ object Main extends App {
     // println("------------------")
     println("unifiedOutC")
     pprint(unifiedOutC)
-    println("------------------")
-    println("unifiedOutRC")
-    pprint(unifiedOutRC)
     println("==================")
     // println("distinctOutUS")
     // pprint(distinctOutUS)
@@ -2447,21 +2417,15 @@ object Main extends App {
     // println("------------------")
     println("distinctOutC")
     pprint(distinctOutC)
-    println("------------------")
-    println("distinctOutRC")
-    pprint(distinctOutRC)
     println("==================")
-    // println("simplifiedOutUS")
-    // pprint(simplifiedOutUS)
-    // println("------------------")
-    // println("simplifiedOutRM")
-    // pprint(simplifiedOutRM)
-    // println("------------------")
+    println("simplifiedOutUS")
+    pprint(simplifiedOutUS)
+    println("------------------")
+    println("simplifiedOutRM")
+    pprint(simplifiedOutRM)
+    println("------------------")
     println("simplifiedOutC")
     pprint(simplifiedOutC)
-    println("------------------")
-    println("simplifiedOutRC")
-    pprint(simplifiedOutRC)
     println("==================")
     // println("distinctConditionMapUS")
     // println(distinctConditionMapUS)
@@ -2471,9 +2435,6 @@ object Main extends App {
     // println("------------------")
     println("distinctConditionMapC")
     println(distinctConditionMapC)
-    println("------------------")
-    println("distinctConditionMapRC")
-    println(distinctConditionMapRC)
     println("==================")
     // println("fixedConditionOrderUS")
     // println(fixedConditionOrderUS)
@@ -2483,9 +2444,6 @@ object Main extends App {
     // println("------------------")
     println("fixedConditionOrderC")
     println(fixedConditionOrderC)
-    println("------------------")
-    println("fixedConditionOrderRC")
-    println(fixedConditionOrderRC)
     println("==================")
     // println("removedNonLHSVarsUS")
     // println(removedNonLHSVarsUS)
@@ -2504,9 +2462,6 @@ object Main extends App {
     // println("------------------")
     println("eqVarMapC")
     println(eqVarMapC)
-    println("------------------")
-    println("eqVarMapRC")
-    println(eqVarMapRC)
     println("==================")
     // println("intervalsUS")
     // println(intervalsUS)
@@ -2516,9 +2471,6 @@ object Main extends App {
     // println("------------------")
     println("intervalsC")
     println(intervalsC)
-    println("------------------")
-    println("intervalsRC")
-    println(intervalsRC)
     println("==================")
     // println("intervalsSimplifiedUS")
     // println(intervalsSimplifiedUS)
@@ -2528,9 +2480,6 @@ object Main extends App {
     // println("------------------")
     println("intervalsSimplifiedC")
     println(intervalsSimplifiedC)
-    println("------------------")
-    println("intervalsSimplifiedRC")
-    println(intervalsSimplifiedRC)
     println("==================")
     // println("finalUS")
     // pprint(finalUS)
@@ -2540,9 +2489,32 @@ object Main extends App {
     // println("------------------")
     println("finalC")
     pprint(finalC)
-    println("------------------")
-    println("finalRC")
-    pprint(finalRC)
+    println("==================")
+    println("PathC")
+    pathC.foldLeft()((acc, cur) => {
+      val (tensorComputationC, intervalC, eqMapC): (Rule, Seq[Map[Variable, Interval]], Seq[Map[Variable, Index]]) = cur
+      println("********************")
+      println("Tensor Computation")
+      pprint(tensorComputationC)
+      println("Interval")
+      println(intervalC(0))
+      println("Equality Var Map")
+      println(eqMapC(0))
+      println("********************")
+    })
+    // println("------------------")
+    // println("PathRC")
+    // pathRC.foldLeft()((acc, cur) => {
+    //   val (tensorComputationRC, intervalRC, eqMapRC): (Rule, Seq[Map[Variable, Interval]], Seq[Map[Variable, Index]]) = cur
+    //   println("********************")
+    //   println("Tensor Computation")
+    //   pprint(tensorComputationRC)
+    //   println("Interval")
+    //   println(intervalRC(0))
+    //   println("Equality Var Map")
+    //   println(eqMapRC(0))
+    //   println("********************")
+    // })
     println("==================")
 
     if (codeLang == "MLIR") {
@@ -2557,12 +2529,13 @@ object Main extends App {
         val res: String = codeGenRule(tensorComputationC, dimInfo :+ outDI, variables, intervalC, eqMapC, UniqueSet, peqC, codeMotion, dataLayoutMap)
         (acc._1 + "\n" + res, true)
       })._1
-      val reconstruction: String = pathRC.foldLeft(("", false))((acc, cur) => {
-        val (tensorComputationRC, intervalRC, eqMapRC): (Rule, Seq[Map[Variable, Interval]], Seq[Map[Variable, Index]]) = cur
-        val peqRC: Boolean = peqMode | acc._2
-        val res: String = codeGenRule(tensorComputationRC, dimInfo :+ outDI, variables, intervalRC, eqMapRC, UniqueSet, peqRC, codeMotion, dataLayoutMap)
-        (acc._1 + "\n" + res, true)
-      })._1
+      // val reconstruction: String = pathRC.foldLeft(("", false))((acc, cur) => {
+      //   val (tensorComputationRC, intervalRC, eqMapRC): (Rule, Seq[Map[Variable, Interval]], Seq[Map[Variable, Index]]) = cur
+      //   val peqRC: Boolean = peqMode | acc._2
+      //   val res: String = codeGenRule(tensorComputationRC, dimInfo :+ outDI, variables, intervalRC, eqMapRC, UniqueSet, peqRC, codeMotion, dataLayoutMap)
+      //   (acc._1 + "\n" + res, true)
+      // })._1
+      val reconstruction: String = codeGenRule(tensorComputationRC, dimInfo :+ outDI, variables.redundancyVarsInplace, intervalsSimplifiedRM, eqVarMapRM, UniqueSet, false, codeMotion, dataLayoutMap)
       if (codeGenMode == 0) "void compute() {\n" + computation + "\n}\n\n\nvoid reconstruct() {\n" + reconstruction + "\n}\n"
       else if (codeGenMode == 1) computation
       else if (codeGenMode == 2) reconstruction
@@ -4746,7 +4719,7 @@ object Main extends App {
     val c: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head -> inf._3), compressionMap))((v1, v2) => v1)
     val di: Seq[DimInfo] = dimInfo :+ inf._4
     
-    (tensorComputation, di, us, c, rm)
+    (tensorComputation, di, us, rm, c)
   }
 
   def e2eAddition(n: Int, us: Map[Exp, Rule], rm: Map[Exp, Rule], mode: Int = 0) = {
@@ -4771,7 +4744,7 @@ object Main extends App {
 
 
     val var1HeadUS: Access = Access(name.uniqueName,  xSeq, UniqueSet)
-    val var1BodyUS: SoP = dim1.toSoP
+    val var1BodyUS: SoP = if(n == 0) SoP(Seq(Prod(Seq(trueComparison())))) else dim1.toSoP
     val var1US: Rule = Rule(var1HeadUS, var1BodyUS)
 
     val var1HeadRM: Access = Access(name.redundancyName,  xSeq.redundancyVarsInplace, RedundancyMap)
@@ -4779,7 +4752,7 @@ object Main extends App {
     val var1RM: Rule = Rule(var1HeadRM, var1BodyRM)
 
     val var2HeadUS: Access = Access(s"$other$name".uniqueName,  xSeq, UniqueSet)
-    val var2BodyUS: SoP = dim2.toSoP
+    val var2BodyUS: SoP = if(n == 0) SoP(Seq(Prod(Seq(trueComparison())))) else dim2.toSoP
     val var2US: Rule = Rule(var2HeadUS, var2BodyUS)
 
     val var2HeadRM: Access = Access(s"$other$name".redundancyName,  xSeq.redundancyVarsInplace, RedundancyMap)
@@ -4824,7 +4797,7 @@ object Main extends App {
     val dimInfo: Seq[DimInfo] = Seq(dim2)
 
     val var2HeadUS: Access = Access(s"$other$name".uniqueName,  xSeq, UniqueSet)
-    val var2BodyUS: SoP = dim2.toSoP
+    val var2BodyUS: SoP = if(n == 0) SoP(Seq(Prod(Seq(trueComparison())))) else dim2.toSoP
     val var2US: Rule = Rule(var2HeadUS, var2BodyUS)
 
     val var2HeadRM: Access = Access(s"$other$name".redundancyName,  xSeq.redundancyVarsInplace, RedundancyMap)
@@ -4873,10 +4846,10 @@ object Main extends App {
         val xMapB: Map[Variable, Variable] = mergeMap(Seq(xMapB1, xMapB2))((v1, v2) => v1)
         val headFakeA: Access = Access(nameA, xSeqFakeA, Tensor)
         val headFakeB: Access = Access(nameB, xSeqFakeB, Tensor)
-        val (aFakeUS, aFakeRM, aFakeC): (Rule, Rule, Rule) = (acc2._3.getOrElse(headFakeA, emptyRule), acc2._4.getOrElse(headFakeA, emptyRule), acc2._5.getOrElse(headFakeA, emptyRule))
-        val (bFakeUS, bFakeRM, bFakeC): (Rule, Rule, Rule) = (acc2._3.getOrElse(headFakeB, emptyRule), acc2._4.getOrElse(headFakeB, emptyRule), acc2._5.getOrElse(headFakeB, emptyRule))
-        val (aUS, aRM, aC): (Rule, Rule, Rule) = if (degA != 0) (replaceVars(aFakeUS, xMapA), replaceVars(aFakeRM, xMapA), replaceVars(aFakeC, xMapA)) else (aFakeUS, aFakeRM, aFakeC)
-        val (bUS, bRM, bC): (Rule, Rule, Rule) = if (degB != 0) (replaceVars(bFakeUS, xMapB), replaceVars(bFakeRM, xMapB), replaceVars(bFakeC, xMapB)) else (bFakeUS, bFakeRM, bFakeC)
+        val (aFakeUS, aFakeRM, aFakeC): (Rule, Rule, Rule) = (acc2._3.getOrElse(headFakeA, Rule(headFakeA, SoP(Seq(Prod(Seq(trueComparison())))))), acc2._4.getOrElse(headFakeA, Rule(headFakeA, SoP(Seq(Prod(Seq(trueComparison())))))), acc2._5.getOrElse(headFakeA, Rule(headFakeA, SoP(Seq(Prod(Seq(trueComparison(), headFakeA)))))))
+        val (bFakeUS, bFakeRM, bFakeC): (Rule, Rule, Rule) = (acc2._3.getOrElse(headFakeB, Rule(headFakeA, SoP(Seq(Prod(Seq(trueComparison())))))), acc2._4.getOrElse(headFakeB, Rule(headFakeA, SoP(Seq(Prod(Seq(trueComparison())))))), acc2._5.getOrElse(headFakeB, Rule(headFakeA, SoP(Seq(Prod(Seq(trueComparison(), headFakeB)))))))
+        val (aUS, aRM, aC): (Rule, Rule, Rule) = (replaceVars(aFakeUS, xMapA), replaceVars(aFakeRM, xMapA), replaceVars(aFakeC, xMapA))
+        val (bUS, bRM, bC): (Rule, Rule, Rule) = (replaceVars(bFakeUS, xMapB), replaceVars(bFakeRM, xMapB), replaceVars(bFakeC, xMapB))
         val headA: Access = Access(nameA, xSeqA, Tensor)
         val headB: Access = Access(nameB, xSeqB, Tensor)
         val newUS: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](headA -> aUS, headB -> bUS), acc2._3))((v1, v2) => v1)
@@ -4910,7 +4883,7 @@ object Main extends App {
 
     val usF: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head -> inf._1), newUS))((v1, v2) => v1)
     val rmF: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head -> inf._2), newRM))((v1, v2) => v1)
-    val cF: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head -> inf._3), newRM))((v1, v2) => v1)
+    val cF: Map[Exp, Rule] = mergeMap(Seq(Map[Exp, Rule](head -> inf._3), newC))((v1, v2) => v1)
     val diF: Seq[DimInfo] = dimInfo :+ inf._4
     
     (tensorComputation, diF, usF, rmF, cF)
@@ -5040,14 +5013,22 @@ struct RingCofactor {
     val constructorCode: String = const_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, const_dimInfo, const_uniqueSets, const_redundancyMap, 1, false, compressionMaps=const_compressionMap)}")
     val addus2: Map[Exp, Rule] = const_uniqueSets.map{case (k, v) => (Access("other." + k.asInstanceOf[Access].name, k.asInstanceOf[Access].vars, k.asInstanceOf[Access].kind) -> Rule(Access("other." + v.head.name, v.head.vars, v.head.kind), v.body))}.toMap
     val addrm2: Map[Exp, Rule] = const_redundancyMap.map{case (k, v) => (Access("other." + k.asInstanceOf[Access].name, k.asInstanceOf[Access].vars, k.asInstanceOf[Access].kind) -> Rule(Access("other." + v.head.name, v.head.vars, v.head.kind), v.body))}.toMap
-    val addc2: Map[Exp, Rule] = const_compressionMap.map{case (k, v) => (Access("other." + k.asInstanceOf[Access].name, k.asInstanceOf[Access].vars, k.asInstanceOf[Access].kind) -> Rule(Access("other." + v.head.name, v.head.vars, v.head.kind), v.body))}.toMap
+    val addc2: Map[Exp, Rule] = const_compressionMap.map{case (k, v) => (Access("other." + k.asInstanceOf[Access].name, k.asInstanceOf[Access].vars, k.asInstanceOf[Access].kind) -> Rule(Access("other." + v.head.name, v.head.vars, v.head.kind), 
+        SoP((getOnlyComparisonSoP(v.body).prods zip 
+        getNoComparisonSoP(v.body).prods.foldLeft(Seq.empty[Prod])((acc, prod) => 
+        acc :+ Prod(prod.exps.map(e => Access("other." + e.asInstanceOf[Access].name, e.asInstanceOf[Access].vars, e.asInstanceOf[Access].kind))))).
+        map{case (e1, e2) => prodTimesProd(e1, e2)})))}.toMap
     val addus: Map[Exp, Rule] = mergeMap(Seq(const_uniqueSets, addus2))((v1, v2) => v1)
     val addrm: Map[Exp, Rule] = mergeMap(Seq(const_redundancyMap, addrm2))((v1, v2) => v1)
     val addc: Map[Exp, Rule] = mergeMap(Seq(const_compressionMap, addc2))((v1, v2) => v1)
 
     val multus2: Map[Exp, Rule] = const_uniqueSets.map{case (k, v) => (Access("other." + k.asInstanceOf[Access].name, k.asInstanceOf[Access].vars, k.asInstanceOf[Access].kind) -> replaceVars(Rule(Access("other." + v.head.name, v.head.vars, v.head.kind), v.body), Map("CONT_SZ".toVar -> "CONT_SZ2".toVar)))}.toMap
     val multrm2: Map[Exp, Rule] = const_redundancyMap.map{case (k, v) => (Access("other." + k.asInstanceOf[Access].name, k.asInstanceOf[Access].vars, k.asInstanceOf[Access].kind) -> replaceVars(Rule(Access("other." + v.head.name, v.head.vars, v.head.kind), v.body), Map("CONT_SZ".toVar -> "CONT_SZ2".toVar)))}.toMap
-    val multc2: Map[Exp, Rule] = const_compressionMap.map{case (k, v) => (Access("other." + k.asInstanceOf[Access].name, k.asInstanceOf[Access].vars, k.asInstanceOf[Access].kind) -> replaceVars(Rule(Access("other." + v.head.name, v.head.vars, v.head.kind), v.body), Map("CONT_SZ".toVar -> "CONT_SZ2".toVar)))}.toMap
+    val multc2: Map[Exp, Rule] = const_compressionMap.map{case (k, v) => (Access("other." + k.asInstanceOf[Access].name, k.asInstanceOf[Access].vars, k.asInstanceOf[Access].kind) -> replaceVars(Rule(Access("other." + v.head.name, v.head.vars, v.head.kind), 
+    SoP((getOnlyComparisonSoP(v.body).prods zip
+        getNoComparisonSoP(v.body).prods.foldLeft(Seq.empty[Prod])((acc, prod) => 
+        acc :+ Prod(prod.exps.map(e => Access("other." + e.asInstanceOf[Access].name, e.asInstanceOf[Access].vars, e.asInstanceOf[Access].kind))))).
+        map{case (e1, e2) => prodTimesProd(e1, e2)})), Map("CONT_SZ".toVar -> "CONT_SZ2".toVar)))}.toMap
     val multus: Map[Exp, Rule] = mergeMap(Seq(const_uniqueSets, multus2))((v1, v2) => v1)
     val multrm: Map[Exp, Rule] = mergeMap(Seq(const_redundancyMap, multrm2))((v1, v2) => v1)
     val multc: Map[Exp, Rule] = mergeMap(Seq(const_compressionMap, multc2))((v1, v2) => v1)
@@ -5101,7 +5082,7 @@ struct RingCofactor {
       val res = e2eMultiplication(d, acc._3, acc._4, acc._5)
       (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2), mergeMap(Seq(acc._5, res._5))((v1, v2) => v2))
     })
-    val multCode: String = mult_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, mult_dimInfo, mult_uniqueSets, mult_redundancyMap, 1, compressionMaps=mult_compressionMap)}")
+    val multCode: String = mult_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, mult_dimInfo, mult_uniqueSets, mult_redundancyMap, 1)}")
 
     val afterMultCode: String = s"""
         }
@@ -5351,11 +5332,11 @@ int main(int argc, char *argv[]) {
   long start = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
 """
     val allDegs = (2 to 2)
-    val (const_tensorComputation, const_dimInfo, const_uniqueSets, const_redundancyMap) = allDegs.foldLeft((Seq.empty[Rule], Seq.empty[DimInfo], Map.empty[Exp, Rule], Map.empty[Exp, Rule]))((acc, d) => {
+    val (const_tensorComputation, const_dimInfo, const_uniqueSets, const_redundancyMap, const_compressionMap) = allDegs.foldLeft((Seq.empty[Rule], Seq.empty[DimInfo], Map.empty[Exp, Rule], Map.empty[Exp, Rule], Map.empty[Exp, Rule]))((acc, d) => {
       val res = e2eConstructor(d)
-      (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2))
+      (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2), mergeMap(Seq(acc._5, res._5))((v1, v2) => v2))
     })
-    val c2 = const_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, const_dimInfo, const_uniqueSets, const_redundancyMap, 1, false)}")
+    val c2 = const_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, const_dimInfo, const_uniqueSets, const_redundancyMap, 1, false, compressionMaps=const_compressionMap)}")
     val c3 = 
 s"""
   long end = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
@@ -5417,11 +5398,11 @@ int main(int argc, char *argv[]) {
   long start = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
 """
     val allDegs = (2 to 4)
-    val (const_tensorComputation, const_dimInfo, const_uniqueSets, const_redundancyMap) = allDegs.foldLeft((Seq.empty[Rule], Seq.empty[DimInfo], Map.empty[Exp, Rule], Map.empty[Exp, Rule]))((acc, d) => {
+    val (const_tensorComputation, const_dimInfo, const_uniqueSets, const_redundancyMap, const_compressionMap) = allDegs.foldLeft((Seq.empty[Rule], Seq.empty[DimInfo], Map.empty[Exp, Rule], Map.empty[Exp, Rule], Map.empty[Exp, Rule]))((acc, d) => {
       val res = e2eConstructor(d)
-      (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2))
+      (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2), mergeMap(Seq(acc._5, res._5))((v1, v2) => v2))
     })
-    val c2 = const_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, const_dimInfo, const_uniqueSets, const_redundancyMap, 1, false)}")
+    val c2 = const_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, const_dimInfo, const_uniqueSets, const_redundancyMap, 1, false, compressionMaps=const_compressionMap)}")
     val c3 = 
 s"""
   long end = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
@@ -5511,11 +5492,11 @@ int main(int argc, char *argv[]) {
   long start = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
 """
     val allDegs = (2 to 6)
-    val (const_tensorComputation, const_dimInfo, const_uniqueSets, const_redundancyMap) = allDegs.foldLeft((Seq.empty[Rule], Seq.empty[DimInfo], Map.empty[Exp, Rule], Map.empty[Exp, Rule]))((acc, d) => {
+    val (const_tensorComputation, const_dimInfo, const_uniqueSets, const_redundancyMap, const_compressionMap) = allDegs.foldLeft((Seq.empty[Rule], Seq.empty[DimInfo], Map.empty[Exp, Rule], Map.empty[Exp, Rule], Map.empty[Exp, Rule]))((acc, d) => {
       val res = e2eConstructor(d)
-      (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2))
+      (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2), mergeMap(Seq(acc._5, res._5))((v1, v2) => v2))
     })
-    val c2 = const_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, const_dimInfo, const_uniqueSets, const_redundancyMap, 1, false)}")
+    val c2 = const_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, const_dimInfo, const_uniqueSets, const_redundancyMap, 1, false, compressionMaps=const_compressionMap)}")
     val c3 = 
 s"""
   long end = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
@@ -5599,26 +5580,32 @@ int main(int argc, char *argv[]) {
 """
     val k = 1
     val allDegs = (2 to 2 * k)
-    val (const_tensorComputation, const_dimInfo, const_uniqueSets, const_redundancyMap) = allDegs.foldLeft((Seq.empty[Rule], Seq.empty[DimInfo], Map.empty[Exp, Rule], Map.empty[Exp, Rule]))((acc, d) => {
+    val (const_tensorComputation, const_dimInfo, const_uniqueSets, const_redundancyMap, const_compressionMap) = allDegs.foldLeft((Seq.empty[Rule], Seq.empty[DimInfo], Map.empty[Exp, Rule], Map.empty[Exp, Rule], Map.empty[Exp, Rule]))((acc, d) => {
       val res = e2eConstructor(d)
-      (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2))
+      (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2), mergeMap(Seq(acc._5, res._5))((v1, v2) => v2))
     })
-    val (other_const_tensorComputation, other_const_dimInfo, other_const_uniqueSets, other_const_redundancyMap) = allDegs.foldLeft((Seq.empty[Rule], Seq.empty[DimInfo], Map.empty[Exp, Rule], Map.empty[Exp, Rule]))((acc, d) => {
+    val (other_const_tensorComputation, other_const_dimInfo, other_const_uniqueSets, other_const_redundancyMap, other_const_compressionMap) = allDegs.foldLeft((Seq.empty[Rule], Seq.empty[DimInfo], Map.empty[Exp, Rule], Map.empty[Exp, Rule], Map.empty[Exp, Rule]))((acc, d) => {
       val res = e2eConstructor(d, 1)
-      (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2))
+      (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2), mergeMap(Seq(acc._5, res._5))((v1, v2) => v2))
     })
     val addus2: Map[Exp, Rule] = const_uniqueSets.map{case (k, v) => (Access("other_" + k.asInstanceOf[Access].name, k.asInstanceOf[Access].vars, k.asInstanceOf[Access].kind) -> Rule(Access("other_" + v.head.name, v.head.vars, v.head.kind), v.body))}.toMap
     val addrm2: Map[Exp, Rule] = const_redundancyMap.map{case (k, v) => (Access("other_" + k.asInstanceOf[Access].name, k.asInstanceOf[Access].vars, k.asInstanceOf[Access].kind) -> Rule(Access("other_" + v.head.name, v.head.vars, v.head.kind), v.body))}.toMap
+    val addc2: Map[Exp, Rule] = const_compressionMap.map{case (k, v) => (Access("other_" + k.asInstanceOf[Access].name, k.asInstanceOf[Access].vars, k.asInstanceOf[Access].kind) -> Rule(Access("other_" + v.head.name, v.head.vars, v.head.kind), 
+        SoP((getOnlyComparisonSoP(v.body).prods zip
+        getNoComparisonSoP(v.body).prods.foldLeft(Seq.empty[Prod])((acc, prod) => 
+        acc :+ Prod(prod.exps.map(e => Access("other_" + e.asInstanceOf[Access].name, e.asInstanceOf[Access].vars, e.asInstanceOf[Access].kind))))).
+        map{case (e1, e2) => prodTimesProd(e1, e2)})))}.toMap
     val addus: Map[Exp, Rule] = mergeMap(Seq(const_uniqueSets, addus2))((v1, v2) => v1)
     val addrm: Map[Exp, Rule] = mergeMap(Seq(const_redundancyMap, addrm2))((v1, v2) => v1)
-    val (peq_tensorComputation, peq_dimInfo, peq_uniqueSets, peq_redundancyMap) = allDegs.foldLeft((Seq.empty[Rule], const_dimInfo, addus, addrm))((acc, d) => {
+    val addc: Map[Exp, Rule] = mergeMap(Seq(const_compressionMap, addc2))((v1, v2) => v1)
+    val (peq_tensorComputation, peq_dimInfo, peq_uniqueSets, peq_redundancyMap, peq_compressionMap) = allDegs.foldLeft((Seq.empty[Rule], const_dimInfo, addus, addrm, addc))((acc, d) => {
       val res = e2eAddition(d, acc._3, acc._4, 1)
-      (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2))
+      (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2), mergeMap(Seq(acc._5, res._5))((v1, v2) => v2))
     })
-    val c2 = const_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, const_dimInfo, const_uniqueSets, const_redundancyMap, 1, false)}")
-    val c3 = other_const_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, other_const_dimInfo, other_const_uniqueSets, other_const_redundancyMap, 1, false)}")
+    val c2 = const_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, const_dimInfo, const_uniqueSets, const_redundancyMap, 1, false, compressionMaps=const_compressionMap)}")
+    val c3 = other_const_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, other_const_dimInfo, other_const_uniqueSets, other_const_redundancyMap, 1, false, compressionMaps=other_const_compressionMap)}")
     val c4 = "  long start = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();"
-    val c5 = peq_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, peq_dimInfo, peq_uniqueSets, peq_redundancyMap, 1)}")
+    val c5 = peq_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, peq_dimInfo, peq_uniqueSets, peq_redundancyMap, 1, compressionMaps=peq_compressionMap)}")
     val c6 = 
 s"""
   long end = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
@@ -5711,26 +5698,32 @@ int main(int argc, char *argv[]) {
 """
     val k = 2
     val allDegs = (2 to 2 * k)
-    val (const_tensorComputation, const_dimInfo, const_uniqueSets, const_redundancyMap) = allDegs.foldLeft((Seq.empty[Rule], Seq.empty[DimInfo], Map.empty[Exp, Rule], Map.empty[Exp, Rule]))((acc, d) => {
+    val (const_tensorComputation, const_dimInfo, const_uniqueSets, const_redundancyMap, const_compressionMap) = allDegs.foldLeft((Seq.empty[Rule], Seq.empty[DimInfo], Map.empty[Exp, Rule], Map.empty[Exp, Rule], Map.empty[Exp, Rule]))((acc, d) => {
       val res = e2eConstructor(d)
-      (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2))
+      (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2), mergeMap(Seq(acc._5, res._5))((v1, v2) => v2))
     })
-    val (other_const_tensorComputation, other_const_dimInfo, other_const_uniqueSets, other_const_redundancyMap) = allDegs.foldLeft((Seq.empty[Rule], Seq.empty[DimInfo], Map.empty[Exp, Rule], Map.empty[Exp, Rule]))((acc, d) => {
+    val (other_const_tensorComputation, other_const_dimInfo, other_const_uniqueSets, other_const_redundancyMap, other_const_compressionMap) = allDegs.foldLeft((Seq.empty[Rule], Seq.empty[DimInfo], Map.empty[Exp, Rule], Map.empty[Exp, Rule], Map.empty[Exp, Rule]))((acc, d) => {
       val res = e2eConstructor(d, 1)
-      (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2))
+      (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2), mergeMap(Seq(acc._5, res._5))((v1, v2) => v2))
     })
     val addus2: Map[Exp, Rule] = const_uniqueSets.map{case (k, v) => (Access("other_" + k.asInstanceOf[Access].name, k.asInstanceOf[Access].vars, k.asInstanceOf[Access].kind) -> Rule(Access("other_" + v.head.name, v.head.vars, v.head.kind), v.body))}.toMap
     val addrm2: Map[Exp, Rule] = const_redundancyMap.map{case (k, v) => (Access("other_" + k.asInstanceOf[Access].name, k.asInstanceOf[Access].vars, k.asInstanceOf[Access].kind) -> Rule(Access("other_" + v.head.name, v.head.vars, v.head.kind), v.body))}.toMap
+    val addc2: Map[Exp, Rule] = const_compressionMap.map{case (k, v) => (Access("other_" + k.asInstanceOf[Access].name, k.asInstanceOf[Access].vars, k.asInstanceOf[Access].kind) -> Rule(Access("other_" + v.head.name, v.head.vars, v.head.kind), 
+        SoP((getOnlyComparisonSoP(v.body).prods zip 
+        getNoComparisonSoP(v.body).prods.foldLeft(Seq.empty[Prod])((acc, prod) => 
+        acc :+ Prod(prod.exps.map(e => Access("other_" + e.asInstanceOf[Access].name, e.asInstanceOf[Access].vars, e.asInstanceOf[Access].kind))))).
+        map{case (e1, e2) => prodTimesProd(e1, e2)})))}.toMap
     val addus: Map[Exp, Rule] = mergeMap(Seq(const_uniqueSets, addus2))((v1, v2) => v1)
     val addrm: Map[Exp, Rule] = mergeMap(Seq(const_redundancyMap, addrm2))((v1, v2) => v1)
-    val (peq_tensorComputation, peq_dimInfo, peq_uniqueSets, peq_redundancyMap) = allDegs.foldLeft((Seq.empty[Rule], const_dimInfo, addus, addrm))((acc, d) => {
+    val addc: Map[Exp, Rule] = mergeMap(Seq(const_compressionMap, addc2))((v1, v2) => v1)
+    val (peq_tensorComputation, peq_dimInfo, peq_uniqueSets, peq_redundancyMap, peq_compressionMap) = allDegs.foldLeft((Seq.empty[Rule], const_dimInfo, addus, addrm, addc))((acc, d) => {
       val res = e2eAddition(d, acc._3, acc._4, 1)
-      (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2))
+      (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2), mergeMap(Seq(acc._5, res._5))((v1, v2) => v2))
     })
-    val c2 = const_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, const_dimInfo, const_uniqueSets, const_redundancyMap, 1, false)}")
-    val c3 = other_const_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, other_const_dimInfo, other_const_uniqueSets, other_const_redundancyMap, 1, false)}")
+    val c2 = const_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, const_dimInfo, const_uniqueSets, const_redundancyMap, 1, false, compressionMaps=const_compressionMap)}")
+    val c3 = other_const_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, other_const_dimInfo, other_const_uniqueSets, other_const_redundancyMap, 1, false, compressionMaps=const_compressionMap)}")
     val c4 = "  long start = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();"
-    val c5 = peq_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, peq_dimInfo, peq_uniqueSets, peq_redundancyMap, 1)}")
+    val c5 = peq_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, peq_dimInfo, peq_uniqueSets, peq_redundancyMap, 1, compressionMaps=peq_compressionMap)}")
     val c6 = 
 s"""
   long end = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
@@ -5891,26 +5884,32 @@ int main(int argc, char *argv[]) {
 """
     val k = 3
     val allDegs = (2 to 2 * k)
-    val (const_tensorComputation, const_dimInfo, const_uniqueSets, const_redundancyMap) = allDegs.foldLeft((Seq.empty[Rule], Seq.empty[DimInfo], Map.empty[Exp, Rule], Map.empty[Exp, Rule]))((acc, d) => {
+    val (const_tensorComputation, const_dimInfo, const_uniqueSets, const_redundancyMap, const_compressionMap) = allDegs.foldLeft((Seq.empty[Rule], Seq.empty[DimInfo], Map.empty[Exp, Rule], Map.empty[Exp, Rule], Map.empty[Exp, Rule]))((acc, d) => {
       val res = e2eConstructor(d)
-      (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2))
+      (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2), mergeMap(Seq(acc._5, res._5))((v1, v2) => v2))
     })
-    val (other_const_tensorComputation, other_const_dimInfo, other_const_uniqueSets, other_const_redundancyMap) = allDegs.foldLeft((Seq.empty[Rule], Seq.empty[DimInfo], Map.empty[Exp, Rule], Map.empty[Exp, Rule]))((acc, d) => {
+    val (other_const_tensorComputation, other_const_dimInfo, other_const_uniqueSets, other_const_redundancyMap, other_const_compressionMap) = allDegs.foldLeft((Seq.empty[Rule], Seq.empty[DimInfo], Map.empty[Exp, Rule], Map.empty[Exp, Rule], Map.empty[Exp, Rule]))((acc, d) => {
       val res = e2eConstructor(d, 1)
-      (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2))
+      (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2))
     })
     val addus2: Map[Exp, Rule] = const_uniqueSets.map{case (k, v) => (Access("other_" + k.asInstanceOf[Access].name, k.asInstanceOf[Access].vars, k.asInstanceOf[Access].kind) -> Rule(Access("other_" + v.head.name, v.head.vars, v.head.kind), v.body))}.toMap
     val addrm2: Map[Exp, Rule] = const_redundancyMap.map{case (k, v) => (Access("other_" + k.asInstanceOf[Access].name, k.asInstanceOf[Access].vars, k.asInstanceOf[Access].kind) -> Rule(Access("other_" + v.head.name, v.head.vars, v.head.kind), v.body))}.toMap
+    val addc2: Map[Exp, Rule] = const_compressionMap.map{case (k, v) => (Access("other_" + k.asInstanceOf[Access].name, k.asInstanceOf[Access].vars, k.asInstanceOf[Access].kind) -> Rule(Access("other_" + v.head.name, v.head.vars, v.head.kind), 
+        SoP((getOnlyComparisonSoP(v.body).prods zip
+        getNoComparisonSoP(v.body).prods.foldLeft(Seq.empty[Prod])((acc, prod) => 
+        acc :+ Prod(prod.exps.map(e => Access("other_" + e.asInstanceOf[Access].name, e.asInstanceOf[Access].vars, e.asInstanceOf[Access].kind))))).
+        map{case (e1, e2) => prodTimesProd(e1, e2)})))}.toMap
     val addus: Map[Exp, Rule] = mergeMap(Seq(const_uniqueSets, addus2))((v1, v2) => v1)
     val addrm: Map[Exp, Rule] = mergeMap(Seq(const_redundancyMap, addrm2))((v1, v2) => v1)
-    val (peq_tensorComputation, peq_dimInfo, peq_uniqueSets, peq_redundancyMap) = allDegs.foldLeft((Seq.empty[Rule], const_dimInfo, addus, addrm))((acc, d) => {
+    val addc: Map[Exp, Rule] = mergeMap(Seq(const_compressionMap, addc2))((v1, v2) => v1)
+    val (peq_tensorComputation, peq_dimInfo, peq_uniqueSets, peq_redundancyMap, peq_compressionMap) = allDegs.foldLeft((Seq.empty[Rule], const_dimInfo, addus, addrm, addc))((acc, d) => {
       val res = e2eAddition(d, acc._3, acc._4, 1)
-      (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2))
+      (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2), mergeMap(Seq(acc._5, res._5))((v1, v2) => v2))
     })
-    val c2 = const_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, const_dimInfo, const_uniqueSets, const_redundancyMap, 1, false)}")
-    val c3 = other_const_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, other_const_dimInfo, other_const_uniqueSets, other_const_redundancyMap, 1, false)}")
+    val c2 = const_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, const_dimInfo, const_uniqueSets, const_redundancyMap, 1, false, compressionMaps=const_compressionMap)}")
+    val c3 = other_const_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, other_const_dimInfo, other_const_uniqueSets, other_const_redundancyMap, 1, false, compressionMaps=other_const_compressionMap)}")
     val c4 = "  long start = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();"
-    val c5 = peq_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, peq_dimInfo, peq_uniqueSets, peq_redundancyMap, 1)}")
+    val c5 = peq_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, peq_dimInfo, peq_uniqueSets, peq_redundancyMap, 1, compressionMaps=peq_compressionMap)}")
     val c6 = 
 s"""
   long end = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
@@ -6461,10 +6460,6 @@ s"""
     val uniqueSets: Map[Exp, Rule] = Map(var1 -> var1US, var2 -> var2US)
     val redundancyMap: Map[Exp, Rule] = Map(var1 -> var1RM, var2 -> var2RM)
     val dataLayoutMap: Map[Exp, Function[Seq[Variable], Seq[Index]]] = if (sparse) Map(var1 -> var1DL) else Map()
-
-    println("input redundancy map:")
-    println(var1RM.prettyFormat)
-
     
     println(infer(tensorComputation, dimInfo, uniqueSets, redundancyMap)._1.prettyFormat)
 
