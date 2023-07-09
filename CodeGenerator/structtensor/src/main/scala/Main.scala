@@ -2273,6 +2273,8 @@ object Main extends App {
       acc :+ (exp -> Rule(compressedHead, compressedBody))
     }).toMap
     val compressionMap: Map[Exp, Rule] = mergeMap(Seq(compressionMaps, compressionMap1))((v1, v2) => v1)
+    val dataLayoutMapPrime: Map[Exp, Function[Seq[Variable], Seq[Index]]] = dataLayoutMap.map{case (k, v) => (k.asInstanceOf[Access].vars2RedundancyVars, v)}
+    val dlMapFinal: Map[Exp, Function[Seq[Variable], Seq[Index]]] = mergeMap(Seq(dataLayoutMapPrime, dataLayoutMap))((v1, v2) => v2)
     val (outUS, outRM, outC, outDI) = infer(tensorComputation, dimInfo, uniqueSets, redundancyMaps, compressionMap)
     val allDimVars: Seq[Variable] = dimInfo.toVarsMap.values.foldLeft(Seq.empty[Dim])((acc, dimSeq) => acc ++ dimSeq).foldLeft(Seq.empty[Variable])((acc, d) => acc ++ getVariables(d))
     
@@ -2526,7 +2528,7 @@ object Main extends App {
       val computation: String = pathC.foldLeft(("", false))((acc, cur) => {
         val (tensorComputationC, intervalC, eqMapC): (Rule, Seq[Map[Variable, Interval]], Seq[Map[Variable, Index]]) = cur
         val peqC: Boolean = peqMode | acc._2
-        val res: String = codeGenRule(tensorComputationC, dimInfo :+ outDI, variables, intervalC, eqMapC, UniqueSet, peqC, codeMotion, dataLayoutMap)
+        val res: String = codeGenRule(tensorComputationC, dimInfo :+ outDI, variables, intervalC, eqMapC, UniqueSet, peqC, codeMotion, dlMapFinal)
         (acc._1 + "\n" + res, true)
       })._1
       // val reconstruction: String = pathRC.foldLeft(("", false))((acc, cur) => {
@@ -2535,7 +2537,7 @@ object Main extends App {
       //   val res: String = codeGenRule(tensorComputationRC, dimInfo :+ outDI, variables, intervalRC, eqMapRC, UniqueSet, peqRC, codeMotion, dataLayoutMap)
       //   (acc._1 + "\n" + res, true)
       // })._1
-      val reconstruction: String = codeGenRule(tensorComputationRC, dimInfo :+ outDI, variables.redundancyVarsInplace, intervalsSimplifiedRM, eqVarMapRM, UniqueSet, false, codeMotion, dataLayoutMap)
+      val reconstruction: String = codeGenRule(tensorComputationRC, dimInfo :+ outDI, variables.redundancyVarsInplace, intervalsSimplifiedRM, eqVarMapRM, UniqueSet, false, codeMotion, dlMapFinal)
       if (codeGenMode == 0) "void compute() {\n" + computation + "\n}\n\n\nvoid reconstruct() {\n" + reconstruction + "\n}\n"
       else if (codeGenMode == 1) computation
       else if (codeGenMode == 2) reconstruction
@@ -6447,7 +6449,7 @@ s"""
     val var1BodyRM: SoP = multSoP(Seq(SoP(Seq(var1ProdsRM)), dim1.toSoP))
     val var1RM: Rule = Rule(var1HeadRM, var1BodyRM)
 
-    val var1DL: Function[Seq[Variable], Seq[Index]] = (x: Seq[Variable]) => Seq(Arithmetic("-", x(0), x(1)))
+    val var1DL: Function[Seq[Variable], Seq[Index]] = (x: Seq[Variable]) => Seq(x(0))
 
     val var2HeadUS: Access = Access(var2.name.uniqueName, var2.vars, UniqueSet)
     val var2BodyUS: SoP = dim2.toSoP
