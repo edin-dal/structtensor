@@ -29,9 +29,16 @@ int main(int argc, char *argv[]) {
 
 
 
+
 for (int x0 = 0; x0 < CONT_SZ; ++x0) {
+auto &cm1 = cont_degree2[x0];
+
+auto &cm2 = cont_sum1[x0];
+
 for (int x1 = x0; x1 < CONT_SZ; ++x1) {
-cont_degree2[x0][x1] = ((cont_sum1[x0] * cont_sum1[x1]));
+
+
+cm1[x1] = (cont_sum1[x1] * cm2);
 }
 }
 
