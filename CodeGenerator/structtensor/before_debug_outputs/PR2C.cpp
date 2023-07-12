@@ -42,7 +42,6 @@ int main(int argc, char *argv[]) {
 
 
 
-
 for (int x0 = 0; x0 < CONT_SZ; ++x0) {
 auto &cm3 = cont_degree2[x0];
 
@@ -51,53 +50,51 @@ auto &cm4 = cont_sum1[x0];
 for (int x1 = x0; x1 < CONT_SZ; ++x1) {
 
 
-cm3[x1] = (cont_sum1[x1] * cm4);
+cm3[x1] = (cm4 * cont_sum1[x1]);
 }
 }
-
 
 
 
 for (int x0 = 0; x0 < CONT_SZ; ++x0) {
-auto &cm8 = cont_degree3[x0];
+auto &cm6 = cont_degree3[x0];
 
-auto &cm9 = cont_sum1[x0];
+auto &cm7 = cont_sum1[x0];
 
 for (int x1 = x0; x1 < CONT_SZ; ++x1) {
-auto &cm10 = cm8[x1];
+auto &cm8 = cm6[x1];
 
-auto &cm11 = cont_sum1[x1];
+auto &cm9 = cont_sum1[x1];
 
 for (int x2 = x1; x2 < CONT_SZ; ++x2) {
 
 
-cm10[x2] = (cm9 * cm11 * cont_sum1[x2]);
+cm8[x2] = (cm7 * cm9 * cont_sum1[x2]);
 }
 }
 }
-
 
 
 
 for (int x0 = 0; x0 < CONT_SZ; ++x0) {
-auto &cm33 = cont_degree4[x0];
+auto &cm11 = cont_degree4[x0];
 
-auto &cm34 = cont_sum1[x0];
+auto &cm12 = cont_sum1[x0];
 
 for (int x1 = x0; x1 < CONT_SZ; ++x1) {
-auto &cm35 = cm33[x1];
+auto &cm13 = cm11[x1];
 
-auto &cm36 = cont_sum1[x1];
+auto &cm14 = cont_sum1[x1];
 
 for (int x2 = x1; x2 < CONT_SZ; ++x2) {
-auto &cm37 = cm35[x2];
+auto &cm15 = cm13[x2];
 
-auto &cm38 = cont_sum1[x2];
+auto &cm16 = cont_sum1[x2];
 
 for (int x3 = x2; x3 < CONT_SZ; ++x3) {
 
 
-cm37[x3] = (cont_sum1[x3] * cm34 * cm36 * cm38);
+cm15[x3] = (cm12 * cm14 * cm16 * cont_sum1[x3]);
 }
 }
 }

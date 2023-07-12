@@ -1,0 +1,207 @@
+module {
+  llvm.func @malloc(i64) -> !llvm.ptr<i8>
+  func.func private @puts(!llvm.ptr<i8>) -> i32
+  func.func private @atoi(!llvm.ptr<i8>) -> i32
+  func.func private @srand(i32)
+  func.func private @rand() -> i32
+  func.func private @print_i32(i32)
+  func.func private @print_i64(i64)
+  func.func private @print_f64_cerr(f64)
+  func.func private @timer() -> i64
+  func.func private @timer_elapsed(i64) -> i64
+  func.func private @main(%arg0: i32, %arg1: !llvm.ptr<ptr<i8>>) {
+    %0 = llvm.mlir.constant(1 : index) : i64
+    %1 = builtin.unrealized_conversion_cast %0 : i64 to index
+    %2 = llvm.mlir.constant(0.000000e+00 : f64) : f64
+    %3 = llvm.mlir.constant(0 : i32) : i32
+    %4 = llvm.mlir.constant(1.000000e+06 : f64) : f64
+    %5 = llvm.mlir.constant(1000000 : i32) : i32
+    %6 = llvm.mlir.constant(0 : index) : i64
+    %7 = builtin.unrealized_conversion_cast %6 : i64 to index
+    %8 = builtin.unrealized_conversion_cast %7 : index to i64
+    call @srand(%3) : (i32) -> ()
+    %9 = llvm.getelementptr %arg1[1] : (!llvm.ptr<ptr<i8>>) -> !llvm.ptr<ptr<i8>>
+    %10 = llvm.load %9 : !llvm.ptr<ptr<i8>>
+    %11 = call @atoi(%10) : (!llvm.ptr<i8>) -> i32
+    %12 = llvm.sext %11 : i32 to i64
+    %13 = builtin.unrealized_conversion_cast %12 : i64 to index
+    %14 = builtin.unrealized_conversion_cast %13 : index to i64
+    %15 = llvm.getelementptr %arg1[2] : (!llvm.ptr<ptr<i8>>) -> !llvm.ptr<ptr<i8>>
+    %16 = llvm.load %15 : !llvm.ptr<ptr<i8>>
+    %17 = call @atoi(%16) : (!llvm.ptr<i8>) -> i32
+    %18 = llvm.sext %17 : i32 to i64
+    %19 = builtin.unrealized_conversion_cast %18 : i64 to index
+    %20 = builtin.unrealized_conversion_cast %19 : index to i64
+    %21 = llvm.getelementptr %arg1[3] : (!llvm.ptr<ptr<i8>>) -> !llvm.ptr<ptr<i8>>
+    %22 = llvm.load %21 : !llvm.ptr<ptr<i8>>
+    %23 = call @atoi(%22) : (!llvm.ptr<i8>) -> i32
+    %24 = llvm.sext %23 : i32 to i64
+    %25 = builtin.unrealized_conversion_cast %24 : i64 to index
+    %26 = builtin.unrealized_conversion_cast %25 : index to i64
+    %27 = llvm.getelementptr %arg1[4] : (!llvm.ptr<ptr<i8>>) -> !llvm.ptr<ptr<i8>>
+    %28 = llvm.load %27 : !llvm.ptr<ptr<i8>>
+    %29 = call @atoi(%28) : (!llvm.ptr<i8>) -> i32
+    %30 = llvm.sext %29 : i32 to i64
+    %31 = builtin.unrealized_conversion_cast %30 : i64 to index
+    %32 = builtin.unrealized_conversion_cast %31 : index to i64
+    %33 = llvm.getelementptr %arg1[5] : (!llvm.ptr<ptr<i8>>) -> !llvm.ptr<ptr<i8>>
+    %34 = llvm.load %33 : !llvm.ptr<ptr<i8>>
+    %35 = call @atoi(%34) : (!llvm.ptr<i8>) -> i32
+    %36 = llvm.sext %35 : i32 to i64
+    %37 = builtin.unrealized_conversion_cast %36 : i64 to index
+    %38 = builtin.unrealized_conversion_cast %37 : index to i64
+    %39 = llvm.getelementptr %arg1[6] : (!llvm.ptr<ptr<i8>>) -> !llvm.ptr<ptr<i8>>
+    %40 = llvm.load %39 : !llvm.ptr<ptr<i8>>
+    %41 = call @atoi(%40) : (!llvm.ptr<i8>) -> i32
+    %42 = llvm.sext %41 : i32 to i64
+    %43 = builtin.unrealized_conversion_cast %42 : i64 to index
+    %44 = builtin.unrealized_conversion_cast %43 : index to i64
+    %45 = llvm.mul %32, %14  : i64
+    %46 = llvm.mlir.null : !llvm.ptr<f64>
+    %47 = llvm.getelementptr %46[%45] : (!llvm.ptr<f64>, i64) -> !llvm.ptr<f64>
+    %48 = llvm.ptrtoint %47 : !llvm.ptr<f64> to i64
+    %49 = llvm.call @malloc(%48) : (i64) -> !llvm.ptr<i8>
+    %50 = llvm.bitcast %49 : !llvm.ptr<i8> to !llvm.ptr<f64>
+    %51 = llvm.mul %26, %20  : i64
+    %52 = llvm.mul %51, %14  : i64
+    %53 = llvm.getelementptr %46[%52] : (!llvm.ptr<f64>, i64) -> !llvm.ptr<f64>
+    %54 = llvm.ptrtoint %53 : !llvm.ptr<f64> to i64
+    %55 = llvm.call @malloc(%54) : (i64) -> !llvm.ptr<i8>
+    %56 = llvm.bitcast %55 : !llvm.ptr<i8> to !llvm.ptr<f64>
+    %57 = llvm.mul %32, %20  : i64
+    %58 = llvm.getelementptr %46[%57] : (!llvm.ptr<f64>, i64) -> !llvm.ptr<f64>
+    %59 = llvm.ptrtoint %58 : !llvm.ptr<f64> to i64
+    %60 = llvm.call @malloc(%59) : (i64) -> !llvm.ptr<i8>
+    %61 = llvm.bitcast %60 : !llvm.ptr<i8> to !llvm.ptr<f64>
+    %62 = llvm.mul %32, %26  : i64
+    %63 = llvm.getelementptr %46[%62] : (!llvm.ptr<f64>, i64) -> !llvm.ptr<f64>
+    %64 = llvm.ptrtoint %63 : !llvm.ptr<f64> to i64
+    %65 = llvm.call @malloc(%64) : (i64) -> !llvm.ptr<i8>
+    %66 = llvm.bitcast %65 : !llvm.ptr<i8> to !llvm.ptr<f64>
+    scf.for %arg2 = %7 to %13 step %1 {
+      %74 = builtin.unrealized_conversion_cast %arg2 : index to i64
+      %75 = builtin.unrealized_conversion_cast %arg2 : index to i64
+      %76 = llvm.icmp "eq" %74, %36 : i64
+      scf.for %arg3 = %7 to %19 step %1 {
+        %77 = builtin.unrealized_conversion_cast %arg3 : index to i64
+        scf.for %arg4 = %7 to %25 step %1 {
+          %78 = builtin.unrealized_conversion_cast %arg4 : index to i64
+          scf.if %76 {
+            %79 = func.call @rand() : () -> i32
+            %80 = llvm.urem %79, %5  : i32
+            %81 = llvm.sitofp %80 : i32 to f64
+            %82 = llvm.fdiv %81, %4  : f64
+            %83 = llvm.mul %75, %51  : i64
+            %84 = llvm.mul %77, %26  : i64
+            %85 = llvm.add %83, %84  : i64
+            %86 = llvm.add %85, %78  : i64
+            %87 = llvm.getelementptr %56[%86] : (!llvm.ptr<f64>, i64) -> !llvm.ptr<f64>
+            llvm.store %82, %87 : !llvm.ptr<f64>
+          } else {
+            %79 = llvm.mul %75, %51  : i64
+            %80 = llvm.mul %77, %26  : i64
+            %81 = llvm.add %79, %80  : i64
+            %82 = llvm.add %81, %78  : i64
+            %83 = llvm.getelementptr %56[%82] : (!llvm.ptr<f64>, i64) -> !llvm.ptr<f64>
+            llvm.store %2, %83 : !llvm.ptr<f64>
+          }
+        }
+      }
+    }
+    scf.for %arg2 = %7 to %19 step %1 {
+      %74 = builtin.unrealized_conversion_cast %arg2 : index to i64
+      %75 = llvm.mul %74, %32  : i64
+      scf.for %arg3 = %7 to %31 step %1 {
+        %76 = builtin.unrealized_conversion_cast %arg3 : index to i64
+        %77 = func.call @rand() : () -> i32
+        %78 = llvm.urem %77, %5  : i32
+        %79 = llvm.sitofp %78 : i32 to f64
+        %80 = llvm.fdiv %79, %4  : f64
+        %81 = llvm.add %75, %76  : i64
+        %82 = llvm.getelementptr %61[%81] : (!llvm.ptr<f64>, i64) -> !llvm.ptr<f64>
+        llvm.store %80, %82 : !llvm.ptr<f64>
+      }
+    }
+    scf.for %arg2 = %7 to %25 step %1 {
+      %74 = builtin.unrealized_conversion_cast %arg2 : index to i64
+      scf.for %arg3 = %7 to %31 step %1 {
+        %75 = builtin.unrealized_conversion_cast %arg3 : index to i64
+        %76 = builtin.unrealized_conversion_cast %arg3 : index to i64
+        %77 = llvm.icmp "eq" %75, %42 : i64
+        scf.if %77 {
+          %78 = func.call @rand() : () -> i32
+          %79 = llvm.urem %78, %5  : i32
+          %80 = llvm.sitofp %79 : i32 to f64
+          %81 = llvm.fdiv %80, %4  : f64
+          %82 = llvm.mul %74, %32  : i64
+          %83 = llvm.add %82, %76  : i64
+          %84 = llvm.getelementptr %66[%83] : (!llvm.ptr<f64>, i64) -> !llvm.ptr<f64>
+          llvm.store %81, %84 : !llvm.ptr<f64>
+        } else {
+          %78 = llvm.mul %74, %32  : i64
+          %79 = llvm.add %78, %76  : i64
+          %80 = llvm.getelementptr %66[%79] : (!llvm.ptr<f64>, i64) -> !llvm.ptr<f64>
+          llvm.store %2, %80 : !llvm.ptr<f64>
+        }
+      }
+    }
+    scf.for %arg2 = %7 to %13 step %1 {
+      %74 = builtin.unrealized_conversion_cast %arg2 : index to i64
+      %75 = llvm.mul %74, %32  : i64
+      scf.for %arg3 = %7 to %31 step %1 {
+        %76 = builtin.unrealized_conversion_cast %arg3 : index to i64
+        %77 = llvm.add %75, %76  : i64
+        %78 = llvm.getelementptr %50[%77] : (!llvm.ptr<f64>, i64) -> !llvm.ptr<f64>
+        llvm.store %2, %78 : !llvm.ptr<f64>
+      }
+    }
+    %67 = call @timer() : () -> i64
+    %68 = llvm.icmp "slt" %36, %12 : i64
+    scf.if %68 {
+      %74 = llvm.icmp "slt" %42, %30 : i64
+      scf.if %74 {
+        %75 = llvm.mul %38, %51  : i64
+        %76 = scf.for %arg2 = %7 to %19 step %1 iter_args(%arg3 = %2) -> (f64) {
+          %82 = builtin.unrealized_conversion_cast %arg2 : index to i64
+          %83 = llvm.mul %82, %26  : i64
+          %84 = llvm.add %75, %83  : i64
+          %85 = llvm.mul %82, %32  : i64
+          %86 = llvm.add %85, %44  : i64
+          %87 = llvm.getelementptr %61[%86] : (!llvm.ptr<f64>, i64) -> !llvm.ptr<f64>
+          %88 = scf.for %arg4 = %7 to %25 step %1 iter_args(%arg5 = %2) -> (f64) {
+            %90 = builtin.unrealized_conversion_cast %arg4 : index to i64
+            %91 = llvm.add %84, %90  : i64
+            %92 = llvm.getelementptr %56[%91] : (!llvm.ptr<f64>, i64) -> !llvm.ptr<f64>
+            %93 = llvm.load %92 : !llvm.ptr<f64>
+            %94 = llvm.load %87 : !llvm.ptr<f64>
+            %95 = llvm.mul %90, %32  : i64
+            %96 = llvm.add %95, %44  : i64
+            %97 = llvm.getelementptr %66[%96] : (!llvm.ptr<f64>, i64) -> !llvm.ptr<f64>
+            %98 = llvm.load %97 : !llvm.ptr<f64>
+            %99 = llvm.fmul %93, %94  : f64
+            %100 = llvm.fmul %99, %98  : f64
+            %101 = llvm.fadd %100, %arg5  : f64
+            scf.yield %101 : f64
+          }
+          %89 = llvm.fadd %88, %arg3  : f64
+          scf.yield %89 : f64
+        }
+        %77 = llvm.mul %38, %32  : i64
+        %78 = llvm.add %77, %44  : i64
+        %79 = llvm.getelementptr %50[%78] : (!llvm.ptr<f64>, i64) -> !llvm.ptr<f64>
+        %80 = llvm.load %79 : !llvm.ptr<f64>
+        %81 = llvm.fadd %76, %80  : f64
+        llvm.store %81, %79 : !llvm.ptr<f64>
+      }
+    }
+    %69 = call @timer_elapsed(%67) : (i64) -> i64
+    %70 = llvm.mul %8, %32  : i64
+    %71 = llvm.add %70, %8  : i64
+    %72 = llvm.getelementptr %50[%71] : (!llvm.ptr<f64>, i64) -> !llvm.ptr<f64>
+    %73 = llvm.load %72 : !llvm.ptr<f64>
+    call @print_f64_cerr(%73) : (f64) -> ()
+    call @print_i64(%69) : (i64) -> ()
+    return
+  }
+}
+

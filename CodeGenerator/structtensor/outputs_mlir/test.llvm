@@ -1,0 +1,61 @@
+module attributes {llvm.data_layout = ""} {
+  llvm.func @myfunc(%arg0: i64, %arg1: i64, %arg2: i64, %arg3: i64, %arg4: i64, %arg5: i64, %arg6: !llvm.ptr, %arg7: !llvm.ptr, %arg8: i64, %arg9: i64, %arg10: i64, %arg11: i64, %arg12: i64, %arg13: !llvm.ptr, %arg14: !llvm.ptr, %arg15: i64, %arg16: i64, %arg17: i64, %arg18: i64, %arg19: i64, %arg20: i64, %arg21: i64, %arg22: !llvm.ptr, %arg23: !llvm.ptr, %arg24: i64, %arg25: i64, %arg26: i64, %arg27: i64, %arg28: i64, %arg29: !llvm.ptr, %arg30: !llvm.ptr, %arg31: i64, %arg32: i64, %arg33: i64, %arg34: i64, %arg35: i64) attributes {sym_visibility = "private"} {
+    %0 = llvm.mlir.constant(0 : index) : i64
+    %1 = llvm.mlir.constant(0.000000e+00 : f64) : f64
+    %2 = llvm.mlir.constant(1 : index) : i64
+    %3 = llvm.add %arg4, %0  : i64
+    %4 = llvm.icmp "slt" %3, %arg0 : i64
+    llvm.cond_br %4, ^bb1, ^bb10
+  ^bb1:  // pred: ^bb0
+    %5 = llvm.add %arg5, %0  : i64
+    %6 = llvm.icmp "slt" %5, %arg1 : i64
+    llvm.cond_br %6, ^bb2, ^bb9
+  ^bb2:  // pred: ^bb1
+    llvm.br ^bb3(%0, %1 : i64, f64)
+  ^bb3(%7: i64, %8: f64):  // 2 preds: ^bb2, ^bb7
+    %9 = llvm.icmp "slt" %7, %arg2 : i64
+    llvm.cond_br %9, ^bb4, ^bb8
+  ^bb4:  // pred: ^bb3
+    llvm.br ^bb5(%0, %1 : i64, f64)
+  ^bb5(%10: i64, %11: f64):  // 2 preds: ^bb4, ^bb6
+    %12 = llvm.icmp "slt" %10, %arg3 : i64
+    llvm.cond_br %12, ^bb6, ^bb7
+  ^bb6:  // pred: ^bb5
+    %13 = llvm.mul %3, %arg19  : i64
+    %14 = llvm.mul %7, %arg20  : i64
+    %15 = llvm.add %13, %14  : i64
+    %16 = llvm.add %15, %10  : i64
+    %17 = llvm.getelementptr %arg14[%16] : (!llvm.ptr, i64) -> !llvm.ptr, f64
+    %18 = llvm.load %17 : !llvm.ptr -> f64
+    %19 = llvm.mul %7, %arg27  : i64
+    %20 = llvm.add %19, %5  : i64
+    %21 = llvm.getelementptr %arg23[%20] : (!llvm.ptr, i64) -> !llvm.ptr, f64
+    %22 = llvm.load %21 : !llvm.ptr -> f64
+    %23 = llvm.mul %10, %arg34  : i64
+    %24 = llvm.add %23, %5  : i64
+    %25 = llvm.getelementptr %arg30[%24] : (!llvm.ptr, i64) -> !llvm.ptr, f64
+    %26 = llvm.load %25 : !llvm.ptr -> f64
+    %27 = llvm.fmul %18, %22  : f64
+    %28 = llvm.fmul %27, %26  : f64
+    %29 = llvm.fadd %28, %11  : f64
+    %30 = llvm.add %10, %2  : i64
+    llvm.br ^bb5(%30, %29 : i64, f64)
+  ^bb7:  // pred: ^bb5
+    %31 = llvm.fadd %11, %8  : f64
+    %32 = llvm.add %7, %2  : i64
+    llvm.br ^bb3(%32, %31 : i64, f64)
+  ^bb8:  // pred: ^bb3
+    %33 = llvm.mul %3, %arg11  : i64
+    %34 = llvm.add %33, %5  : i64
+    %35 = llvm.getelementptr %arg7[%34] : (!llvm.ptr, i64) -> !llvm.ptr, f64
+    %36 = llvm.load %35 : !llvm.ptr -> f64
+    %37 = llvm.fadd %8, %36  : f64
+    llvm.store %37, %35 : f64, !llvm.ptr
+    llvm.br ^bb9
+  ^bb9:  // 2 preds: ^bb1, ^bb8
+    llvm.br ^bb10
+  ^bb10:  // 2 preds: ^bb0, ^bb9
+    llvm.return
+  }
+}
+

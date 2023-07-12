@@ -1,0 +1,212 @@
+module {
+  func.func private @puts(!llvm.ptr<i8>) -> i32
+  func.func private @atoi(!llvm.ptr<i8>) -> i32
+  func.func private @srand(i32)
+  func.func private @rand() -> i32
+  func.func private @print_i32(i32)
+  func.func private @print_i64(i64)
+  func.func private @print_f64_cerr(f64)
+  func.func private @timer() -> i64
+  func.func private @timer_elapsed(i64) -> i64
+  func.func private @compute(%arg0: memref<?x?xf64>, %arg1: memref<?x?x?xf64>, %arg2: memref<?x?xf64>, %arg3: memref<?x?xf64>, %arg4: index, %arg5: index, %arg6: index, %arg7: index, %arg8: index) {
+    %0 = builtin.unrealized_conversion_cast %arg2 : memref<?x?xf64> to !llvm.struct<(ptr<f64>, ptr<f64>, i64, array<2 x i64>, array<2 x i64>)>
+    %1 = builtin.unrealized_conversion_cast %arg3 : memref<?x?xf64> to !llvm.struct<(ptr<f64>, ptr<f64>, i64, array<2 x i64>, array<2 x i64>)>
+    %2 = builtin.unrealized_conversion_cast %arg0 : memref<?x?xf64> to !llvm.struct<(ptr<f64>, ptr<f64>, i64, array<2 x i64>, array<2 x i64>)>
+    %3 = builtin.unrealized_conversion_cast %arg8 : index to i64
+    %4 = llvm.mlir.constant(dense<0.000000e+00> : vector<32xf64>) : vector<32xf64>
+    %5 = llvm.mlir.constant(0.000000e+00 : f64) : f64
+    %6 = llvm.mlir.constant(0 : index) : i64
+    %7 = builtin.unrealized_conversion_cast %6 : i64 to index
+    %dim = memref.dim %arg3, %7 : memref<?x?xf64>
+    affine.for %arg9 = 0 to %arg5 step 32 {
+      %8 = builtin.unrealized_conversion_cast %arg9 : index to i64
+      %9 = builtin.unrealized_conversion_cast %arg9 : index to i64
+      %10 = affine.for %arg10 = 0 to %arg7 iter_args(%arg11 = %4) -> (vector<32xf64>) {
+        %48 = builtin.unrealized_conversion_cast %arg10 : index to i64
+        %49 = affine.for %arg12 = 0 to %dim iter_args(%arg13 = %4) -> (vector<32xf64>) {
+          %51 = builtin.unrealized_conversion_cast %arg12 : index to i64
+          %52 = memref.load %arg1[%arg10, %arg10, %arg12] : memref<?x?x?xf64>
+          %53 = llvm.mlir.undef : vector<32xf64>
+          %54 = llvm.mlir.constant(0 : i32) : i32
+          %55 = llvm.insertelement %52, %53[%54 : i32] : vector<32xf64>
+          %56 = llvm.shufflevector %55, %53 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] : vector<32xf64> 
+          %57 = llvm.mlir.constant(1 : index) : i64
+          %58 = builtin.unrealized_conversion_cast %57 : i64 to index
+          %dim_2 = memref.dim %arg2, %58 : memref<?x?xf64>
+          %59 = builtin.unrealized_conversion_cast %dim_2 : index to i64
+          %60 = llvm.sub %59, %8  : i64
+          %61 = llvm.mlir.constant(dense<[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31]> : vector<32xi32>) : vector<32xi32>
+          %62 = llvm.trunc %60 : i64 to i32
+          %63 = llvm.mlir.undef : vector<32xi32>
+          %64 = llvm.mlir.constant(0 : i32) : i32
+          %65 = llvm.insertelement %62, %63[%64 : i32] : vector<32xi32>
+          %66 = llvm.shufflevector %65, %63 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] : vector<32xi32> 
+          %67 = llvm.icmp "sgt" %66, %61 : vector<32xi32>
+          %68 = llvm.mlir.constant(dense<0.000000e+00> : vector<32xf64>) : vector<32xf64>
+          %69 = llvm.extractvalue %0[1] : !llvm.struct<(ptr<f64>, ptr<f64>, i64, array<2 x i64>, array<2 x i64>)> 
+          %70 = llvm.extractvalue %0[4, 0] : !llvm.struct<(ptr<f64>, ptr<f64>, i64, array<2 x i64>, array<2 x i64>)> 
+          %71 = llvm.mul %48, %70  : i64
+          %72 = llvm.add %71, %9  : i64
+          %73 = llvm.getelementptr %69[%72] : (!llvm.ptr<f64>, i64) -> !llvm.ptr<f64>
+          %74 = llvm.bitcast %73 : !llvm.ptr<f64> to !llvm.ptr<vector<32xf64>>
+          %75 = llvm.intr.masked.load %74, %67, %68 {alignment = 8 : i32} : (!llvm.ptr<vector<32xf64>>, vector<32xi1>, vector<32xf64>) -> vector<32xf64>
+          %76 = llvm.mlir.constant(1 : index) : i64
+          %77 = builtin.unrealized_conversion_cast %76 : i64 to index
+          %dim_3 = memref.dim %arg3, %77 : memref<?x?xf64>
+          %78 = builtin.unrealized_conversion_cast %dim_3 : index to i64
+          %79 = llvm.sub %78, %8  : i64
+          %80 = llvm.mlir.constant(dense<[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31]> : vector<32xi32>) : vector<32xi32>
+          %81 = llvm.trunc %79 : i64 to i32
+          %82 = llvm.mlir.undef : vector<32xi32>
+          %83 = llvm.mlir.constant(0 : i32) : i32
+          %84 = llvm.insertelement %81, %82[%83 : i32] : vector<32xi32>
+          %85 = llvm.shufflevector %84, %82 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] : vector<32xi32> 
+          %86 = llvm.icmp "sgt" %85, %80 : vector<32xi32>
+          %87 = llvm.mlir.constant(dense<0.000000e+00> : vector<32xf64>) : vector<32xf64>
+          %88 = llvm.extractvalue %1[1] : !llvm.struct<(ptr<f64>, ptr<f64>, i64, array<2 x i64>, array<2 x i64>)> 
+          %89 = llvm.extractvalue %1[4, 0] : !llvm.struct<(ptr<f64>, ptr<f64>, i64, array<2 x i64>, array<2 x i64>)> 
+          %90 = llvm.mul %51, %89  : i64
+          %91 = llvm.add %90, %9  : i64
+          %92 = llvm.getelementptr %88[%91] : (!llvm.ptr<f64>, i64) -> !llvm.ptr<f64>
+          %93 = llvm.bitcast %92 : !llvm.ptr<f64> to !llvm.ptr<vector<32xf64>>
+          %94 = llvm.intr.masked.load %93, %86, %87 {alignment = 8 : i32} : (!llvm.ptr<vector<32xf64>>, vector<32xi1>, vector<32xf64>) -> vector<32xf64>
+          %95 = llvm.fmul %56, %75  {fastmathFlags = #llvm.fastmath<fast>} : vector<32xf64>
+          %96 = llvm.fmul %95, %94  {fastmathFlags = #llvm.fastmath<fast>} : vector<32xf64>
+          %97 = llvm.fadd %96, %arg13  {fastmathFlags = #llvm.fastmath<fast>} : vector<32xf64>
+          affine.yield %97 : vector<32xf64>
+        }
+        %50 = llvm.fadd %49, %arg11  {fastmathFlags = #llvm.fastmath<fast>} : vector<32xf64>
+        affine.yield %50 : vector<32xf64>
+      }
+      %11 = llvm.mlir.constant(1 : index) : i64
+      %12 = builtin.unrealized_conversion_cast %11 : i64 to index
+      %dim_0 = memref.dim %arg0, %12 : memref<?x?xf64>
+      %13 = builtin.unrealized_conversion_cast %dim_0 : index to i64
+      %14 = llvm.sub %13, %8  : i64
+      %15 = llvm.mlir.constant(dense<[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31]> : vector<32xi32>) : vector<32xi32>
+      %16 = llvm.trunc %14 : i64 to i32
+      %17 = llvm.mlir.undef : vector<32xi32>
+      %18 = llvm.mlir.constant(0 : i32) : i32
+      %19 = llvm.insertelement %16, %17[%18 : i32] : vector<32xi32>
+      %20 = llvm.shufflevector %19, %17 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] : vector<32xi32> 
+      %21 = llvm.icmp "sgt" %20, %15 : vector<32xi32>
+      %22 = llvm.mlir.constant(dense<0.000000e+00> : vector<32xf64>) : vector<32xf64>
+      %23 = llvm.extractvalue %2[1] : !llvm.struct<(ptr<f64>, ptr<f64>, i64, array<2 x i64>, array<2 x i64>)> 
+      %24 = llvm.extractvalue %2[4, 0] : !llvm.struct<(ptr<f64>, ptr<f64>, i64, array<2 x i64>, array<2 x i64>)> 
+      %25 = llvm.mul %3, %24  : i64
+      %26 = llvm.add %25, %9  : i64
+      %27 = llvm.getelementptr %23[%26] : (!llvm.ptr<f64>, i64) -> !llvm.ptr<f64>
+      %28 = llvm.bitcast %27 : !llvm.ptr<f64> to !llvm.ptr<vector<32xf64>>
+      %29 = llvm.intr.masked.load %28, %21, %22 {alignment = 8 : i32} : (!llvm.ptr<vector<32xf64>>, vector<32xi1>, vector<32xf64>) -> vector<32xf64>
+      %30 = llvm.fadd %10, %29  {fastmathFlags = #llvm.fastmath<fast>} : vector<32xf64>
+      %31 = llvm.mlir.constant(1 : index) : i64
+      %32 = builtin.unrealized_conversion_cast %31 : i64 to index
+      %dim_1 = memref.dim %arg0, %32 : memref<?x?xf64>
+      %33 = builtin.unrealized_conversion_cast %dim_1 : index to i64
+      %34 = llvm.sub %33, %8  : i64
+      %35 = llvm.mlir.constant(dense<[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31]> : vector<32xi32>) : vector<32xi32>
+      %36 = llvm.trunc %34 : i64 to i32
+      %37 = llvm.mlir.undef : vector<32xi32>
+      %38 = llvm.mlir.constant(0 : i32) : i32
+      %39 = llvm.insertelement %36, %37[%38 : i32] : vector<32xi32>
+      %40 = llvm.shufflevector %39, %37 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] : vector<32xi32> 
+      %41 = llvm.icmp "sgt" %40, %35 : vector<32xi32>
+      %42 = llvm.extractvalue %2[1] : !llvm.struct<(ptr<f64>, ptr<f64>, i64, array<2 x i64>, array<2 x i64>)> 
+      %43 = llvm.extractvalue %2[4, 0] : !llvm.struct<(ptr<f64>, ptr<f64>, i64, array<2 x i64>, array<2 x i64>)> 
+      %44 = llvm.mul %3, %43  : i64
+      %45 = llvm.add %44, %9  : i64
+      %46 = llvm.getelementptr %42[%45] : (!llvm.ptr<f64>, i64) -> !llvm.ptr<f64>
+      %47 = llvm.bitcast %46 : !llvm.ptr<f64> to !llvm.ptr<vector<32xf64>>
+      llvm.intr.masked.store %30, %47, %41 {alignment = 8 : i32} : vector<32xf64>, vector<32xi1> into !llvm.ptr<vector<32xf64>>
+    }
+    return
+  }
+  func.func private @main(%arg0: i32, %arg1: !llvm.ptr<ptr<i8>>) {
+    %0 = llvm.mlir.constant(1.000000e+06 : f64) : f64
+    %1 = llvm.mlir.constant(1000000 : i32) : i32
+    %2 = llvm.mlir.constant(0 : index) : i64
+    %3 = builtin.unrealized_conversion_cast %2 : i64 to index
+    %4 = llvm.mlir.constant(0 : i32) : i32
+    %5 = llvm.mlir.constant(0.000000e+00 : f64) : f64
+    %6 = llvm.mlir.constant(1 : index) : i64
+    %7 = builtin.unrealized_conversion_cast %6 : i64 to index
+    call @srand(%4) : (i32) -> ()
+    %8 = llvm.getelementptr %arg1[1] : (!llvm.ptr<ptr<i8>>) -> !llvm.ptr<ptr<i8>>
+    %9 = llvm.load %8 : !llvm.ptr<ptr<i8>>
+    %10 = call @atoi(%9) : (!llvm.ptr<i8>) -> i32
+    %11 = llvm.sext %10 : i32 to i64
+    %12 = builtin.unrealized_conversion_cast %11 : i64 to index
+    %13 = llvm.getelementptr %arg1[2] : (!llvm.ptr<ptr<i8>>) -> !llvm.ptr<ptr<i8>>
+    %14 = llvm.load %13 : !llvm.ptr<ptr<i8>>
+    %15 = call @atoi(%14) : (!llvm.ptr<i8>) -> i32
+    %16 = llvm.sext %15 : i32 to i64
+    %17 = builtin.unrealized_conversion_cast %16 : i64 to index
+    %18 = llvm.getelementptr %arg1[3] : (!llvm.ptr<ptr<i8>>) -> !llvm.ptr<ptr<i8>>
+    %19 = llvm.load %18 : !llvm.ptr<ptr<i8>>
+    %20 = call @atoi(%19) : (!llvm.ptr<i8>) -> i32
+    %21 = llvm.sext %20 : i32 to i64
+    %22 = builtin.unrealized_conversion_cast %21 : i64 to index
+    %23 = llvm.getelementptr %arg1[4] : (!llvm.ptr<ptr<i8>>) -> !llvm.ptr<ptr<i8>>
+    %24 = llvm.load %23 : !llvm.ptr<ptr<i8>>
+    %25 = call @atoi(%24) : (!llvm.ptr<i8>) -> i32
+    %26 = llvm.sext %25 : i32 to i64
+    %27 = builtin.unrealized_conversion_cast %26 : i64 to index
+    %28 = llvm.getelementptr %arg1[5] : (!llvm.ptr<ptr<i8>>) -> !llvm.ptr<ptr<i8>>
+    %29 = llvm.load %28 : !llvm.ptr<ptr<i8>>
+    %30 = call @atoi(%29) : (!llvm.ptr<i8>) -> i32
+    %31 = llvm.sext %30 : i32 to i64
+    %32 = builtin.unrealized_conversion_cast %31 : i64 to index
+    %alloc = memref.alloc(%12, %27) : memref<?x?xf64>
+    %alloc_0 = memref.alloc(%12, %17, %22) : memref<?x?x?xf64>
+    %alloc_1 = memref.alloc(%17, %27) : memref<?x?xf64>
+    %alloc_2 = memref.alloc(%22, %27) : memref<?x?xf64>
+    scf.for %arg2 = %3 to %12 step %7 {
+      %36 = builtin.unrealized_conversion_cast %arg2 : index to i64
+      scf.for %arg3 = %3 to %17 step %7 {
+        scf.for %arg4 = %3 to %22 step %7 {
+          %37 = llvm.icmp "eq" %36, %31 : i64
+          scf.if %37 {
+            %38 = func.call @rand() : () -> i32
+            %39 = llvm.urem %38, %1  : i32
+            %40 = llvm.sitofp %39 : i32 to f64
+            %41 = llvm.fdiv %40, %0  : f64
+            memref.store %41, %alloc_0[%arg2, %arg3, %arg4] : memref<?x?x?xf64>
+          } else {
+            memref.store %5, %alloc_0[%arg2, %arg3, %arg4] : memref<?x?x?xf64>
+          }
+        }
+      }
+    }
+    scf.for %arg2 = %3 to %17 step %7 {
+      scf.for %arg3 = %3 to %27 step %7 {
+        %36 = func.call @rand() : () -> i32
+        %37 = llvm.urem %36, %1  : i32
+        %38 = llvm.sitofp %37 : i32 to f64
+        %39 = llvm.fdiv %38, %0  : f64
+        memref.store %39, %alloc_1[%arg2, %arg3] : memref<?x?xf64>
+      }
+    }
+    scf.for %arg2 = %3 to %22 step %7 {
+      scf.for %arg3 = %3 to %27 step %7 {
+        %36 = func.call @rand() : () -> i32
+        %37 = llvm.urem %36, %1  : i32
+        %38 = llvm.sitofp %37 : i32 to f64
+        %39 = llvm.fdiv %38, %0  : f64
+        memref.store %39, %alloc_2[%arg2, %arg3] : memref<?x?xf64>
+      }
+    }
+    scf.for %arg2 = %3 to %12 step %7 {
+      scf.for %arg3 = %3 to %27 step %7 {
+        memref.store %5, %alloc[%arg2, %arg3] : memref<?x?xf64>
+      }
+    }
+    %33 = call @timer() : () -> i64
+    call @compute(%alloc, %alloc_0, %alloc_1, %alloc_2, %22, %27, %12, %17, %32) : (memref<?x?xf64>, memref<?x?x?xf64>, memref<?x?xf64>, memref<?x?xf64>, index, index, index, index, index) -> ()
+    %34 = call @timer_elapsed(%33) : (i64) -> i64
+    %35 = memref.load %alloc[%3, %3] : memref<?x?xf64>
+    call @print_f64_cerr(%35) : (f64) -> ()
+    call @print_i64(%34) : (i64) -> ()
+    return
+  }
+}
+

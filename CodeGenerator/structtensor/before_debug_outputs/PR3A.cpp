@@ -1,17 +1,4 @@
-package uk.ac.ed.dal
-package structtensor
-package apps
 
-import compiler._
-import STURHelper._
-import Compiler._
-import Shared._
-
-object PR3A {
-  import E2E_PRK._
-  def apply() = {
-    val c1 = 
-s"""
 #include <iostream>
 #include <random>
 #include <algorithm>
@@ -119,37 +106,447 @@ int main(int argc, char *argv[]) {
       cont_sum1[i] = (double) (rand() % 1000000) / 1e6;
       other_cont_sum1[i] = (double) (rand() % 1000000) / 1e6;
   }
-"""
-    val k = 3
-    val allDegs = (2 to 2 * k)
-    val (const_tensorComputation, const_dimInfo, const_uniqueSets, const_redundancyMap, const_compressionMap) = allDegs.foldLeft((Seq.empty[Rule], Seq.empty[DimInfo], Map.empty[Exp, Rule], Map.empty[Exp, Rule], Map.empty[Exp, Rule]))((acc, d) => {
-      val res = e2eConstructor(d)
-      (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2), mergeMap(Seq(acc._5, res._5))((v1, v2) => v2))
-    })
-    val (other_const_tensorComputation, other_const_dimInfo, other_const_uniqueSets, other_const_redundancyMap, other_const_compressionMap) = allDegs.foldLeft((Seq.empty[Rule], Seq.empty[DimInfo], Map.empty[Exp, Rule], Map.empty[Exp, Rule], Map.empty[Exp, Rule]))((acc, d) => {
-      val res = e2eConstructor(d, 1)
-      (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2), mergeMap(Seq(acc._5, res._5))((v1, v2) => v2))
-    })
-    val addus2: Map[Exp, Rule] = const_uniqueSets.map{case (k, v) => (Access("other_" + k.asInstanceOf[Access].name, k.asInstanceOf[Access].vars, k.asInstanceOf[Access].kind) -> Rule(Access("other_" + v.head.name, v.head.vars, v.head.kind), v.body))}.toMap
-    val addrm2: Map[Exp, Rule] = const_redundancyMap.map{case (k, v) => (Access("other_" + k.asInstanceOf[Access].name, k.asInstanceOf[Access].vars, k.asInstanceOf[Access].kind) -> Rule(Access("other_" + v.head.name, v.head.vars, v.head.kind), v.body))}.toMap
-    val addc2: Map[Exp, Rule] = const_compressionMap.map{case (k, v) => (Access("other_" + k.asInstanceOf[Access].name, k.asInstanceOf[Access].vars, k.asInstanceOf[Access].kind) -> Rule(Access("other_" + v.head.name, v.head.vars, v.head.kind), 
-        SoP((getOnlyComparisonSoP(v.body).prods zip
-        getNoComparisonSoP(v.body).prods.foldLeft(Seq.empty[Prod])((acc, prod) => 
-        acc :+ Prod(prod.exps.map(e => Access("other_" + e.asInstanceOf[Access].name, e.asInstanceOf[Access].vars, e.asInstanceOf[Access].kind))))).
-        map{case (e1, e2) => prodTimesProd(e1, e2)})))}.toMap
-    val addus: Map[Exp, Rule] = mergeMap(Seq(const_uniqueSets, addus2))((v1, v2) => v1)
-    val addrm: Map[Exp, Rule] = mergeMap(Seq(const_redundancyMap, addrm2))((v1, v2) => v1)
-    val addc: Map[Exp, Rule] = mergeMap(Seq(const_compressionMap, addc2))((v1, v2) => v1)
-    val (peq_tensorComputation, peq_dimInfo, peq_uniqueSets, peq_redundancyMap, peq_compressionMap) = allDegs.foldLeft((Seq.empty[Rule], const_dimInfo, addus, addrm, addc))((acc, d) => {
-      val res = e2eAddition(d, acc._3, acc._4, 1)
-      (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2), mergeMap(Seq(acc._5, res._5))((v1, v2) => v2))
-    })
-    val c2 = const_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, const_dimInfo, const_uniqueSets, const_redundancyMap, 1, false, compressionMaps=const_compressionMap)}")
-    val c3 = other_const_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, other_const_dimInfo, other_const_uniqueSets, other_const_redundancyMap, 1, false, compressionMaps=other_const_compressionMap)}")
-    val c4 = "  long start = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();"
-    val c5 = peq_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, peq_dimInfo, peq_uniqueSets, peq_redundancyMap, 1, compressionMaps=peq_compressionMap)}")
-    val c6 = 
-s"""
+
+
+
+
+for (int x0 = 0; x0 < CONT_SZ; ++x0) {
+auto &cm9 = cont_degree2[x0];
+
+auto &cm10 = cont_sum1[x0];
+
+for (int x1 = x0; x1 < CONT_SZ; ++x1) {
+
+
+cm9[x1] = (cm10 * cont_sum1[x1]);
+}
+}
+
+
+
+for (int x0 = 0; x0 < CONT_SZ; ++x0) {
+auto &cm12 = cont_degree3[x0];
+
+auto &cm13 = cont_sum1[x0];
+
+for (int x1 = x0; x1 < CONT_SZ; ++x1) {
+auto &cm14 = cm12[x1];
+
+auto &cm15 = cont_sum1[x1];
+
+for (int x2 = x1; x2 < CONT_SZ; ++x2) {
+
+
+cm14[x2] = (cm13 * cm15 * cont_sum1[x2]);
+}
+}
+}
+
+
+
+for (int x0 = 0; x0 < CONT_SZ; ++x0) {
+auto &cm17 = cont_degree4[x0];
+
+auto &cm18 = cont_sum1[x0];
+
+for (int x1 = x0; x1 < CONT_SZ; ++x1) {
+auto &cm19 = cm17[x1];
+
+auto &cm20 = cont_sum1[x1];
+
+for (int x2 = x1; x2 < CONT_SZ; ++x2) {
+auto &cm21 = cm19[x2];
+
+auto &cm22 = cont_sum1[x2];
+
+for (int x3 = x2; x3 < CONT_SZ; ++x3) {
+
+
+cm21[x3] = (cm18 * cm20 * cm22 * cont_sum1[x3]);
+}
+}
+}
+}
+
+
+
+for (int x0 = 0; x0 < CONT_SZ; ++x0) {
+auto &cm24 = cont_degree5[x0];
+
+auto &cm25 = cont_sum1[x0];
+
+for (int x1 = x0; x1 < CONT_SZ; ++x1) {
+auto &cm26 = cm24[x1];
+
+auto &cm27 = cont_sum1[x1];
+
+for (int x2 = x1; x2 < CONT_SZ; ++x2) {
+auto &cm28 = cm26[x2];
+
+auto &cm29 = cont_sum1[x2];
+
+for (int x3 = x2; x3 < CONT_SZ; ++x3) {
+auto &cm30 = cm28[x3];
+
+auto &cm31 = cont_sum1[x3];
+
+for (int x4 = x3; x4 < CONT_SZ; ++x4) {
+
+
+cm30[x4] = (cm25 * cm27 * cm29 * cm31 * cont_sum1[x4]);
+}
+}
+}
+}
+}
+
+
+
+for (int x0 = 0; x0 < CONT_SZ; ++x0) {
+auto &cm33 = cont_degree6[x0];
+
+auto &cm34 = cont_sum1[x0];
+
+for (int x1 = x0; x1 < CONT_SZ; ++x1) {
+auto &cm35 = cm33[x1];
+
+auto &cm36 = cont_sum1[x1];
+
+for (int x2 = x1; x2 < CONT_SZ; ++x2) {
+auto &cm37 = cm35[x2];
+
+auto &cm38 = cont_sum1[x2];
+
+for (int x3 = x2; x3 < CONT_SZ; ++x3) {
+auto &cm39 = cm37[x3];
+
+auto &cm40 = cont_sum1[x3];
+
+for (int x4 = x3; x4 < CONT_SZ; ++x4) {
+auto &cm41 = cm39[x4];
+
+auto &cm42 = cont_sum1[x4];
+
+for (int x5 = x4; x5 < CONT_SZ; ++x5) {
+
+
+cm41[x5] = (cm34 * cm36 * cm38 * cm40 * cm42 * cont_sum1[x5]);
+}
+}
+}
+}
+}
+}
+
+
+
+
+for (int x0 = 0; x0 < CONT_SZ; ++x0) {
+auto &cm43 = other_cont_degree2[x0];
+
+auto &cm44 = other_cont_sum1[x0];
+
+for (int x1 = x0; x1 < CONT_SZ; ++x1) {
+
+
+cm43[x1] = (cm44 * other_cont_sum1[x1]);
+}
+}
+
+
+
+for (int x0 = 0; x0 < CONT_SZ; ++x0) {
+auto &cm46 = other_cont_degree3[x0];
+
+auto &cm47 = other_cont_sum1[x0];
+
+for (int x1 = x0; x1 < CONT_SZ; ++x1) {
+auto &cm48 = cm46[x1];
+
+auto &cm49 = other_cont_sum1[x1];
+
+for (int x2 = x1; x2 < CONT_SZ; ++x2) {
+
+
+cm48[x2] = (cm47 * cm49 * other_cont_sum1[x2]);
+}
+}
+}
+
+
+
+for (int x0 = 0; x0 < CONT_SZ; ++x0) {
+auto &cm51 = other_cont_degree4[x0];
+
+auto &cm52 = other_cont_sum1[x0];
+
+for (int x1 = x0; x1 < CONT_SZ; ++x1) {
+auto &cm53 = cm51[x1];
+
+auto &cm54 = other_cont_sum1[x1];
+
+for (int x2 = x1; x2 < CONT_SZ; ++x2) {
+auto &cm55 = cm53[x2];
+
+auto &cm56 = other_cont_sum1[x2];
+
+for (int x3 = x2; x3 < CONT_SZ; ++x3) {
+
+
+cm55[x3] = (cm52 * cm54 * cm56 * other_cont_sum1[x3]);
+}
+}
+}
+}
+
+
+
+for (int x0 = 0; x0 < CONT_SZ; ++x0) {
+auto &cm58 = other_cont_degree5[x0];
+
+auto &cm59 = other_cont_sum1[x0];
+
+for (int x1 = x0; x1 < CONT_SZ; ++x1) {
+auto &cm60 = cm58[x1];
+
+auto &cm61 = other_cont_sum1[x1];
+
+for (int x2 = x1; x2 < CONT_SZ; ++x2) {
+auto &cm62 = cm60[x2];
+
+auto &cm63 = other_cont_sum1[x2];
+
+for (int x3 = x2; x3 < CONT_SZ; ++x3) {
+auto &cm64 = cm62[x3];
+
+auto &cm65 = other_cont_sum1[x3];
+
+for (int x4 = x3; x4 < CONT_SZ; ++x4) {
+
+
+cm64[x4] = (cm59 * cm61 * cm63 * cm65 * other_cont_sum1[x4]);
+}
+}
+}
+}
+}
+
+
+
+for (int x0 = 0; x0 < CONT_SZ; ++x0) {
+auto &cm67 = other_cont_degree6[x0];
+
+auto &cm68 = other_cont_sum1[x0];
+
+for (int x1 = x0; x1 < CONT_SZ; ++x1) {
+auto &cm69 = cm67[x1];
+
+auto &cm70 = other_cont_sum1[x1];
+
+for (int x2 = x1; x2 < CONT_SZ; ++x2) {
+auto &cm71 = cm69[x2];
+
+auto &cm72 = other_cont_sum1[x2];
+
+for (int x3 = x2; x3 < CONT_SZ; ++x3) {
+auto &cm73 = cm71[x3];
+
+auto &cm74 = other_cont_sum1[x3];
+
+for (int x4 = x3; x4 < CONT_SZ; ++x4) {
+auto &cm75 = cm73[x4];
+
+auto &cm76 = other_cont_sum1[x4];
+
+for (int x5 = x4; x5 < CONT_SZ; ++x5) {
+
+
+cm75[x5] = (cm68 * cm70 * cm72 * cm74 * cm76 * other_cont_sum1[x5]);
+}
+}
+}
+}
+}
+}
+
+  long start = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
+
+
+
+for (int x0 = 0; x0 < CONT_SZ; ++x0) {
+auto &cm77 = r_cont_degree2[x0];
+
+auto &cm78 = cont_degree2[x0];
+auto &cm79 = other_cont_degree2[x0];
+
+for (int x1 = x0; x1 < CONT_SZ; ++x1) {
+double tmp = 0.0;
+
+
+
+tmp += (cm78[x1]);
+
+tmp += (cm79[x1]);
+
+cm77[x1] += tmp;
+}
+}
+
+
+
+for (int x0 = 0; x0 < CONT_SZ; ++x0) {
+auto &cm80 = r_cont_degree3[x0];
+
+auto &cm81 = cont_degree3[x0];
+auto &cm82 = other_cont_degree3[x0];
+
+for (int x1 = x0; x1 < CONT_SZ; ++x1) {
+auto &cm83 = cm80[x1];
+
+auto &cm84 = cm81[x1];
+auto &cm85 = cm82[x1];
+
+for (int x2 = x1; x2 < CONT_SZ; ++x2) {
+double tmp = 0.0;
+
+
+
+tmp += (cm84[x2]);
+
+tmp += (cm85[x2]);
+
+cm83[x2] += tmp;
+}
+}
+}
+
+
+
+for (int x0 = 0; x0 < CONT_SZ; ++x0) {
+auto &cm86 = r_cont_degree4[x0];
+
+auto &cm87 = cont_degree4[x0];
+auto &cm88 = other_cont_degree4[x0];
+
+for (int x1 = x0; x1 < CONT_SZ; ++x1) {
+auto &cm89 = cm86[x1];
+
+auto &cm90 = cm87[x1];
+auto &cm91 = cm88[x1];
+
+for (int x2 = x1; x2 < CONT_SZ; ++x2) {
+auto &cm92 = cm89[x2];
+
+auto &cm93 = cm90[x2];
+auto &cm94 = cm91[x2];
+
+for (int x3 = x2; x3 < CONT_SZ; ++x3) {
+double tmp = 0.0;
+
+
+
+tmp += (cm93[x3]);
+
+tmp += (cm94[x3]);
+
+cm92[x3] += tmp;
+}
+}
+}
+}
+
+
+
+for (int x0 = 0; x0 < CONT_SZ; ++x0) {
+auto &cm95 = r_cont_degree5[x0];
+
+auto &cm96 = cont_degree5[x0];
+auto &cm97 = other_cont_degree5[x0];
+
+for (int x1 = x0; x1 < CONT_SZ; ++x1) {
+auto &cm98 = cm95[x1];
+
+auto &cm99 = cm96[x1];
+auto &cm100 = cm97[x1];
+
+for (int x2 = x1; x2 < CONT_SZ; ++x2) {
+auto &cm101 = cm98[x2];
+
+auto &cm102 = cm99[x2];
+auto &cm103 = cm100[x2];
+
+for (int x3 = x2; x3 < CONT_SZ; ++x3) {
+auto &cm104 = cm101[x3];
+
+auto &cm105 = cm102[x3];
+auto &cm106 = cm103[x3];
+
+for (int x4 = x3; x4 < CONT_SZ; ++x4) {
+double tmp = 0.0;
+
+
+
+tmp += (cm105[x4]);
+
+tmp += (cm106[x4]);
+
+cm104[x4] += tmp;
+}
+}
+}
+}
+}
+
+
+
+for (int x0 = 0; x0 < CONT_SZ; ++x0) {
+auto &cm107 = r_cont_degree6[x0];
+
+auto &cm108 = cont_degree6[x0];
+auto &cm109 = other_cont_degree6[x0];
+
+for (int x1 = x0; x1 < CONT_SZ; ++x1) {
+auto &cm110 = cm107[x1];
+
+auto &cm111 = cm108[x1];
+auto &cm112 = cm109[x1];
+
+for (int x2 = x1; x2 < CONT_SZ; ++x2) {
+auto &cm113 = cm110[x2];
+
+auto &cm114 = cm111[x2];
+auto &cm115 = cm112[x2];
+
+for (int x3 = x2; x3 < CONT_SZ; ++x3) {
+auto &cm116 = cm113[x3];
+
+auto &cm117 = cm114[x3];
+auto &cm118 = cm115[x3];
+
+for (int x4 = x3; x4 < CONT_SZ; ++x4) {
+auto &cm119 = cm116[x4];
+
+auto &cm120 = cm117[x4];
+auto &cm121 = cm118[x4];
+
+for (int x5 = x4; x5 < CONT_SZ; ++x5) {
+double tmp = 0.0;
+
+
+
+tmp += (cm120[x5]);
+
+tmp += (cm121[x5]);
+
+cm119[x5] += tmp;
+}
+}
+}
+}
+}
+}
+
+
   long end = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
   cerr << r_cont_degree2[CONT_SZ - 1][CONT_SZ - 1] << " " << r_cont_degree3[CONT_SZ - 1][CONT_SZ - 1][CONT_SZ - 1] << " " << r_cont_degree4[CONT_SZ - 1][CONT_SZ - 1][CONT_SZ - 1][CONT_SZ - 1] << " " << r_cont_degree5[CONT_SZ - 1][CONT_SZ - 1][CONT_SZ - 1][CONT_SZ - 1][CONT_SZ - 1] << " " << r_cont_degree6[CONT_SZ - 1][CONT_SZ - 1][CONT_SZ - 1][CONT_SZ - 1][CONT_SZ - 1][CONT_SZ - 1] << endl;
   delete[] cont_sum1;
@@ -226,9 +623,4 @@ s"""
   delete[] r_cont_degree6;
   cout << end - start << endl;
   return 0;
-}
-"""
-    val code = s"$c1\n$c2\n$c3\n$c4\n$c5\n$c6"
-    write2File("outputs/PR3A.cpp", code)
-  }
 }

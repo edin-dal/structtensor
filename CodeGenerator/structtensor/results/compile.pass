@@ -1,0 +1,3 @@
+mlir-opt MTTKRP_I.mlir --pass-pipeline="builtin.module(func.func(affine-super-vectorize{virtual-vector-size=64},affine-expand-index-ops),convert-vector-to-llvm{enable-x86vector},loop-invariant-code-motion,canonicalize,cse,func.func(affine-loop-unroll,cse,canonicalize,loop-invariant-code-motion),lower-affine,convert-memref-to-llvm,sccp,loop-invariant-code-motion,cse,canonicalize,convert-scf-to-cf,convert-func-to-llvm,convert-cf-to-llvm,cse,canonicalize,reconcile-unrealized-casts,canonicalize,cse)" | mlir-translate --mlir-to-llvmir | llc --enable-unsafe-fp-math -O3 --mcpu=native -filetype=asm -o o.s && c++ -std=c99 o.s utils.o -g -pthread -mtune=native -Wno-narrowing -mavx2 -ffast-math -ftree-vectorize -o MTTKRP_I -O3
+
+clang-16 -c utils.c -o utils.o -O3

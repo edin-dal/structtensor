@@ -42,9 +42,7 @@ int main(int argc, char **argv){
     start = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
 
 
-
 int i = 0;
-if (0 < W) {
 double tmp = 0.0;
 
 auto &cm1 = L[i];
@@ -55,8 +53,6 @@ for (int j = 0; j < W; ++j) {
 tmp += (cm1[j] * N[j]);
 }
 M[i] += tmp;
-}
-
 
 
 for (int i = 1; i < W; ++i) {

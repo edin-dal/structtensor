@@ -37,16 +37,20 @@ int main(int argc, char **argv){
     start = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
 
 
+
 int i = 0;
+if (0 < W) {
 double tmp = 0.0;
 
 
 for (int j = 0; j < W; ++j) {
 
 
-tmp += (L1[i] * N[j]);
+tmp += (N[j] * L1[i]);
 }
 M[i] += tmp;
+}
+
 
 
 for (int i = 1; i < W; ++i) {
@@ -56,7 +60,7 @@ double tmp = 0.0;
 
 
 
-tmp += (L2[(i - 1)] * N[(i - 1)]);
+tmp += (N[(i - 1)] * L2[(i - 1)]);
 M[i] += tmp;
 }
 
