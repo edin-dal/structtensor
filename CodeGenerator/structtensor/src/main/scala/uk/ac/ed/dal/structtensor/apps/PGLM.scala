@@ -8,7 +8,7 @@ import Compiler._
 import Shared._
 
 object PGLM {
-  def populationGrowthLeslieMatrix(mode: Int = 0, sparse: Boolean = false) = {
+  def populationGrowthLeslieMatrix(mode: Int = 0, sparse: Boolean = false, codeMotion: Boolean = true) = {
     val head: Access = Access("M", Seq("i".toVar), Tensor)
     val var1: Access = Access("L",  Seq("i".toVar, "j".toVar), Tensor)
     val var2: Access = Access("N",  Seq("j".toVar), Tensor)
@@ -60,7 +60,7 @@ object PGLM {
     val var3BodyRM: SoP = emptySoP()
     val var3RM: Rule = Rule(var3HeadRM, var3BodyRM)
 
-    val var3DL: Function[Seq[Variable], Seq[Index]] = (x: Seq[Variable]) => Seq(x(0))
+    val var3DL: Function[Seq[Variable], Seq[Index]] = (x: Seq[Variable]) => Seq(x(1))
 
     val var4HeadUS: Access = Access(var4.name.uniqueName, var4.vars, UniqueSet)
     val var4ExpUS1: Exp = Comparison("<=", ConstantInt(1), "i".toVar)
@@ -80,13 +80,13 @@ object PGLM {
     val dataLayoutMap: Map[Exp, Function[Seq[Variable], Seq[Index]]] = if (sparse) Map(var3 -> var3DL, var4 -> var4DL) else Map()
 
     if (mode == 0) {
-      println(codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, dataLayoutMap=dataLayoutMap))
+      println(codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, dataLayoutMap=dataLayoutMap, codeMotion=codeMotion))
 
       (tensorComputation, infer(tensorComputation, dimInfo, uniqueSets, redundancyMap))
-    } else codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, 1, dataLayoutMap=dataLayoutMap)
+    } else codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, 1, dataLayoutMap=dataLayoutMap, codeMotion=codeMotion)
   }
 
-  def apply(sparse: Boolean) = {
+  def apply(sparse: Boolean, codeMotion: Boolean = true) = {
     val outName1 = "PGLM"
     val outName = if (sparse) s"${outName1}_Sparse" else outName1
         val c1 = 
@@ -146,7 +146,7 @@ s"""
     long time = 0, start, end;
     start = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
 """
-    val c2 = populationGrowthLeslieMatrix(1, sparse)
+    val c2 = populationGrowthLeslieMatrix(1, sparse, codeMotion=codeMotion)
 
     val c3 = 
 s"""

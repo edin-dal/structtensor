@@ -216,7 +216,7 @@ object E2E_PRK {
     (tensorComputation, diF, usF, rmF, cF)
   }
 
-  def e2eLR() = {
+  def e2eLR(codeMotion: Boolean = true) = {
     val (const_tensorComputation, const_dimInfo, const_uniqueSets, const_redundancyMap, const_compressionMap) = e2eConstructor(2)
     // println(codeGen(const_tensorComputation, const_dimInfo, const_uniqueSets, const_redundancyMap))
     // println("===========================================================")
@@ -244,11 +244,11 @@ object E2E_PRK {
 
     val (mult_tensorComputation, mult_dimInfo, mult_uniqueSets, mult_redundancyMap, mult_compressionMap) = e2eMultiplication(2, us, rm, c)
     println(mult_tensorComputation.prettyFormat)
-    println(codeGen(mult_tensorComputation, mult_dimInfo, mult_uniqueSets, mult_redundancyMap, compressionMaps=mult_compressionMap))
+    println(codeGen(mult_tensorComputation, mult_dimInfo, mult_uniqueSets, mult_redundancyMap, compressionMaps=mult_compressionMap, codeMotion=codeMotion))
     println("===========================================================")
   }
 
-  def e2ePRk(k: Int) = {
+  def e2ePRk(k: Int, codeMotion: Boolean = true) = {
     val allDegs = (2 to 2 * k)
     val (const_tensorComputation, const_dimInfo, const_uniqueSets, const_redundancyMap, const_compressionMap) = allDegs.foldLeft((Seq.empty[Rule], Seq.empty[DimInfo], Map.empty[Exp, Rule], Map.empty[Exp, Rule], Map.empty[Exp, Rule]))((acc, d) => {
       val res = e2eConstructor(d)
@@ -281,7 +281,7 @@ object E2E_PRK {
       val res = e2ePlusEqual(d, acc._3, acc._4, acc._5)
       (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2), mergeMap(Seq(acc._5, res._5))((v1, v2) => v2))
     })
-    peq_tensorComputation.foldLeft()((acc, ctc) => println(codeGen(ctc, peq_dimInfo, peq_uniqueSets, peq_redundancyMap, compressionMaps=peq_compressionMap)))
+    peq_tensorComputation.foldLeft()((acc, ctc) => println(codeGen(ctc, peq_dimInfo, peq_uniqueSets, peq_redundancyMap, compressionMaps=peq_compressionMap, codeMotion=codeMotion)))
     println("===========================================================")
 
     // val (mult_tensorComputation, mult_dimInfo, mult_uniqueSets, mult_redundancyMap) = allDegs.foldLeft((Seq.empty[Rule], const_dimInfo, us, rm))((acc, d) => {
@@ -293,7 +293,7 @@ object E2E_PRK {
     // println("===========================================================")
   }
 
-  def e2ePRkWithSkeletone(k: Int) = {
+  def e2ePRkWithSkeletone(k: Int, codeMotion: Boolean = true) = {
     val initCode: String = s"""
 #ifndef RING_COFACTOR_HPP
 #define RING_COFACTOR_HPP
@@ -337,7 +337,7 @@ struct RingCofactor {
       val res = e2eConstructor(d)
       (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2), mergeMap(Seq(acc._5, res._5))((v1, v2) => v2))
     })
-    val constructorCode: String = const_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, const_dimInfo, const_uniqueSets, const_redundancyMap, 1, false, compressionMaps=const_compressionMap)}")
+    val constructorCode: String = const_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, const_dimInfo, const_uniqueSets, const_redundancyMap, 1, false, compressionMaps=const_compressionMap, codeMotion=codeMotion)}")
     val addus2: Map[Exp, Rule] = const_uniqueSets.map{case (k, v) => (Access("other." + k.asInstanceOf[Access].name, k.asInstanceOf[Access].vars, k.asInstanceOf[Access].kind) -> Rule(Access("other." + v.head.name, v.head.vars, v.head.kind), v.body))}.toMap
     val addrm2: Map[Exp, Rule] = const_redundancyMap.map{case (k, v) => (Access("other." + k.asInstanceOf[Access].name, k.asInstanceOf[Access].vars, k.asInstanceOf[Access].kind) -> Rule(Access("other." + v.head.name, v.head.vars, v.head.kind), v.body))}.toMap
     val addc2: Map[Exp, Rule] = const_compressionMap.map{case (k, v) => (Access("other." + k.asInstanceOf[Access].name, k.asInstanceOf[Access].vars, k.asInstanceOf[Access].kind) -> Rule(Access("other." + v.head.name, v.head.vars, v.head.kind), 
@@ -382,7 +382,7 @@ struct RingCofactor {
       val res = e2ePlusEqual(d, acc._3, acc._4, acc._5)
       (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2), mergeMap(Seq(acc._5, res._5))((v1, v2) => v2))
     })
-    val peqCode: String = peq_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, peq_dimInfo, peq_uniqueSets, peq_redundancyMap, 1, compressionMaps=peq_compressionMap)}")
+    val peqCode: String = peq_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, peq_dimInfo, peq_uniqueSets, peq_redundancyMap, 1, compressionMaps=peq_compressionMap, codeMotion=codeMotion)}")
 
     val afterPeqCode: String = s"""
     }
@@ -409,7 +409,7 @@ struct RingCofactor {
       val res = e2eMultiplication(d, acc._3, acc._4, acc._5)
       (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2), mergeMap(Seq(acc._5, res._5))((v1, v2) => v2))
     })
-    val multCode: String = mult_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, mult_dimInfo, mult_uniqueSets, mult_redundancyMap, 1)}")
+    val multCode: String = mult_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, mult_dimInfo, mult_uniqueSets, mult_redundancyMap, 1, codeMotion=codeMotion)}")
 
     val afterMultCode: String = s"""
         }
@@ -459,7 +459,7 @@ struct RingCofactor {
     void reconstruct() {
 """
 
-    val reconstructorCode: String = const_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, const_dimInfo, const_uniqueSets, const_redundancyMap, 2, compressionMaps=const_compressionMap)}")
+    val reconstructorCode: String = const_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, const_dimInfo, const_uniqueSets, const_redundancyMap, 2, compressionMaps=const_compressionMap, codeMotion=codeMotion)}")
 
     val endCode: String = s"""
         std::cerr << cont_sum1[CONT_SZ - 1];
@@ -543,8 +543,8 @@ os << "Cofactor: <CONT_SZ: " << CONT_SZ << ", CAT_SZ: " << CAT_SZ << ">\\n";
   s"$initCode\n$constructorCode\n$afterConstructorCode\n$peqCode\n$afterPeqCode\n$multCode\n$afterMultCode\n$reconstructorCode\n$endCode"
   }
 
-  def apply(k: Int) = {
-    val code = e2ePRkWithSkeletone(k)
+  def apply(k: Int, codeMotion: Boolean = true) = {
+    val code = e2ePRkWithSkeletone(k, codeMotion)
     val outName = "E2E_R"
     write2File(s"outputs/$outName.hpp", code)
   }

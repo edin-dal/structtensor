@@ -8,7 +8,7 @@ import Compiler._
 import Shared._
 
 object MTTKRP {
-  def mttkrp_n(structure: String, mode: Int = 0, sparse: Boolean = false, codeLang: String = "CPP") = {
+  def mttkrp_n(structure: String, mode: Int = 0, sparse: Boolean = false, codeLang: String = "CPP", codeMotion: Boolean = true) = {
     val head: Access = Access("A", Seq("i".toVar, "j".toVar), Tensor)
     val var1: Access = Access("B",  Seq("i".toVar, "k".toVar, "l".toVar), Tensor)
     val var2: Access = Access("C",  Seq("k".toVar, "j".toVar), Tensor)
@@ -78,14 +78,14 @@ object MTTKRP {
     val dataLayoutMap: Map[Exp, Function[Seq[Variable], Seq[Index]]] = if (sparse) Map(var1 -> var1DL, var3 -> var3DL) else Map()
 
     if (mode == 0) {
-      println(codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, dataLayoutMap=dataLayoutMap, codeLang=codeLang))
+      println(codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, dataLayoutMap=dataLayoutMap, codeLang=codeLang, codeMotion=codeMotion))
 
       (tensorComputation, infer(tensorComputation, dimInfo, uniqueSets, redundancyMap))
-    } else codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, 1, dataLayoutMap=dataLayoutMap, codeLang=codeLang)
+    } else codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, 1, dataLayoutMap=dataLayoutMap, codeLang=codeLang, codeMotion=codeMotion)
   }
 
 
-  def apply(structure: String, sparse: Boolean) = {
+  def apply(structure: String, sparse: Boolean, codeMotion: Boolean = true) = {
     val outName1 = if (structure == "fixed_ij") "MTTKRP_IJ" else if (structure == "fixed_i") "MTTKRP_I" else if (structure == "fixed_j") "MTTKRP_J" else "MTTKRP"
     val outName = if (sparse) s"${outName1}_Sparse" else outName1
     val c1 = 
@@ -198,7 +198,7 @@ s"""
     long time = 0, start, end;
     start = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
 """
-    val c2 = mttkrp_n(structure, 1, sparse)
+    val c2 = mttkrp_n(structure, 1, sparse, codeMotion=codeMotion)
     val c3 = 
 s"""
     end = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();

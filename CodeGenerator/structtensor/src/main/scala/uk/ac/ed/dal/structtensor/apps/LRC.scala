@@ -9,7 +9,7 @@ import Shared._
 
 object LRC {
   import E2E_PRK._
-  def apply() = {
+  def apply(codeMotion: Boolean = true) = {
     val c1 =
 s"""
 #include <iostream>
@@ -44,7 +44,7 @@ int main(int argc, char *argv[]) {
       val res = e2eConstructor(d)
       (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2), mergeMap(Seq(acc._5, res._5))((v1, v2) => v2))
     })
-    val c2 = const_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, const_dimInfo, const_uniqueSets, const_redundancyMap, 1, false, compressionMaps=const_compressionMap)}")
+    val c2 = const_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, const_dimInfo, const_uniqueSets, const_redundancyMap, 1, false, compressionMaps=const_compressionMap, codeMotion=codeMotion)}")
     val c3 = 
 s"""
   long end = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();

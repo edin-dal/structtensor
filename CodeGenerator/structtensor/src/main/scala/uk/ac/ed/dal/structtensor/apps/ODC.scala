@@ -8,7 +8,7 @@ import Compiler._
 import Shared._
 
 object ODC {
-  def oneDConvolution(mode: Int = 0, sparse: Boolean = false) = {
+  def oneDConvolution(mode: Int = 0, sparse: Boolean = false, codeMotion: Boolean = true) = {
     val head: Access = Access("Y", Seq("i".toVar), Tensor)
     val var1: Access = Access("H",  Seq("i".toVar, "j".toVar), Tensor)
     val var2: Access = Access("X",  Seq("j".toVar), Tensor)
@@ -57,13 +57,13 @@ object ODC {
     println(infer(tensorComputation, dimInfo, uniqueSets, redundancyMap)._1.prettyFormat)
 
     if (mode == 0) {
-      println(codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, dataLayoutMap=dataLayoutMap, varReverse=true))
+      println(codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, dataLayoutMap=dataLayoutMap, varReverse=true, codeMotion=codeMotion))
 
       (tensorComputation, infer(tensorComputation, dimInfo, uniqueSets, redundancyMap))
-    } else codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, 1, dataLayoutMap=dataLayoutMap, varReverse=true)
+    } else codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, 1, dataLayoutMap=dataLayoutMap, varReverse=true, codeMotion=codeMotion)
   }
 
-  def apply(sparse: Boolean) = {
+  def apply(sparse: Boolean, codeMotion: Boolean = true) = {
     val outName1 = "ODC"
     val outName = if (sparse) s"${outName1}_Sparse" else outName1
         val c1 = 
@@ -118,7 +118,7 @@ s"""
     long time = 0, start, end;
     start = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
 """
-    val c2 = oneDConvolution(1, sparse)
+    val c2 = oneDConvolution(1, sparse, codeMotion=codeMotion)
 
     val c3 = 
 s"""
