@@ -100,6 +100,9 @@ case class Access(name: String, vars: Seq[Variable], kind: AccessType) extends E
     if (kind == "affine") s"""affine.load %$name[$varsStr] : memref<${sizeStr}f64>\n"""
     else s""""memref.load"(%$name, $varsStr) : (memref<${sizeStr}f64>, $indexStr) -> f64\n"""
   }
+  def uniqueHead(): Accessor = Access(name.uniqueName, vars, UniqueSet)
+  def redundancyHead(): Accessor = Access(name.redundancyName, vars.redundancyVarsInplace, RedundancyMap)
+  def compressedHead(): Accessor = Access(name.compressedName, vars, CompressedTensor)
 }
 
 case class Comparison(op: String, index: Index, variable: Variable) extends Exp {
