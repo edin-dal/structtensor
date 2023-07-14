@@ -6,14 +6,13 @@ object Sompiler {
   import STURHelper._
 
   def normalize(r: Rule): Seq[Rule] = {
-    return r
+    return Seq(r)
   }
 
-  def isShift(exps: Seq[Exp], dimInfo: Seq[DimInfo], outAccess: Access): Boolean = {
+  def isShift(exps: Seq[Exp], outAccess: Access): Boolean = {
     if (exps.length == 1) return false
     val e: Exp = exps(0)
     val flag: Boolean = exps.slice(1, exps.length).foldLeft(e.isInstanceOf[Access])((acc, cur) => acc && cur.isInstanceOf[Comparison])
-    val accessMap: Map[Access, Seq[Dim]] = dimInfo.toAccessMap
     if (flag) {
       val access: Access = e.asInstanceOf[Access]
       val rest: Seq[Comparison] = exps.slice(1, exps.length).map(e => e.asInstanceOf[Comparison])
@@ -32,17 +31,17 @@ object Sompiler {
   }
 
   def shift(lhs: Access, rhs: Access, exps: Seq[Exp]): (Rule, Rule, Rule) = {
-    val usBody: SoP = SoP(Seq(Prod(Seq(Seq(rhs.uniqueHead) ++ exps))))
+    val usBody: SoP = SoP(Seq(Prod(Seq(rhs.uniqueHead) ++ exps)))
     val us: Rule = Rule(lhs.uniqueHead, usBody)
 
     val redExps: Seq[Exp] = exps.map(e => e.asInstanceOf[Comparison]).map(e => 
                             Comparison("=", Arithmetic("-", e.index.asInstanceOf[Arithmetic].index1.asInstanceOf[Variable].vars2RedundancyVars, 
                                                             e.index.asInstanceOf[Arithmetic].index2), 
                                       e.variable.vars2RedundancyVars))
-    val rmBody: SoP = SoP(Seq(Prod(Seq(Seq(rhs.redundancyHead) ++ exps ++ redExps))))
+    val rmBody: SoP = SoP(Seq(Prod(Seq(rhs.redundancyHead) ++ exps ++ redExps)))
     val rm: Rule = Rule(lhs.redundancyHead, rmBody)
 
-    val cBody: SoP = SoP(Seq(Prod(Seq(Seq(rhs.compressedHead, rhs.uniqueHead) ++ exps))))
+    val cBody: SoP = SoP(Seq(Prod(Seq(rhs.compressedHead, rhs.uniqueHead) ++ exps)))
     val c: Rule = Rule(lhs.compressedHead, cBody)
 
     return (us, rm, c)
@@ -51,9 +50,9 @@ object Sompiler {
   def project(lhs: Access, rhs: Access): (Rule, Rule, Rule) = {
     assert(rhs.vars.toSet.subsetOf(lhs.vars.toSet))
     if (lhs.vars.toSet == rhs.vars.toSet) {
-      val us: Rule = Rule(lhs.uniqueHead, rhs.uniqueHead)
-      val rm: Rule = Rule(lhs.redundancyHead, rhs.redundancyHead)
-      val c: Rule = Rule(lhs.compressedHead, rhs.compressedHead)
+      val us: Rule = Rule(lhs.uniqueHead, SoP(Seq(Prod(Seq(rhs.uniqueHead)))))
+      val rm: Rule = Rule(lhs.redundancyHead, SoP(Seq(Prod(Seq(rhs.redundancyHead)))))
+      val c: Rule = Rule(lhs.compressedHead, SoP(Seq(Prod(Seq(rhs.compressedHead)))))
       return (us, rm, c)
     }
 
@@ -114,7 +113,7 @@ object Sompiler {
         } else if (lhs.vars.toSet == vars1.union(vars2).toSet) {
           val usBody: SoP = SoP(Seq(
             Prod(Seq(acc1.uniqueHead, acc2.uniqueHead)),
-            Prod(Seq(acc1.uniqueHead, acc2.redundancyHead))
+            Prod(Seq(acc1.uniqueHead, acc2.redundancyHead)),
             Prod(Seq(acc1.redundancyHead, acc2.uniqueHead))
           ))
           val us: Rule = Rule(lhs.uniqueHead, usBody)
@@ -124,8 +123,8 @@ object Sompiler {
 
           val cBody: SoP = SoP(Seq(
             Prod(Seq(acc1.uniqueHead, acc2.uniqueHead, acc1.compressedHead, acc2.compressedHead)),
-            Prod(Seq(acc1.uniqueHead, acc2.redundancyHead, acc1.compressedHead, acc2.compressedHead.redundancyVars))
-            Prod(Seq(acc1.redundancyHead, acc2.uniqueHead, acc1.compressedHead.redudancyVars, acc2.compressedHead))
+            Prod(Seq(acc1.uniqueHead, acc2.redundancyHead, acc1.compressedHead, acc2.compressedHead.vars2RedundancyVars)),
+            Prod(Seq(acc1.redundancyHead, acc2.uniqueHead, acc1.compressedHead.vars2RedundancyVars, acc2.compressedHead))
           ))
           val c: Rule = Rule(lhs.compressedHead, cBody)
 
@@ -203,7 +202,7 @@ object Sompiler {
       } else if (exps.length == 2) {
         return binMult(head, exps(0), exps(1))
       } else {
-        
+
       }
     } else if (prods.length == 2) {
       
@@ -218,7 +217,8 @@ object Sompiler {
 
   def compile(computation: Rule, inputs: Seq[(Rule, Rule, Rule, Rule)]): Rule = {
     val norm: Seq[Rule] = normalize(computation)
-    val rules: Seq[(Rule, Rule, Rule, Rule)] = norm.map(infer).zip(norm)
+    val rules: Seq[(Rule, Rule, Rule, Rule)] = norm.map(infer).zip(norm).map{case((r1, r2, r3), r4) => (r1, r2, r3, r4)}
     val denorm: Rule = denormalize(computation.head, inputs ++ rules)
+    return denorm
   }
 }

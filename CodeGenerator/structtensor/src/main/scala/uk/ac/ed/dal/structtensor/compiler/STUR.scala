@@ -81,6 +81,7 @@ case class Arithmetic(op: String, index1: Index, index2: Index) extends Index wi
 }
 
 case class Access(name: String, vars: Seq[Variable], kind: AccessType) extends Exp {
+  import STURHelper._
   def prettyFormat(): String = {
     val pr = vars.foldLeft("")((acc, cur) => s"$acc, ${cur.prettyFormat}")
     if (pr == "") name else s"${name}(${pr.substring(2, pr.length)})"
@@ -100,9 +101,9 @@ case class Access(name: String, vars: Seq[Variable], kind: AccessType) extends E
     if (kind == "affine") s"""affine.load %$name[$varsStr] : memref<${sizeStr}f64>\n"""
     else s""""memref.load"(%$name, $varsStr) : (memref<${sizeStr}f64>, $indexStr) -> f64\n"""
   }
-  def uniqueHead(): Accessor = Access(name.uniqueName, vars, UniqueSet)
-  def redundancyHead(): Accessor = Access(name.redundancyName, vars.redundancyVarsInplace, RedundancyMap)
-  def compressedHead(): Accessor = Access(name.compressedName, vars, CompressedTensor)
+  def uniqueHead(): Access = Access(name.uniqueName, vars, UniqueSet)
+  def redundancyHead(): Access = Access(name.redundancyName, vars.redundancyVarsInplace, RedundancyMap)
+  def compressedHead(): Access = Access(name.compressedName, vars, CompressedTensor)
 }
 
 case class Comparison(op: String, index: Index, variable: Variable) extends Exp {
