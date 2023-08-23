@@ -2259,6 +2259,9 @@ object Compiler {
     // })
     println("==================")
 
+    println("JSON>>>")
+    println(codegen.JsonGenerator.codegen(pathC.last._1.head))
+
     if (codeLang == "MLIR") {
       if (codeGenMode == 0) "void compute() {\n" + codeGenRuleMLIR(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedUS, eqVarMapUS, UniqueSet, peqMode, codeMotion, dataLayoutMap) + "\n}\n\n\nvoid reconstruct() {\n" + codeGenRuleMLIR(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedRM, eqVarMapRM, RedundancyMap, peqMode, codeMotion, dataLayoutMap) + "\n}\n"
       else if (codeGenMode == 1) codeGenRuleMLIR(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedUS, eqVarMapUS, UniqueSet, peqMode, codeMotion, dataLayoutMap)
