@@ -1861,7 +1861,8 @@ object Compiler {
           s"$init\n$rest"
         } else {
             if (beginVar != "" && endVar != "") {
-              if (!vars.slice(0, variableInd._2 + 1).toSet.subsetOf(tensorComputation.head.vars.toSet) || vars.slice(0, variableInd._2 + 1).toSet == tensorComputation.head.vars.toSet) s"""%${variable.cFormat(eqVar)}_sum = affine.for %${variable.cFormat(eqVar)} = %$beginVar to %$endVar step 1 iter_args(%iter_sum_${variable.cFormat(eqVar)} = %zerof) -> (f64) {\n"""
+              if (vars.slice(0, variableInd._2 + 1).toSet == tensorComputation.head.vars.toSet) s"""affine.for %${variable.cFormat(eqVar)} = %$beginVar to %$endVar step 1 {\n"""
+              else if (!vars.slice(0, variableInd._2 + 1).toSet.subsetOf(tensorComputation.head.vars.toSet)) s"""%${variable.cFormat(eqVar)}_sum = affine.for %${variable.cFormat(eqVar)} = %$beginVar to %$endVar step 1 iter_args(%iter_sum_${variable.cFormat(eqVar)} = %zerof) -> (f64) {\n"""
               else s"""affine.for %${variable.cFormat(eqVar)} = %$beginVar to %$endVar step 1 {\n"""
               // if (!vars.slice(0, variableInd._2 + 1).toSet.subsetOf(tensorComputation.head.vars.toSet)) s"""%${variable.cFormat(eqVar)}_sum = "scf.for"(%$beginVar, %$endVar, %1, %zerof) ({\n^bb0(%${variable.cFormat(eqVar)}: index, %iter_sum_${variable.cFormat(eqVar)}: f64):\n"""
               // else s""""scf.for"(%$beginVar, %$endVar, %1) ({\n^bb0(%${variable.cFormat(eqVar)}: index):\n"""
@@ -1888,57 +1889,9 @@ object Compiler {
       val tcBody: SoP = if (tc.body == emptySoP()) SoP(Seq(Prod(Seq(trueComparison())))) else tc.body // if it's only comparison, then it was just a bunch of comparison multiplications so their value is only 1. Their ranges is inside unique set and redundancy maps already.
       val allVars: Set[Variable] = tensorComputation.head.vars.toSet ++ eqVar.keySet
       val finalV: String = getVar("finalV")
-      val body = if (genType == RedundancyMap) { // TODO: write this in MLIR
-        s"${tc.head.cFormat(eqVar, dataLayoutMap.getOrElse(tc.head, defaultDataLayout))} = ${Access(tensorComputation.head.name, tensorComputation.head.vars.redundancyVars, tensorComputation.head.kind).cFormat(eqVar, dataLayoutMap.getOrElse(tc.head, defaultDataLayout))};" 
-      }
-      else {
-        if (tcBody.prods.length == 1) {s"${tcBody.prods(0).MLIRFormat(eqVar, finalV, cnt_inc = cnt)}" ; cnt += 200}
-        else {tcBody.MLIRFormat(eqVar, finalV, cnt_inc = cnt); cnt += 200}
-        // else (tcBody.prods zip tcBodya.prods).foldLeft("")((acc, prodAProd) => {
-        //   val prod: Prod = prodAProd._1
-        //   val aProd: Prod = prodAProd._2
-        //   val allRHSVars: Set[Variable] = aProd.exps.foldLeft(Set.empty[Variable])((acc2, exp) => {
-        //     exp match {
-        //       case Access(name, vars, kind) => acc2 ++ vars.toSet
-        //       case _ => acc2
-        //     }
-        //   })
-        //   if (allRHSVars.subsetOf(allVars)) {
-        //     val conds: String = aProd.exps.foldLeft("")((acc2, exp) => {
-        //       exp match {
-        //         case Access(name, vars, kind) => {
-        //           val access: Access = exp.asInstanceOf[Access]
-        //           val conds: String = if (dimMap.contains(access)) {
-        //             (vars zip dimMap.get(access).get).foldLeft("")((acc3, varDim) => {
-        //               val v: Variable = varDim._1
-        //               val d: Dim = varDim._2
-        //               val b: Seq[Index] = if (map.contains(v)) map.get(v).get.begin else Seq.empty[Index]
-        //               val e: Seq[Index] = if (map.contains(v)) map.get(v).get.end else Seq.empty[Index]
-        //               val fb: Boolean = b.foldLeft(false)((acc, beginInd) => {
-        //                 val res: Seq[Index] = indexMin(beginInd, d)
-        //                 if (res.length == 1 && res(0) == d) acc || true else acc
-        //               })
-        //               val fe: Boolean = e.foldLeft(false)((acc, endInd) => {
-        //                 val res: Seq[Index] = indexMin(endInd, d)
-        //                 if (res.length == 1 && res(0) == endInd && res(0) != d) acc || true else acc
-        //               })
-        //               if (fb) "NOT!HAPPENING!" else if (fe) {
-        //                 if (acc3 != "" ) s"$acc3 && ${v.cFormat(eqVar)} < ${d.cFormat(eqVar)}" else s"${v.cFormat(eqVar)} < ${d.cFormat(eqVar)}"
-        //               } else acc3
-        //             })
-        //           } else ""
-        //           if (acc2 == "") conds else if (conds == "") acc2 else s"$acc2 && $conds"
-        //         }
-        //         case _ => acc2
-        //       }
-        //     })
-        //     if (conds.contains("NOT!HAPPENING!")) acc else if (conds != "") {
-        //       s"$acc\nif ($conds) {\n${tc.head.cFormat(eqVar, dataLayoutMap.getOrElse(tc.head, defaultDataLayout))} += ${prod.cFormat(eqVar, dataLayoutMap)};\n}"
-        //     } else s"$acc\n${tc.head.cFormat(eqVar, dataLayoutMap.getOrElse(tc.head, defaultDataLayout))} += ${prod.cFormat(eqVar, dataLayoutMap)};\n"
-        //   } else acc
-        // })
-      } // change wrt code motion and use the newest variables with the corresponding list to them
-      // val body = if (genType == RedundancyMap) s"${tensorComputation.head.cFormat} = ${tensorComputation.head.cRedFormat};" else tensorComputation.cPeqFormat
+
+      val body = if (tcBody.prods.length == 1) s"${tcBody.prods(0).MLIRFormat(eqVar, finalV, cnt_inc = cnt)}" else tcBody.MLIRFormat(eqVar, finalV, cnt_inc = cnt)
+      cnt += 200
 
       val filteredVars = vars.reverse.filter(e => !cntVars.contains(e))
       val finalBrackets = filteredVars.zipWithIndex.foldLeft("")((acc, vi) => {
@@ -1948,13 +1901,7 @@ object Compiler {
         else {
           val containsV = beginEndEqVars.contains(v)
           val (cmpSet, ind) = conditionSetsMap.getOrElse(v, ("", ""))
-          val nc = if (i == 0) {
-            if (containsV) s""""affine.yield"(%$finalV): (f64) -> ()\n}, {"affine.yield"(%zerof): (f64) -> ()}) $cmpSet : ($ind) -> f64"""
-            else s"""%new_sum_${v.cFormat(eqVar)} = "arith.addf"(%$finalV, %iter_sum_${v.cFormat(eqVar)}) {"fastmath" = #arith.fastmath<fast>} : (f64, f64) -> f64\n"affine.yield"(%new_sum_${v.cFormat(eqVar)}): (f64) -> ()\n}"""
-          } else if (tensorComputation.head.vars.toSet.subsetOf(filteredVars.slice(i, filteredVars.length).toSet) && filteredVars.slice(i, filteredVars.length).toSet != tensorComputation.head.vars.toSet) {
-            if (containsV) s""""affine.yield"(%${filteredVars(i - 1).cFormat(eqVar)}_sum): (f64) -> ()\n}, {"affine.yield"(%zerof): (f64) -> ()}) $cmpSet : ($ind) -> f64"""
-            else s"""%new_sum_${v.cFormat(eqVar)} = "arith.addf"(%${filteredVars(i - 1).cFormat(eqVar)}_sum, %iter_sum_${v.cFormat(eqVar)}) {"fastmath" = #arith.fastmath<fast>} : (f64, f64) -> f64\n"affine.yield"(%new_sum_${v.cFormat(eqVar)}): (f64) -> ()\n}"""
-          } else if (filteredVars.slice(i, filteredVars.length).toSet == tensorComputation.head.vars.toSet) {
+          val nc = if (filteredVars.slice(i, filteredVars.length).toSet == tensorComputation.head.vars.toSet) {
             val (varsStr, sizeStr, indexStr) = tensorComputation.head.vars.foldLeft(("", "", ""))((acc2, v) => {
               val (varsStr, sizeStr, indexStr) = acc2
               val newVarStr = if (varsStr.length == 0) s"%${v.cFormat(eqVar)}" else s"$varsStr, %${v.cFormat(eqVar)}"
@@ -1963,13 +1910,20 @@ object Compiler {
               (newVarStr, newSizeStr, newIndexStr)
             })
             if (peqMode) {
-              val peqVal = getVar("peqVal")
               val preVal = getVar("preVal")
+              val peqVal = getVar("peqVal")
               val preValCode = s"""%$preVal = ${tensorComputation.head.loadMLIR(eqVar)}"""
-              val peqValCode = s"""%$peqVal = "arith.addf"(%${filteredVars(i - 1).cFormat(eqVar)}_sum, %$preVal) {"fastmath" = #arith.fastmath<fast>} : (f64, f64) -> f64\n"""
+              val peqValCode = if (i != 0) s"""%$peqVal = "arith.addf"(%${filteredVars(i - 1).cFormat(eqVar)}_sum, %$preVal) {"fastmath" = #arith.fastmath<fast>} : (f64, f64) -> f64\n""" else s"""%$peqVal = "arith.addf"(%$finalV, %$preVal) {"fastmath" = #arith.fastmath<fast>} : (f64, f64) -> f64\n"""
               s"""$preValCode${peqValCode}affine.store %$peqVal, %${tensorComputation.head.name}[$varsStr] : memref<${sizeStr}f64>\n"affine.yield"() : () -> ()\n}${if (containsV) s""", {"affine.yield"(): () -> ()}) $cmpSet : ($ind) -> ()""" else ""}"""
             } else s"""affine.store %${filteredVars(i - 1).cFormat(eqVar)}_sum, %${tensorComputation.head.name}[$varsStr] : memref<${sizeStr}f64>\n"affine.yield"() : () -> ()\n}${if (containsV) s""", {"affine.yield"(): () -> ()}) $cmpSet : ($ind) -> ()""" else ""}"""
           }
+          else if (i == 0) {
+            if (containsV) s""""affine.yield"(%$finalV): (f64) -> ()\n}, {"affine.yield"(%zerof): (f64) -> ()}) $cmpSet : ($ind) -> f64"""
+            else s"""%new_sum_${v.cFormat(eqVar)} = "arith.addf"(%$finalV, %iter_sum_${v.cFormat(eqVar)}) {"fastmath" = #arith.fastmath<fast>} : (f64, f64) -> f64\n"affine.yield"(%new_sum_${v.cFormat(eqVar)}): (f64) -> ()\n}"""
+          } else if (tensorComputation.head.vars.toSet.subsetOf(filteredVars.slice(i, filteredVars.length).toSet) && filteredVars.slice(i, filteredVars.length).toSet != tensorComputation.head.vars.toSet) {
+            if (containsV) s""""affine.yield"(%${filteredVars(i - 1).cFormat(eqVar)}_sum): (f64) -> ()\n}, {"affine.yield"(%zerof): (f64) -> ()}) $cmpSet : ($ind) -> f64"""
+            else s"""%new_sum_${v.cFormat(eqVar)} = "arith.addf"(%${filteredVars(i - 1).cFormat(eqVar)}_sum, %iter_sum_${v.cFormat(eqVar)}) {"fastmath" = #arith.fastmath<fast>} : (f64, f64) -> f64\n"affine.yield"(%new_sum_${v.cFormat(eqVar)}): (f64) -> ()\n}"""
+          } 
           else s""""affine.yield"() : () -> ()\n}${if (containsV) s""", {"affine.yield"(): () -> ()}) $cmpSet : ($ind) -> ()""" else ""}"""
           s"$acc\n$nc"
         }
@@ -2104,168 +2058,178 @@ object Compiler {
 
     val pathC: Seq[(Rule, Seq[Map[Variable, Interval]], Seq[Map[Variable, Index]])] = getFinalCodeGenPath(tensorComputation.head, finalC, intervalsSimplifiedC, eqVarMapC)
     val tensorComputationRC = Rule(tensorComputation.head, SoP(Seq(Prod(Seq(tensorComputation.head.vars2RedundancyVars)))))
+
+    // println(finalC.prettyFormat)
     
 
-    // println("variables:")
-    // println(variables)
-    println("==================")
-    println("Tensor Computation")
-    pprint(tensorComputation)
-    println("==================")
-    println("outUS")
-    pprint(outUS)
-    println("------------------")
-    println("outRM")
-    pprint(outRM)
-    println("------------------")
-    println("outC")
-    pprint(outC)
-    // println("------------------")
-    // println("outDI")
-    // println(dimInfo :+ outDI)
-    println("==================")
-    // println("variableConditionMapUS")
-    // println(variableConditionMapUS)
-    // println("------------------")
-    // println("variableConditionMapRM")
-    // println(variableConditionMapRM)
-    // println("------------------")
-    println("variableConditionMapC")
-    println(variableConditionMapC)
-    println("==================")
-    // println("unifiedVariableConditionMapUS")
-    // println(unifiedVariableConditionMapUS)
-    // println("------------------")
-    // println("unifiedVariableConditionMapRM")
-    // println(unifiedVariableConditionMapRM)
-    // println("------------------")
-    println("unifiedVariableConditionMapC")
-    println(unifiedVariableConditionMapC)
-    println("==================")
-    // println("unifiedOutUS")
-    // pprint(unifiedOutUS)
-    // println("------------------")
-    // println("unifiedOutRM")
-    // pprint(unifiedOutRM)
-    // println("------------------")
-    println("unifiedOutC")
-    pprint(unifiedOutC)
-    println("==================")
-    // println("distinctOutUS")
-    // pprint(distinctOutUS)
-    // println("------------------")
-    // println("distinctOutRM")
-    // pprint(distinctOutRM)
-    // println("------------------")
-    println("distinctOutC")
-    pprint(distinctOutC)
-    println("==================")
-    println("simplifiedOutUS")
-    pprint(simplifiedOutUS)
-    println("------------------")
-    println("simplifiedOutRM")
-    pprint(simplifiedOutRM)
-    println("------------------")
-    println("simplifiedOutC")
-    pprint(simplifiedOutC)
-    println("==================")
-    // println("distinctConditionMapUS")
-    // println(distinctConditionMapUS)
-    // println("------------------")
-    // println("distinctConditionMapRM")
-    // println(distinctConditionMapRM)
-    // println("------------------")
-    println("distinctConditionMapC")
-    println(distinctConditionMapC)
-    println("==================")
-    // println("fixedConditionOrderUS")
-    // println(fixedConditionOrderUS)
-    // println("------------------")
-    // println("fixedConditionOrderRM")
-    // println(fixedConditionOrderRM)
-    // println("------------------")
-    println("fixedConditionOrderC")
-    println(fixedConditionOrderC)
-    println("==================")
-    // println("removedNonLHSVarsUS")
-    // println(removedNonLHSVarsUS)
-    // println("------------------")
-    // println("removedNonLHSVarsRM")
-    // println(removedNonLHSVarsRM)
-    // println("------------------")
-    // println("removedNonLHSVarsC")
-    // println(removedNonLHSVarsC)
+    // // println("variables:")
+    // // println(variables)
     // println("==================")
-    // println("eqVarMapUS")
-    // println(eqVarMapUS)
+    // println("Tensor Computation")
+    // pprint(tensorComputation)
+    // println("==================")
+    // println("outUS")
+    // pprint(outUS)
     // println("------------------")
-    // println("eqVarMapRM")
-    // println(eqVarMapRM)
+    // println("outRM")
+    // pprint(outRM)
     // println("------------------")
-    println("eqVarMapC")
-    println(eqVarMapC)
-    println("==================")
-    // println("intervalsUS")
-    // println(intervalsUS)
+    // println("outC")
+    // pprint(outC)
+    // // println("------------------")
+    // // println("outDI")
+    // // println(dimInfo :+ outDI)
+    // println("==================")
+    // // println("variableConditionMapUS")
+    // // println(variableConditionMapUS)
+    // // println("------------------")
+    // // println("variableConditionMapRM")
+    // // println(variableConditionMapRM)
+    // // println("------------------")
+    // println("variableConditionMapC")
+    // println(variableConditionMapC)
+    // println("==================")
+    // // println("unifiedVariableConditionMapUS")
+    // // println(unifiedVariableConditionMapUS)
+    // // println("------------------")
+    // // println("unifiedVariableConditionMapRM")
+    // // println(unifiedVariableConditionMapRM)
+    // // println("------------------")
+    // println("unifiedVariableConditionMapC")
+    // println(unifiedVariableConditionMapC)
+    // println("==================")
+    // // println("unifiedOutUS")
+    // // pprint(unifiedOutUS)
+    // // println("------------------")
+    // // println("unifiedOutRM")
+    // // pprint(unifiedOutRM)
+    // // println("------------------")
+    // println("unifiedOutC")
+    // pprint(unifiedOutC)
+    // println("==================")
+    // // println("distinctOutUS")
+    // // pprint(distinctOutUS)
+    // // println("------------------")
+    // // println("distinctOutRM")
+    // // pprint(distinctOutRM)
+    // // println("------------------")
+    // println("distinctOutC")
+    // pprint(distinctOutC)
+    // println("==================")
+    // println("simplifiedOutUS")
+    // pprint(simplifiedOutUS)
     // println("------------------")
-    // println("intervalsRM")
-    // println(intervalsRM)
+    // println("simplifiedOutRM")
+    // pprint(simplifiedOutRM)
     // println("------------------")
-    println("intervalsC")
-    println(intervalsC)
-    println("==================")
-    // println("intervalsSimplifiedUS")
-    // println(intervalsSimplifiedUS)
-    // println("------------------")
-    // println("intervalsSimplifiedRM")
-    // println(intervalsSimplifiedRM)
-    // println("------------------")
-    println("intervalsSimplifiedC")
-    println(intervalsSimplifiedC)
-    println("==================")
-    // println("finalUS")
-    // pprint(finalUS)
-    // println("------------------")
-    // println("finalRM")
-    // pprint(finalRM)
-    // println("------------------")
-    println("finalC")
-    pprint(finalC)
-    println("==================")
-    println("PathC")
-    pathC.foldLeft()((acc, cur) => {
-      val (tensorComputationC, intervalC, eqMapC): (Rule, Seq[Map[Variable, Interval]], Seq[Map[Variable, Index]]) = cur
-      println("********************")
-      println("Tensor Computation")
-      pprint(tensorComputationC)
-      println("Interval")
-      println(intervalC(0))
-      println("Equality Var Map")
-      println(eqMapC(0))
-      println("********************")
-    })
-    // println("------------------")
-    // println("PathRC")
-    // pathRC.foldLeft()((acc, cur) => {
-    //   val (tensorComputationRC, intervalRC, eqMapRC): (Rule, Seq[Map[Variable, Interval]], Seq[Map[Variable, Index]]) = cur
+    // println("simplifiedOutC")
+    // pprint(simplifiedOutC)
+    // println("==================")
+    // // println("distinctConditionMapUS")
+    // // println(distinctConditionMapUS)
+    // // println("------------------")
+    // // println("distinctConditionMapRM")
+    // // println(distinctConditionMapRM)
+    // // println("------------------")
+    // println("distinctConditionMapC")
+    // println(distinctConditionMapC)
+    // println("==================")
+    // // println("fixedConditionOrderUS")
+    // // println(fixedConditionOrderUS)
+    // // println("------------------")
+    // // println("fixedConditionOrderRM")
+    // // println(fixedConditionOrderRM)
+    // // println("------------------")
+    // println("fixedConditionOrderC")
+    // println(fixedConditionOrderC)
+    // println("==================")
+    // // println("removedNonLHSVarsUS")
+    // // println(removedNonLHSVarsUS)
+    // // println("------------------")
+    // // println("removedNonLHSVarsRM")
+    // // println(removedNonLHSVarsRM)
+    // // println("------------------")
+    // // println("removedNonLHSVarsC")
+    // // println(removedNonLHSVarsC)
+    // // println("==================")
+    // // println("eqVarMapUS")
+    // // println(eqVarMapUS)
+    // // println("------------------")
+    // // println("eqVarMapRM")
+    // // println(eqVarMapRM)
+    // // println("------------------")
+    // println("eqVarMapC")
+    // println(eqVarMapC)
+    // println("==================")
+    // // println("intervalsUS")
+    // // println(intervalsUS)
+    // // println("------------------")
+    // // println("intervalsRM")
+    // // println(intervalsRM)
+    // // println("------------------")
+    // println("intervalsC")
+    // println(intervalsC)
+    // println("==================")
+    // // println("intervalsSimplifiedUS")
+    // // println(intervalsSimplifiedUS)
+    // // println("------------------")
+    // // println("intervalsSimplifiedRM")
+    // // println(intervalsSimplifiedRM)
+    // // println("------------------")
+    // println("intervalsSimplifiedC")
+    // println(intervalsSimplifiedC)
+    // println("==================")
+    // // println("finalUS")
+    // // pprint(finalUS)
+    // // println("------------------")
+    // // println("finalRM")
+    // // pprint(finalRM)
+    // // println("------------------")
+    // println("finalC")
+    // pprint(finalC)
+    // println("==================")
+    // println("PathC")
+    // pathC.foldLeft()((acc, cur) => {
+    //   val (tensorComputationC, intervalC, eqMapC): (Rule, Seq[Map[Variable, Interval]], Seq[Map[Variable, Index]]) = cur
     //   println("********************")
     //   println("Tensor Computation")
-    //   pprint(tensorComputationRC)
+    //   pprint(tensorComputationC)
     //   println("Interval")
-    //   println(intervalRC(0))
+    //   println(intervalC(0))
     //   println("Equality Var Map")
-    //   println(eqMapRC(0))
+    //   println(eqMapC(0))
     //   println("********************")
     // })
-    println("==================")
+    // // println("------------------")
+    // // println("PathRC")
+    // // pathRC.foldLeft()((acc, cur) => {
+    // //   val (tensorComputationRC, intervalRC, eqMapRC): (Rule, Seq[Map[Variable, Interval]], Seq[Map[Variable, Index]]) = cur
+    // //   println("********************")
+    // //   println("Tensor Computation")
+    // //   pprint(tensorComputationRC)
+    // //   println("Interval")
+    // //   println(intervalRC(0))
+    // //   println("Equality Var Map")
+    // //   println(eqMapRC(0))
+    // //   println("********************")
+    // // })
+    // println("==================")
 
-    println("JSON>>>")
-    println(codegen.JsonGenerator.codegen(pathC.last._1.head))
+    // println("JSON>>>")
+    // println(codegen.JsonGenerator.codegen(pathC.last._1.head))
 
     if (codeLang == "MLIR") {
-      if (codeGenMode == 0) "void compute() {\n" + codeGenRuleMLIR(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedUS, eqVarMapUS, UniqueSet, peqMode, codeMotion, dataLayoutMap) + "\n}\n\n\nvoid reconstruct() {\n" + codeGenRuleMLIR(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedRM, eqVarMapRM, RedundancyMap, peqMode, codeMotion, dataLayoutMap) + "\n}\n"
-      else if (codeGenMode == 1) codeGenRuleMLIR(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedUS, eqVarMapUS, UniqueSet, peqMode, codeMotion, dataLayoutMap)
-      else if (codeGenMode == 2) codeGenRuleMLIR(tensorComputation, dimInfo :+ outDI, variables, intervalsSimplifiedRM, eqVarMapRM, RedundancyMap, peqMode, codeMotion, dataLayoutMap)
+      val computation: String = pathC.foldLeft(("", false))((acc, cur) => {
+        val (tensorComputationC, intervalC, eqMapC): (Rule, Seq[Map[Variable, Interval]], Seq[Map[Variable, Index]]) = cur
+        val peqC: Boolean = peqMode | acc._2
+        val res: String = codeGenRuleMLIR(tensorComputationC, dimInfo :+ outDI, variables, intervalC, eqMapC, UniqueSet, peqC, codeMotion, dlMapFinal)
+        (acc._1 + "\n" + res, true)
+      })._1
+      val reconstruction: String = codeGenRuleMLIR(tensorComputationRC, dimInfo :+ outDI, variables.redundancyVarsInplace, intervalsSimplifiedRM, eqVarMapRM, UniqueSet, false, codeMotion, dlMapFinal)
+
+      if (codeGenMode == 0) "void compute() {\n" + computation + "\n}\n\n\nvoid reconstruct() {\n" + reconstruction + "\n}\n"
+      else if (codeGenMode == 1) computation
+      else if (codeGenMode == 2) reconstruction
       else ""
     } else {
       val computation: String = pathC.foldLeft(("", false))((acc, cur) => {

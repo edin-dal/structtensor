@@ -21,7 +21,7 @@ i64 timer() {
   // return epoch in us
   struct timespec t;
   clock_gettime(CLOCK_MONOTONIC, &t);
-  return (t.tv_sec) * (i64) 1000000; + (t.tv_nsec / 1000);
+  return (t.tv_sec) * (i64) 1000000 + (t.tv_nsec / 1000);
 }
 
 i64 timer_elapsed(i64 start) {
