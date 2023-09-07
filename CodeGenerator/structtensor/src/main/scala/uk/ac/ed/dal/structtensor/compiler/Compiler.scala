@@ -1894,6 +1894,7 @@ object Compiler {
       cnt += 200
 
       val filteredVars = vars.reverse.filter(e => !cntVars.contains(e))
+      val reverseVars = vars.reverse
       val finalBrackets = filteredVars.zipWithIndex.foldLeft("")((acc, vi) => {
         val v = vi._1
         val i = vi._2
@@ -1901,7 +1902,7 @@ object Compiler {
         else {
           val containsV = beginEndEqVars.contains(v)
           val (cmpSet, ind) = conditionSetsMap.getOrElse(v, ("", ""))
-          val nc = if (filteredVars.slice(i, filteredVars.length).toSet == tensorComputation.head.vars.toSet) {
+          val nc = if (reverseVars.slice(i, reverseVars.length).toSet == tensorComputation.head.vars.toSet) {
             val (varsStr, sizeStr, indexStr) = tensorComputation.head.vars.foldLeft(("", "", ""))((acc2, v) => {
               val (varsStr, sizeStr, indexStr) = acc2
               val newVarStr = if (varsStr.length == 0) s"%${v.cFormat(eqVar)}" else s"$varsStr, %${v.cFormat(eqVar)}"
