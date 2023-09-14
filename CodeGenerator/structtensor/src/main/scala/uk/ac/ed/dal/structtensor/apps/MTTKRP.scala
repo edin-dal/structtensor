@@ -88,161 +88,217 @@ object MTTKRP {
   def apply(structure: String, sparse: Boolean, codeMotion: Boolean = true) = {
     val outName1 = if (structure == "fixed_ij") "MTTKRP_IJ" else if (structure == "fixed_i") "MTTKRP_I" else if (structure == "fixed_j") "MTTKRP_J" else "MTTKRP"
     val outName = if (sparse) s"${outName1}_Sparse" else outName1
-    val c1 = 
-s"""
-#include <iostream>
-#include <random>
-#include <algorithm>
-#include <chrono>
+    val c1 = CPP_init_code()
+    val argv_names = if (structure == "fixed_ij") Seq("M", "N", "P", "Q", "I", "J") else if (structure == "fixed_i") Seq("M", "N", "P", "Q", "I") else if (structure == "fixed_j") Seq("M", "N", "P", "Q", "J") else Seq("M", "N", "P", "Q")
+    val c2 = CPP_read_argv(argv_names)
+    val dims3 = if ((structure == "fixed_i" || structure == "fixed_ij") && sparse) Seq("N", "P") else Seq("M", "N", "P")
+    val cond3 = (x: Seq[String]) => if ((structure == "fixed_i" || structure == "fixed_ij") && !sparse) s"${x(0)} == I" else "1"
+    val func3 = if ((structure == "fixed_i" || structure == "fixed_ij") && sparse) (x: Seq[String]) => Seq(s"${x(0)} * P + ${x(1)}") else (x: Seq[String]) => x
+    val c3 = CPP_alloc_and_gen_random_number("B", dims3, cond3, func3)
 
-using namespace std;
-using namespace std::chrono;
+    val c4 = CPP_alloc_and_gen_random_number("C", Seq("N", "Q"), const_condition("true"))
 
-int main(int argc, char **argv){
-    srand(0);
+    val dims5 = if ((structure == "fixed_j" || structure == "fixed_ij") && sparse) Seq("P") else Seq("P", "Q")
+    val cond5 = (x: Seq[String]) => if ((structure == "fixed_j" || structure == "fixed_ij") && !sparse) s"${x(1)} == J" else "1"
+    val c5 = CPP_alloc_and_gen_random_number("D", dims5, cond5)
 
-    int M = atoi(argv[1]),N = atoi(argv[2]), P = atoi(argv[3]), Q = atoi(argv[4]);
-    ${if (structure == "fixed_ij") "int I = atoi(argv[5]), J = atoi(argv[6]);" else if (structure == "fixed_i") "int I = atoi(argv[5]);" else if (structure == "fixed_j") "int J = atoi(argv[5]);" else ""}
+    val c6 = CPP_alloc_and_gen_random_number("A", Seq("M", "Q"), const_condition("false"))
+
+    val c7 = CPP_timer_start()
+    val c8 = mttkrp_n(structure, 1, sparse, codeMotion=codeMotion)
+    val c9 = CPP_timer_end()
+    val c10 = CPP_printerr("A", Seq("M", "Q"))
+    val c11 = CPP_free("A", Seq("M", "Q"), sparse)
+    val c12 = CPP_free("B", dims3, sparse)
+    val c13 = CPP_free("C", Seq("N", "Q"), sparse)
+    val c14 = CPP_free("D", dims5, sparse)
+    val c15 = CPP_return()
+
+
+//     val c1 =
+// s"""
+// #include <iostream>
+// #include <random>
+// #include <algorithm>
+// #include <chrono>
+
+// using namespace std;
+// using namespace std::chrono;
+
+// int main(int argc, char **argv){
+//     srand(0);
+
+//     int M = atoi(argv[1]),N = atoi(argv[2]), P = atoi(argv[3]), Q = atoi(argv[4]);
+//     ${if (structure == "fixed_ij") "int I = atoi(argv[5]), J = atoi(argv[6]);" else if (structure == "fixed_i") "int I = atoi(argv[5]);" else if (structure == "fixed_j") "int J = atoi(argv[5]);" else ""}
     
-     /*
-        M : third dimension (k vec) in B,   --> rows in A 
-        N : first dimension (i vec) in B,   --> rows in C
-        P : second dimension (j vec) in B,  --> rows in D
+//      /*
+//         M : third dimension (k vec) in B,   --> rows in A 
+//         N : first dimension (i vec) in B,   --> rows in C
+//         P : second dimension (j vec) in B,  --> rows in D
 
-        Q : columns  in C, D, and A 
+//         Q : columns  in C, D, and A 
 
-        A(i, j) = B(i,k,l),C(k,j),D(l,j)
-    */
+//         A(i, j) = B(i,k,l),C(k,j),D(l,j)
+//     */
 
 
-    ${if (sparse && (structure == "fixed_i" || structure == "fixed_ij")) {
-s"""
-    double *B = new double[N * P];
-    for (size_t k = 0; k < N; ++k){
-        for (size_t l = 0; l < P; ++l){
-            B[k * P + l] = (double) (rand() % 1000000) / 1e6;
-        }
-    }
-"""
-    } else {
-s"""
-    double  ***B = new double**[M];
-    for(size_t i = 0; i < M; ++i){
-        B[i] = new double*[N];
-        for(size_t k = 0; k < N; ++k){
-            B[i][k] = new double[P];
-            for(size_t l =0; l< P; ++l){
-                ${if (structure == "fixed_i" || structure == "fixed_ij") {
-s"""
-                if (i == I){
-                    B[i][k][l] = (double) (rand() % 1000000) / 1e6;
-                }
-                else{
-                    B[i][k][l] = (double) 0;
-                }
-"""
-                } else {
-                  "B[i][k][l] = (double) (rand() % 1000000) / 1e6;"
-                }}
-            }
-        }
-    }
-"""
-    }}
+//     ${if (sparse && (structure == "fixed_i" || structure == "fixed_ij")) {
+// s"""
+//     double *B = new double[N * P];
+//     for (size_t k = 0; k < N; ++k){
+//         for (size_t l = 0; l < P; ++l){
+//             B[k * P + l] = (double) (rand() % 1000000) / 1e6;
+//         }
+//     }
+// """
+//     } else {
+// s"""
+//     double  ***B = new double**[M];
+//     for(size_t i = 0; i < M; ++i){
+//         B[i] = new double*[N];
+//         for(size_t k = 0; k < N; ++k){
+//             B[i][k] = new double[P];
+//             for(size_t l =0; l< P; ++l){
+//                 ${if (structure == "fixed_i" || structure == "fixed_ij") {
+// s"""
+//                 if (i == I){
+//                     B[i][k][l] = (double) (rand() % 1000000) / 1e6;
+//                 }
+//                 else{
+//                     B[i][k][l] = (double) 0;
+//                 }
+// """
+//                 } else {
+//                   "B[i][k][l] = (double) (rand() % 1000000) / 1e6;"
+//                 }}
+//             }
+//         }
+//     }
+// """
+//     }}
 
-    double  **C = new double*[N];
-    for(size_t k = 0; k < N; ++k){
-        C[k] = new double[Q];
-        for(size_t j = 0; j < Q; ++j){
-            C[k][j] = (double) (rand() % 1000000) / 1e6;
-        }
-    }
+//     double  **C = new double*[N];
+//     for(size_t k = 0; k < N; ++k){
+//         C[k] = new double[Q];
+//         for(size_t j = 0; j < Q; ++j){
+//             C[k][j] = (double) (rand() % 1000000) / 1e6;
+//         }
+//     }
 
-    ${if (sparse && (structure == "fixed_j" || structure == "fixed_ij")) {
-s"""
-    double *D = new double[P];
-    for (size_t l = 0; l < P; ++l){
-        D[l] = (double) (rand() % 1000000) / 1e6;
-    }
-"""
-    } else {
-s"""
-    double  **D = new double*[P];
-    for(size_t l = 0; l < P; ++l){
-        D[l] = new double[Q];
-        for(size_t j = 0; j < Q; j++){
-            ${if (structure == "fixed_j" || structure == "fixed_ij") {
-s"""
-            if(j == J){
-                D[l][j] = (double) (rand() % 1000000) / 1e6;
-            }
-            else{
-                D[l][j] = (double) 0;
+//     ${if (sparse && (structure == "fixed_j" || structure == "fixed_ij")) {
+// s"""
+//     double *D = new double[P];
+//     for (size_t l = 0; l < P; ++l){
+//         D[l] = (double) (rand() % 1000000) / 1e6;
+//     }
+// """
+//     } else {
+// s"""
+//     double  **D = new double*[P];
+//     for(size_t l = 0; l < P; ++l){
+//         D[l] = new double[Q];
+//         for(size_t j = 0; j < Q; j++){
+//             ${if (structure == "fixed_j" || structure == "fixed_ij") {
+// s"""
+//             if(j == J){
+//                 D[l][j] = (double) (rand() % 1000000) / 1e6;
+//             }
+//             else{
+//                 D[l][j] = (double) 0;
 
-            }
-"""
-            } else "D[l][j] = (double) (rand() % 1000000) / 1e6;"}
-        }
-    }
-"""
-    }}
+//             }
+// """
+//             } else "D[l][j] = (double) (rand() % 1000000) / 1e6;"}
+//         }
+//     }
+// """
+//     }}
 
-    double  **A = new double*[M];
-    for(size_t i = 0; i < M; ++i){
-        A[i] = new double[Q];
-        for(size_t j = 0; j < Q; ++j){
-            A[i][j] = (double) 0;
-        }
-    }
+//     double  **A = new double*[M];
+//     for(size_t i = 0; i < M; ++i){
+//         A[i] = new double[Q];
+//         for(size_t j = 0; j < Q; ++j){
+//             A[i][j] = (double) 0;
+//         }
+//     }
 
-    long time = 0, start, end;
-    start = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
-"""
-    val c2 = mttkrp_n(structure, 1, sparse, codeMotion=codeMotion)
-    val c3 = 
-s"""
-    end = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
-    time += end - start;
+//     long time = 0, start, end;
+//     start = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
+// """
+//     val c2 = mttkrp_n(structure, 1, sparse, codeMotion=codeMotion)
+//     val c3 = 
+// s"""
+//     end = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
+//     time += end - start;
 
-    cerr << A[M - 1][Q - 1] << "\\n";
-    cout<<time;
+//     cerr << A[M - 1][Q - 1] << "\\n";
+//     cout<<time;
    
 
-    ${if (sparse && (structure == "fixed_i" || structure == "fixed_ij")) "" else {
-s"""
-    for(size_t i = 0; i < P; i++){
-        for(size_t j = 0; j < N; j++){
-            delete[] B[i][j];
-        }
-        delete[] B[i];
-    }
-"""
-    }}
-    delete[] B;
+//     ${if (sparse && (structure == "fixed_i" || structure == "fixed_ij")) "" else {
+// s"""
+//     for(size_t i = 0; i < P; i++){
+//         for(size_t j = 0; j < N; j++){
+//             delete[] B[i][j];
+//         }
+//         delete[] B[i];
+//     }
+// """
+//     }}
+//     delete[] B;
     
-    for(size_t i = 0; i < N; i++){
-        delete[] C[i];
-    }
-    delete[] C;
+//     for(size_t i = 0; i < N; i++){
+//         delete[] C[i];
+//     }
+//     delete[] C;
 
-    ${if (sparse && (structure == "fixed_j" || structure == "fixed_ij")) "" else {
-s"""
-    for(size_t i = 0; i < P; i++){
-        delete[] D[i];
-    }
-"""
-    }}
-    delete[] D;
+//     ${if (sparse && (structure == "fixed_j" || structure == "fixed_ij")) "" else {
+// s"""
+//     for(size_t i = 0; i < P; i++){
+//         delete[] D[i];
+//     }
+// """
+//     }}
+//     delete[] D;
 
-    for(size_t i = 0; i < M; i++){
-        delete[] A[i];
-    }
-    delete[] A;
-    return 0; 
-}
-"""
-    val code = s"$c1\n$c2\n$c3"
+//     for(size_t i = 0; i < M; i++){
+//         delete[] A[i];
+//     }
+//     delete[] A;
+//     return 0; 
+// }
+// """
+//     val code = s"$c1\n$c2\n$c3"
+    val code = s"$c1\n$c2\n$c3\n$c4\n$c5\n$c6\n$c7\n$c8\n$c9\n$c10\n$c11\n$c12\n$c13\n$c14\n$c15"
     write2File(s"outputs/$outName.cpp", code)
+  }
+
+  def C(structure: String, sparse: Boolean, codeMotion: Boolean) = {
+    val outName1 = if (structure == "fixed_ij") "MTTKRP_IJ" else if (structure == "fixed_i") "MTTKRP_I" else if (structure == "fixed_j") "MTTKRP_J" else "MTTKRP"
+    val outName = if (sparse) s"${outName1}_Sparse" else outName1
+    val c1 = C_init_code()
+    val argv_names = if (structure == "fixed_ij") Seq("M", "N", "P", "Q", "I", "J") else if (structure == "fixed_i") Seq("M", "N", "P", "Q", "I") else if (structure == "fixed_j") Seq("M", "N", "P", "Q", "J") else Seq("M", "N", "P", "Q")
+    val c2 = C_read_argv(argv_names)
+    val dims3 = if ((structure == "fixed_i" || structure == "fixed_ij") && sparse) Seq("N", "P") else Seq("M", "N", "P")
+    val cond3 = (x: Seq[String]) => if ((structure == "fixed_i" || structure == "fixed_ij") && !sparse) s"${x(0)} == I" else "1"
+    val func3 = if ((structure == "fixed_i" || structure == "fixed_ij") && sparse) (x: Seq[String]) => Seq(s"${x(0)} * P + ${x(1)}") else (x: Seq[String]) => x
+    val c3 = C_alloc_and_gen_random_number("B", dims3, cond3, func3)
+
+    val c4 = C_alloc_and_gen_random_number("C", Seq("N", "Q"), const_condition("true"))
+
+    val dims5 = if ((structure == "fixed_j" || structure == "fixed_ij") && sparse) Seq("P") else Seq("P", "Q")
+    val cond5 = (x: Seq[String]) => if ((structure == "fixed_j" || structure == "fixed_ij") && !sparse) s"${x(1)} == J" else "1"
+    val c5 = C_alloc_and_gen_random_number("D", dims5, cond5)
+
+    val c6 = C_alloc_and_gen_random_number("A", Seq("M", "Q"), const_condition("false"))
+    val c7 = C_timer_start()
+    val c8 = mttkrp_n(structure, 1, sparse, codeMotion=codeMotion)
+    val c9 = C_timer_end()
+    val c10 = C_printerr("A", Seq("M", "Q"))
+    val c11 = C_free(Seq("A", "B", "C", "D"))
+    val c12 = C_return()
+    val code = s"$c1\n$c2\n$c3\n$c4\n$c5\n$c6\n$c7\n$c8\n$c9\n$c10\n$c11\n$c12"
+    write2File(s"outputs_c/$outName.c", code)
   }
 
   def MLIR(structure: String, sparse: Boolean) = {

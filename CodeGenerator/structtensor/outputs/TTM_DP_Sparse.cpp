@@ -59,6 +59,7 @@ int main(int argc, char **argv){
 
 
 
+
 for (int i = 0; i < std::min({M, N}); ++i) {
 auto &cm1 = A[i];
 
@@ -75,7 +76,7 @@ auto &cm3 = C[k];
 for (int l = 0; l < Q; ++l) {
 
 
-tmp += (B[((i * Q) + l)] * cm3[l]);
+tmp += (cm3[l] * B[((i * Q) + l)]);
 }
 cm2[k] += tmp;
 }

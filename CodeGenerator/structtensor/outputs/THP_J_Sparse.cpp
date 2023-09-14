@@ -58,6 +58,7 @@ int main(int argc, char **argv){
 
 
 
+
 for (int i = 0; i < M; ++i) {
 auto &cm1 = A[i];
 
@@ -72,7 +73,7 @@ auto &cm4 = cm2[j];
 for (int k = 0; k < P; ++k) {
 
 
-cm3[k] += (B[((i * P) + k)] * cm4[k]);
+cm3[k] += (cm4[k] * B[((i * P) + k)]);
 }
 }
 }

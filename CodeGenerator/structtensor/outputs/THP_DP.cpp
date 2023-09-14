@@ -21,6 +21,7 @@ int main(int argc, char **argv){
         A(i,j,k) = B(i,j,k),C(i,j,k)
     */
 
+    
     double  ***B = new double**[M];
     for(size_t i = 0; i < M; ++i){
         B[i] = new double*[N];
@@ -36,6 +37,7 @@ int main(int argc, char **argv){
             }
         }
     }
+
 
     double  ***C = new double**[M];
     for(size_t i = 0; i < M; ++i){
@@ -64,6 +66,7 @@ int main(int argc, char **argv){
 
 
 
+
 for (int i = 0; i < std::min({M, N}); ++i) {
 auto &cm1 = A[i];
 
@@ -79,7 +82,7 @@ auto &cm6 = cm3[i];
 for (int k = 0; k < P; ++k) {
 
 
-cm4[k] += ((cm5[k] * cm6[k]));
+cm4[k] += (cm5[k] * cm6[k]);
 }
 }
 
@@ -90,12 +93,14 @@ cm4[k] += ((cm5[k] * cm6[k]));
     cerr << A[M - 1][N - 1][P - 1] << "\n";
     cout<<time;
 
+    
     for(size_t i = 0; i < M; ++i){
         for(size_t j = 0; j < N; ++j){
             delete[] B[i][j];
         }
         delete[] B[i];
     }
+
     delete[] B;
 
     for(size_t i = 0; i < M; ++i){

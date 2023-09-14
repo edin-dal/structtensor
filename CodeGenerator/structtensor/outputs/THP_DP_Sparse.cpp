@@ -58,6 +58,7 @@ int main(int argc, char **argv){
 
 
 
+
 for (int i = 0; i < std::min({M, N}); ++i) {
 auto &cm1 = A[i];
 

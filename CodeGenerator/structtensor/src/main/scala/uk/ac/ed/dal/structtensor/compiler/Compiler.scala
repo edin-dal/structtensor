@@ -2,6 +2,10 @@ package uk.ac.ed.dal
 package structtensor
 package compiler
 
+import scala.collection.mutable.ArraySeq
+import scala.sys.process._
+import scala.io.Source
+
 object Compiler {
   import STURHelper._
 
@@ -1601,6 +1605,62 @@ object Compiler {
     }})
   }
 
+  def linearizedIndexes(US : Rule, dimVars : Set[Variable]) : Seq[String] = {
+    // println("Target unique set:")
+    // println(US.prettyFormat()+"\n")
+    val it_names = US.head.vars
+    val nit = it_names.size
+
+    // Extract parameters from the products
+
+    def index_add_param(i : Index, set : Set[Variable]) : Set[Variable] = {
+      i match {
+        case Variable(name) => if (it_names contains i) set else set + i.asInstanceOf[Variable]
+        case Arithmetic(_, index1, index2) =>
+          index_add_param(index1, index_add_param(index2, set))
+        case _ => set
+      }
+    }
+    val exp_add_param = (e : Exp, set : Set[Variable]) => {
+      e match {
+        case Comparison(op, index, variable) => index_add_param(index, set)
+        case _ => throw new Exception("Should be only Comparison here ?")
+      }
+    }
+
+    val params = US.body.prods.map((bUS : Prod) => {
+      val init = Set.empty[Variable]
+      bUS.exps.foldRight(init)(exp_add_param)
+    }).fold(Set.empty[Variable])(_|_).toList
+
+    // println("Detected linearized index parameters:")
+    // println(params)
+
+    // Generate constraints matrices
+
+    val np = params.size
+
+    val var_indices : Map[Variable, Int] = (it_names.zipWithIndex.map{case(v,i) => (v,i+1)} ++ params.zipWithIndex.map{case(v,i) => (v,i+1+it_names.size)}).toMap
+    // println("var indices:")
+    // println(var_indices)
+
+    // Translate all that to ISL-syntax
+    // Iterate over top level sum (~ over polyhedras)
+    US.body.prods.map((bUS : Prod) => {
+      // Iterate over each factor (~ constraint)
+      val isl_unique_set = "[" + params.map(_.name).mkString(",") + "] -> {[" + it_names.map(_.name).mkString(",") + "] : " +
+      bUS.exps.filter((e : Exp) => {
+        val ec = e.asInstanceOf[Comparison]
+        ec.op match {
+          case "=" => it_names contains ec.index
+          case _ => it_names contains ec.variable
+        }
+      }).map(_.prettyFormat()).mkString(" and ") + "}"
+      println(isl_unique_set)
+    (s"echo ${"S := " + isl_unique_set + "; card (S << S);"}" #|("iscc")).!!.trim()
+    })
+  }
+
   def codeGenRule(tensorComputation: Rule, dimInfo: Seq[DimInfo], variables: Seq[Variable], intervals: Seq[Map[Variable, Interval]], equalityVarMap: Seq[Map[Variable, Index]], genType: AccessType, peqMode: Boolean = true, codeMotion: Boolean = true, dataLayoutMap: Map[Exp, Function[Seq[Variable], Seq[Index]]] = Map()): String = {
     // we should make sure that all the variables that are in the right hand side of an addition, we have a condition over them or we don't add them at all. Look at e2eLRDimInfo3.txt, first for loop, for this!
     val vars = if (genType == RedundancyMap) variables.redundancyVarsInplace else variables
@@ -2059,6 +2119,11 @@ object Compiler {
 
     val pathC: Seq[(Rule, Seq[Map[Variable, Interval]], Seq[Map[Variable, Index]])] = getFinalCodeGenPath(tensorComputation.head, finalC, intervalsSimplifiedC, eqVarMapC)
     val tensorComputationRC = Rule(tensorComputation.head, SoP(Seq(Prod(Seq(tensorComputation.head.vars2RedundancyVars)))))
+
+
+    // val map = linearizedIndexes(finalUS, allDimVars.toSet)
+    // println("\n\n\nComputed maps:")
+    // println(map.map(_.toString()).mkString("\n\n"))
 
     // println(finalC.prettyFormat)
     

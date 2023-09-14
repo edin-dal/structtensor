@@ -53,6 +53,34 @@ PGLM      = Population Growth Leslie Matrix
         case "ODC" => ODC(sparse, codeMotion=codeMotion)
         case "ODCC" => ODCC(sparse, codeMotion=codeMotion)
         case "PGLM" => PGLM(sparse, codeMotion=codeMotion)
+        case "SpMV_UT" => SpMV("ut", sparse, codeMotion=codeMotion)
+        case "SpMV_D" => SpMV("diag", sparse, codeMotion=codeMotion)
+        case _ => println(help)
+      }
+    } else if (codeLang == "C") {
+      args(0) match {
+        // case "LRC" => LRC(codeMotion=codeMotion)
+        // case "PR2C" => PR2C(codeMotion=codeMotion)
+        // case "PR3C" => PR3C(codeMotion=codeMotion)
+        // case "LRA" => LRA(codeMotion=codeMotion)
+        // case "PR2A" => PR2A(codeMotion=codeMotion)
+        // case "PR3A" => PR3A(codeMotion=codeMotion)
+        // case "TTM_DP" => TTM("diag_p", sparse, codeMotion=codeMotion)
+        // case "TTM_J" => TTM("fixed_j", sparse, codeMotion=codeMotion)
+        // case "TTM_UT" => TTM("uhc", sparse, codeMotion=codeMotion)
+        // case "THP_DP" => THP("diag_p", sparse, codeMotion=codeMotion)
+        // case "THP_I" => THP("fixed_i", sparse, codeMotion=codeMotion)
+        // case "THP_J" => THP("fixed_j", sparse, codeMotion=codeMotion)
+        case "MTTKRP_IJ" => MTTKRP.C("fixed_ij", sparse, codeMotion=codeMotion)
+        case "MTTKRP_I" => MTTKRP.C("fixed_i", sparse, codeMotion=codeMotion)
+        case "MTTKRP_J" => MTTKRP.C("fixed_j", sparse, codeMotion=codeMotion)
+        // case "E2E_LR" => E2E_PRK(1, codeMotion=codeMotion)
+        // case "E2E_PR2" => E2E_PRK(2, codeMotion=codeMotion)
+        // case "ODC" => ODC(sparse, codeMotion=codeMotion)
+        // case "ODCC" => ODCC(sparse, codeMotion=codeMotion)
+        // case "PGLM" => PGLM(sparse, codeMotion=codeMotion)
+        // case "SpMV_UT" => SpMV("ut", sparse, codeMotion=codeMotion)
+        // case "SpMV_D" => SpMV("diag", sparse, codeMotion=codeMotion)
         case _ => println(help)
       }
     } else if (codeLang == "MLIR") {
@@ -65,7 +93,7 @@ PGLM      = Population Growth Leslie Matrix
         // case "PR3A" => PR3A.MLIR()
         case "TTM_DP" => TTM.MLIR("diag_p", sparse)
         case "TTM_J" => TTM.MLIR("fixed_j", sparse)
-        case "TTM_UT" => TTM.MLIR("uhc", sparse)
+        case "TTM_UT" => TTM.MLIR("uhc", sparse) // Still doesn't work
         case "THP_DP" => THP.MLIR("diag_p", sparse)
         case "THP_I" => THP.MLIR("fixed_i", sparse)
         case "THP_J" => THP.MLIR("fixed_j", sparse)
