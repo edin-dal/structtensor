@@ -147,6 +147,7 @@
 
 
 
+
 affine.for %i = %0 to %M step 1 {
 
 %j = affine.apply affine_map<(i) -> (i)>(%J)
@@ -156,19 +157,19 @@ affine.for %k = %0 to %P step 1 {
 
 %l_sum = affine.for %l = %0 to %Q step 1 iter_args(%iter_sum_l = %zerof) -> (f64) {
 
-%tmp0 = affine.load %B[%i, %j, %l] : memref<?x?x?xf64>
+%tmp22 = affine.load %C[%k, %l] : memref<?x?xf64>
 
-%tmp1 = affine.load %C[%k, %l] : memref<?x?xf64>
+%tmp23 = affine.load %B[%i, %j, %l] : memref<?x?x?xf64>
 
-%finalV22 = "arith.mulf"(%tmp0, %tmp1) {"fastmath" = #arith.fastmath<fast>} : (f64, f64) -> f64
+%finalV22 = "arith.mulf"(%tmp22, %tmp23) {"fastmath" = #arith.fastmath<fast>} : (f64, f64) -> f64
 
 
 %new_sum_l = "arith.addf"(%finalV22, %iter_sum_l) {"fastmath" = #arith.fastmath<fast>} : (f64, f64) -> f64
 "affine.yield"(%new_sum_l): (f64) -> ()
 }
-%preVal24 = affine.load %A[%i, %j, %k] : memref<?x?x?xf64>
-%peqVal23 = "arith.addf"(%l_sum, %preVal24) {"fastmath" = #arith.fastmath<fast>} : (f64, f64) -> f64
-affine.store %peqVal23, %A[%i, %j, %k] : memref<?x?x?xf64>
+%preVal223 = affine.load %A[%i, %j, %k] : memref<?x?x?xf64>
+%peqVal224 = "arith.addf"(%l_sum, %preVal223) {"fastmath" = #arith.fastmath<fast>} : (f64, f64) -> f64
+affine.store %peqVal224, %A[%i, %j, %k] : memref<?x?x?xf64>
 "affine.yield"() : () -> ()
 }
 "affine.yield"() : () -> ()

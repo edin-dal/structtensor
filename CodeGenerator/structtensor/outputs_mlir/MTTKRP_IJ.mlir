@@ -174,6 +174,7 @@
 
 
 
+
 %i = affine.apply affine_map<(i) -> (i)>(%I)
 "affine.if"(%i, %M) ({
 
@@ -184,14 +185,14 @@
 
 %l_sum = affine.for %l = %0 to %P step 1 iter_args(%iter_sum_l = %zerof) -> (f64) {
 
-%tmp0 = affine.load %B[%i, %k, %l] : memref<?x?x?xf64>
+%tmp29 = affine.load %C[%k, %j] : memref<?x?xf64>
 
-%tmp1 = affine.load %C[%k, %j] : memref<?x?xf64>
+%tmp30 = affine.load %B[%i, %k, %l] : memref<?x?x?xf64>
 
-%tmp2 = affine.load %D[%l, %j] : memref<?x?xf64>
+%tmp31 = affine.load %D[%l, %j] : memref<?x?xf64>
 
-%prod3 = "arith.mulf"(%tmp0, %tmp1) {"fastmath" = #arith.fastmath<fast>} : (f64, f64) -> f64
-%finalV29 = "arith.mulf"(%prod3, %tmp2) {"fastmath" = #arith.fastmath<fast>} : (f64, f64) -> f64
+%prod32 = "arith.mulf"(%tmp29, %tmp30) {"fastmath" = #arith.fastmath<fast>} : (f64, f64) -> f64
+%finalV29 = "arith.mulf"(%prod32, %tmp31) {"fastmath" = #arith.fastmath<fast>} : (f64, f64) -> f64
 
 
 %new_sum_l = "arith.addf"(%finalV29, %iter_sum_l) {"fastmath" = #arith.fastmath<fast>} : (f64, f64) -> f64
@@ -200,9 +201,9 @@
 %new_sum_k = "arith.addf"(%l_sum, %iter_sum_k) {"fastmath" = #arith.fastmath<fast>} : (f64, f64) -> f64
 "affine.yield"(%new_sum_k): (f64) -> ()
 }
-%preVal31 = affine.load %A[%i, %j] : memref<?x?xf64>
-%peqVal30 = "arith.addf"(%k_sum, %preVal31) {"fastmath" = #arith.fastmath<fast>} : (f64, f64) -> f64
-affine.store %peqVal30, %A[%i, %j] : memref<?x?xf64>
+%preVal230 = affine.load %A[%i, %j] : memref<?x?xf64>
+%peqVal231 = "arith.addf"(%k_sum, %preVal230) {"fastmath" = #arith.fastmath<fast>} : (f64, f64) -> f64
+affine.store %peqVal231, %A[%i, %j] : memref<?x?xf64>
 "affine.yield"() : () -> ()
 }, {"affine.yield"(): () -> ()}) {condition = affine_set<(d0)[s1]: (d0 <= s1 - 1)>} : (index,index) -> ()
 "affine.yield"() : () -> ()
