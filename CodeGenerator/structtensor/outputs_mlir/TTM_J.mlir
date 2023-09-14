@@ -155,7 +155,7 @@ affine.for %i = %0 to %M step 1 {
 
 affine.for %k = %0 to %P step 1 {
 
-%l_sum = affine.for %l = %0 to %Q step 1 iter_args(%iter_sum_l = %zerof) -> (f64) {
+affine.for %l = %0 to %Q step 1 {
 
 %tmp22 = affine.load %C[%k, %l] : memref<?x?xf64>
 
@@ -163,13 +163,12 @@ affine.for %k = %0 to %P step 1 {
 
 %finalV22 = "arith.mulf"(%tmp22, %tmp23) {"fastmath" = #arith.fastmath<fast>} : (f64, f64) -> f64
 
-
-%new_sum_l = "arith.addf"(%finalV22, %iter_sum_l) {"fastmath" = #arith.fastmath<fast>} : (f64, f64) -> f64
-"affine.yield"(%new_sum_l): (f64) -> ()
-}
 %preVal223 = affine.load %A[%i, %j, %k] : memref<?x?x?xf64>
-%peqVal224 = "arith.addf"(%l_sum, %preVal223) {"fastmath" = #arith.fastmath<fast>} : (f64, f64) -> f64
+%peqVal224 = "arith.addf"(%finalV22, %preVal223) {"fastmath" = #arith.fastmath<fast>} : (f64, f64) -> f64
 affine.store %peqVal224, %A[%i, %j, %k] : memref<?x?x?xf64>
+
+"affine.yield"() : () -> ()
+}
 "affine.yield"() : () -> ()
 }
 "affine.yield"() : () -> ()

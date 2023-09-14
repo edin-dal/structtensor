@@ -9,7 +9,7 @@ names5=("MTTKRP_IJ")
 
 
 Iter=5
-Size=( 50 100 150 200 250 )
+Size=( 50 100 150 200 250 400 )
 results_path="results/mlirVScpp"
 mkdir -p $results_path
 
