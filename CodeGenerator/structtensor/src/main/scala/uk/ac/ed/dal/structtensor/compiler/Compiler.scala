@@ -5,9 +5,11 @@ package compiler
 import scala.collection.mutable.ArraySeq
 import scala.sys.process._
 import scala.io.Source
+import apps.Shared
 
 object Compiler {
   import STURHelper._
+  import Shared._
 
   def pprint(r: Rule): Unit = println(r.prettyFormat)
 
@@ -2018,7 +2020,14 @@ object Compiler {
     })
   }
 
-  def codeGen(tensorComputation: Rule, dimInfo: Seq[DimInfo], uniqueSets: Map[Exp, Rule], redundancyMaps: Map[Exp, Rule], codeGenMode: Int = 0, peqMode: Boolean = true, variableReplacementFlag: Boolean = true, codeMotion: Boolean = true, dataLayoutMap: Map[Exp, Function[Seq[Variable], Seq[Index]]] = Map(), varReverse: Boolean = false, codeLang: String = "CPP", compressionMaps: Map[Exp, Rule] = Map()): String = {
+  def sturOptCodeGen(stur: String, codeLang: String): String = {
+    write2File(s"stur_output/ex.stur", stur)
+    // TODO: uncomment the below (error for now is -t can't accept CPP)
+    // s"stur-opt stur_output/ex.stur -t $codeLang".!!
+    s"stur-opt stur_output/ex.stur -t C".!!
+  }
+
+  def codeGen(tensorComputation: Rule, dimInfo: Seq[DimInfo], uniqueSets: Map[Exp, Rule], redundancyMaps: Map[Exp, Rule], codeGenMode: Int = 0, peqMode: Boolean = true, variableReplacementFlag: Boolean = true, codeMotion: Boolean = true, dataLayoutMap: Map[Exp, Function[Seq[Variable], Seq[Index]]] = Map(), varReverse: Boolean = false, codeLang: String = "default", compressionMaps: Map[Exp, Rule] = Map()): String = {
     val variables: Seq[Variable] = if (varReverse) getVariables(tensorComputation).reverse else getVariables(tensorComputation)
     val compressionMap1: Map[Exp, Rule] = uniqueSets.foldLeft(Seq.empty[(Exp, Rule)])((acc, kv) => {
       val (exp, us) = kv
@@ -2283,6 +2292,45 @@ object Compiler {
 
     // println("JSON>>>")
     // println(codegen.JsonGenerator.codegen(pathC.last._1.head))
+
+
+
+
+    // Makes a call to stur-opt and gets the generated code.
+
+    val computation_stur: String = pathC.foldLeft(("", false))((acc, cur) => {
+      val (tensorComputationC, intervalC, eqMapC): (Rule, Seq[Map[Variable, Interval]], Seq[Map[Variable, Index]]) = cur
+      val comps: SoP = getSoPFromInterval(intervalC, eqMapC)
+      val head: Access = tensorComputationC.head
+      val body: SoP = SoPTimesSoP(tensorComputationC.body, comps)
+      val finalRule: Rule = Rule(head, body)
+      val res: String = finalRule.prettyFormat
+      // val peqC: Boolean = peqMode | acc._2
+      // val res: String = codeGenRuleMLIR(tensorComputationC, dimInfo :+ outDI, variables, intervalC, eqMapC, UniqueSet, peqC, codeMotion, dlMapFinal)
+      (acc._1 + res + "\n", true)
+    })._1
+    val compsRC = getSoPFromInterval(intervalsSimplifiedRM, eqVarMapRM)
+    val headRC: Access = tensorComputationRC.head
+    val bodyRC: SoP = SoPTimesSoP(tensorComputationRC.body, compsRC)
+    val finalRuleRC: Rule = Rule(headRC, bodyRC)
+    val reconstruction_stur: String = finalRuleRC.prettyFormat
+    println("Computation:")
+    println(computation_stur)
+    println("Reconstruction:")
+    println(reconstruction_stur)
+
+    val computation_stur_code: String = sturOptCodeGen(computation_stur, codeLang)
+    val reconstruction_stur_code: String = sturOptCodeGen(reconstruction_stur, codeLang)
+    println("Computation Code:")
+    println(computation_stur_code)
+    println("Reconstruction Code:")
+    println(reconstruction_stur_code)
+    
+
+
+
+
+
 
     if (codeLang == "MLIR") {
       val computation: String = pathC.foldLeft(("", false))((acc, cur) => {
