@@ -2021,6 +2021,7 @@ object Compiler {
   }
 
   def sturOptCodeGen(stur: String, codeLang: String): String = {
+    if (stur.contains("∅")) return ""
     write2File(s"stur_output/ex.stur", stur)
     // TODO: uncomment the below (error for now is -t can't accept CPP)
     // s"stur-opt stur_output/ex.stur -t $codeLang".!!
@@ -2309,11 +2310,23 @@ object Compiler {
       // val res: String = codeGenRuleMLIR(tensorComputationC, dimInfo :+ outDI, variables, intervalC, eqMapC, UniqueSet, peqC, codeMotion, dlMapFinal)
       (acc._1 + res + "\n", true)
     })._1
-    val compsRC = getSoPFromInterval(intervalsSimplifiedRM, eqVarMapRM)
-    val headRC: Access = tensorComputationRC.head
-    val bodyRC: SoP = SoPTimesSoP(tensorComputationRC.body, compsRC)
-    val finalRuleRC: Rule = Rule(headRC, bodyRC)
-    val reconstruction_stur: String = finalRuleRC.prettyFormat
+    val finalRC: Rule = Rule(tensorComputationRC.head, SoPTimesSoP(tensorComputationRC.body, getSoPFromInterval(intervalsSimplifiedRM, eqVarMapRM)))
+    val pathRC: Seq[(Rule, Seq[Map[Variable, Interval]], Seq[Map[Variable, Index]])] = getFinalCodeGenPath(tensorComputation.head, finalRC, intervalsSimplifiedRM, eqVarMapRM)
+    val reconstruction_stur: String = pathRC.foldLeft(("", false))((acc, cur) => {
+      val (tensorComputationRC, intervalRC, eqMapRC): (Rule, Seq[Map[Variable, Interval]], Seq[Map[Variable, Index]]) = cur
+      val comps: SoP = getSoPFromInterval(intervalRC, eqMapRC)
+      val head: Access = tensorComputationRC.head
+      val body: SoP = SoPTimesSoP(tensorComputationRC.body, comps)
+      val finalRule: Rule = Rule(head, body)
+      val res: String = finalRule.prettyFormat
+      // val peqC: Boolean = peqMode | acc._2
+      (acc._1 + res + "\n", true)
+    })._1
+    // val compsRC = getSoPFromInterval(intervalsSimplifiedRM, eqVarMapRM)
+    // val headRC: Access = tensorComputationRC.head
+    // val bodyRC: SoP = SoPTimesSoP(tensorComputationRC.body, compsRC)
+    // val finalRuleRC: Rule = Rule(headRC, bodyRC)
+    // val reconstruction_stur: String = finalRuleRC.prettyFormat
     println("Computation:")
     println(computation_stur)
     println("Reconstruction:")

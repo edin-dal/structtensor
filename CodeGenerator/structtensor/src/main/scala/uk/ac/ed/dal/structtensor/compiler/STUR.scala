@@ -52,7 +52,7 @@ case class Variable(name: String) extends Index with Dim {
   def prettyFormat(): String = name
   def cFormat(): String = if (name.endsWith("'")) name.substring(0, name.size - 1) + "p" else name // renames redundancy vars to a writable format in C
   def cFormat(m: Map[Variable, Index]): String = if (m.keySet.contains(this)) m.get(this).get.cFormat(m) else cFormat
-  def vars2RedundancyVars(): Variable = Variable(s"${name}'")
+  def vars2RedundancyVars(): Variable = Variable(s"${name}p")
 }
 
 case class ConstantDouble(value: Double) extends Index {
@@ -117,7 +117,7 @@ case class Prod(exps: Seq[Exp]) {
   def prettyFormat(): String = {
     val pr = exps.foldLeft("")((acc, cur) => s"$acc * ${cur.prettyFormat}")
     if (exps.length == 0) "∅"
-    else s"(${pr.substring(3, pr.length)})"
+    else s"${pr.substring(3, pr.length)}"
   } 
   def cFormat(): String = {
     val pr = exps.foldLeft("")((acc, cur) => s"$acc * ${cur.cFormat}")
@@ -168,7 +168,7 @@ case class SoP(prods: Seq[Prod]) {
   def prettyFormat(): String = {
     val pr = prods.foldLeft("")((acc, cur) => s"$acc + ${cur.prettyFormat}")
     if (prods.length == 0) "∅"
-    else s"(${pr.substring(3, pr.length)})"
+    else s"${pr.substring(3, pr.length)}"
   }
   def cFormat(): String = {
     val pr = prods.foldLeft("")((acc, cur) => s"$acc + ${cur.cFormat}")
@@ -257,7 +257,7 @@ object STURHelper {
   }
 
   implicit class VariableOps(v: Variable) {
-    def redundancyVars = Variable(s"${v.name}'")
+    def redundancyVars = Variable(s"${v.name}p")
     def toAccess(kind: AccessType): Access = Access("", Seq(v), kind)
   }
 
