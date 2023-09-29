@@ -22,7 +22,7 @@ object Parser {
 
   def arith_op[$: P]: P[String] = P( "+" | "-" | "*" | "/" | "%" ).!
 
-  def arithmetic[$: P]: P[Arithmetic] = P( "(".rep ~ index ~ arith_op ~ index ~ ")".rep ).map({case (i1, op, i2) => Arithmetic( op, i1, i2)})
+  def arithmetic[$: P]: P[Arithmetic] = P( "(".rep ~ index ~ arith_op ~ index ~ ")".rep ).map({case (i1, op, i2) => Arithmetic( op, i1, i2)}) // How to solve precedence issue?
     
   def index[$: P]: P[Index] = P( variable | integer | decimal | arithmetic)
 

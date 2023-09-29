@@ -2,8 +2,12 @@ package uk.ac.ed.dal
 package structtensor
 
 import apps._
+import parser.Parser
+import fastparse._
+
 
 object Main extends App {
+  import Parser._
   val help: String = s"""
 Please specify the experiment name and select whether you want sparse datalayout for the input [use `sbt "run <exp> [sparse]"`]:
 LRC       = Linear Regression - Creation
@@ -110,12 +114,6 @@ PGLM      = Population Growth Leslie Matrix
     } else println(help)
   } else println(help)
   
-
-  // println(Variable("a").equals(Variable("a")))
-
-  // val a: Map[String, Seq[Int]] = Map("a" -> Seq(2))
-  // println(a.getOrElse("b", 12))
-  // val b: Map[String, Seq[Int]] = Map("a" -> Seq(3))
-  // println(mergeMap(Seq(a, b))((v1, v2) => v1 ++ v2))
-
+  val Parsed.Success(res, _) = parse("A(i, j, k) := C(k, l) * B(i, j, l) * (0 <= l) * (Q > l) * (0 <= i) * (M > i) * (N > i) * (0 <= k) * (P > k) * (i = j)", parser(_))
+  println(res)
 }
