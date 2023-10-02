@@ -114,6 +114,9 @@ PGLM      = Population Growth Leslie Matrix
     } else println(help)
   } else println(help)
   
-  val Parsed.Success(res, _) = parse("A(i, j, k) := C(k, l) * B(i, j, l) * (0 <= l) * (Q > l) * (0 <= i) * (M > i) * (N > i) * (0 <= k) * (P > k) * (i = j)", parser(_))
+  val p = "A(i, j, k) := C(k, l) * B(i, j, l) * (0 <= l * 2 + 5 % 2) * (Q > l) * (0 <= i) * (M > i) * (N > i) * (0 <= k) * (P > k) * (i = j)"
+  val Parsed.Success(res, _) = parse(p, parser(_))
+  println(res(0).prettyFormat)
+  println(p)
   println(res)
 }

@@ -14,31 +14,43 @@ object Parser {
 
   def name[$: P]: P[String] = P( CharIn("A-Za-z") ~ CharIn("A-Za-z0-9._").rep ).!
 
-  def access[$: P]: P[Access] = P( name.! ~ "(".rep ~ variableSeq ~ ")".rep ).map({case (n, v) => interpretAccess(n, v)})
+  def access[$: P]: P[Access] = P("(" ~ access ~ ")") | P( name.! ~ "(" ~ variableSeq ~ ")" ).map({case (n, v) => interpretAccess(n, v)})
+
+  def seqAccess[$: P]: P[Seq[Access]] = P("(" ~ seqAccess ~ ")") | P( name.! ~ "(" ~ variableSeq ~ ")" ).map({case (n, v) => interpretSeqAccess(n, v)})
 
   def integer[$: P]: P[ConstantInt] = P( CharIn("0-9").rep(1).!.map(_.toInt) ).map(ConstantInt(_))
 
-  def decimal[$: P]: P[ConstantDouble] = P( CharIn("0-9").rep(1).! ~ "." ~ CharIn("0-9").rep(1).!.map(_.toInt) ).map({case (a, b) => (a + "." + b).toDouble}).map(ConstantDouble(_))
+  def decimal[$: P]: P[ConstantDouble] = P( CharIn("0-9").rep(1).! ~ "." ~ CharIn("0-9").rep(1).! ).map({case (a, b) => (a + "." + b).toDouble}).map(ConstantDouble(_))
 
   def arith_op[$: P]: P[String] = P( "+" | "-" | "*" | "/" | "%" ).!
 
-  def arithmetic[$: P]: P[Arithmetic] = P( "(".rep ~ index ~ arith_op ~ index ~ ")".rep ).map({case (i1, op, i2) => Arithmetic( op, i1, i2)}) // How to solve precedence issue?
+  def mult_div_op[$: P]: P[String] = P( "*" | "/" ).!
+
+  def add_sub_op[$: P]: P[String] = P( "+" | "-" ).!
+
+  def remainder_op[$: P]: P[String] = P( "%" ).!
+
+  def remainder[$: P]: P[Index] = P(index ~ (remainder_op ~ index).rep).map({case (i, sOpI) => interpretArith(i, sOpI)})
+
+  def mult_div[$: P]: P[Index] = P(remainder ~ (mult_div_op ~ remainder).rep).map({case (i, sOpI) => interpretArith(i, sOpI)})
+
+  def arithmetic[$: P]: P[Index] = P(mult_div ~ (add_sub_op ~ mult_div).rep).map({case (i, sOpI) => interpretArith(i, sOpI)})
     
-  def index[$: P]: P[Index] = P( variable | integer | decimal | arithmetic)
+  def index[$: P]: P[Index] = P( variable ) | P( integer ) | P( decimal ) | P( "(" ~ arithmetic ~ ")" )
 
   def comp_op[$: P]: P[String] = P( "<=" | ">=" | "==" | "=" | "<" | ">" | "!=" ).!
 
-  def exp[$: P]: P[Exp] = P( "(".rep ~ variable ~ comp_op ~ index ~ ")".rep ).map({case (v, op, i) => Comparison(op, i, v)}) | 
-                          P( "(".rep ~ index ~ comp_op ~ variable ~ ")".rep ).map({case (i, op, v) => Comparison(op, i, v)}) |
-                          access
+  def comparison[$: P]: P[Seq[Comparison]] = P("(" ~ comparison ~ ")" ) | P (arithmetic ~ comp_op ~ arithmetic).map({case (i1, op, i2) => interpretComparison(op, i1, i2)})
+    
+  def exp[$: P]: P[Seq[Exp]] = P( "(" ~ exp ~ ")" ) | P(seqAccess) | P(comparison)
 
-  def factor[$: P]: P[Prod] = P( "(".rep ~ exp.rep(sep="*") ~ ")".rep ).map(Prod(_))
+  def factor[$: P]: P[Prod] = P( "(" ~ factor ~ ")") | P( exp ~ ("*" ~ exp).rep ).map{case(e, se) => interpretProd(e, se)}
 
-  def body[$: P]: P[SoP] = P( "(".rep ~ factor.rep(sep="+") ~ ")".rep ).map(SoP(_))
+  def sop[$: P]: P[SoP] = P( "(" ~ sop ~ ")" ) | P( factor ~ ("+" ~ factor).rep ).map{case(f, sf) => SoP(f +: sf)}
 
-  def rule[$: P]: P[Rule] = P( "(".rep ~ access ~ ":=" ~ body ).map({case (a, b) => Rule(a, b)})
+  def rule[$: P]: P[Rule] = P("(" ~ rule ~ ")" ) | P( access ~ ":=" ~ sop ).map({case (a, b) => Rule(a, b)})
 
-  def program[$: P]: P[Seq[Rule]] = P( rule.rep(sep=";") ~ ")".rep )
+  def program[$: P]: P[Seq[Rule]] = P( rule.rep(sep="\n") )
 
   def parser[$: P] = P( program ~ End )  
 }
