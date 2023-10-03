@@ -9,7 +9,16 @@ import Shared._
 
 object PR3C {
   import E2E_PRK._
-  def apply(codeMotion: Boolean = true) = {
+  def apply(codeMotion: Boolean = true, codeLang: String = "CPP", sparse: Boolean = false) = {
+    codeLang match {
+      case "CPP" => CPP(codeMotion)
+      case "MLIR" => MLIR(sparse)
+      case "C" => "Not Implemented"
+      case _ => throw new Exception(f"Unknown code language: $codeLang")
+    }
+  }
+
+  def CPP(codeMotion: Boolean = true) = {
     val c1 = 
 s"""
 #include <iostream>

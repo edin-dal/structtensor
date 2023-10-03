@@ -6,3 +6,4 @@ version := "0.1"
 
 libraryDependencies += "org.scala-lang.modules" %% "scala-parser-combinators" % "1.1.2"
 libraryDependencies += "com.lihaoyi" %% "fastparse" % "3.0.2"
+libraryDependencies += "com.github.scopt" %% "scopt" % "4.1.0"

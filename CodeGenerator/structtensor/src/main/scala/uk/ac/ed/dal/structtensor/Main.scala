@@ -5,11 +5,20 @@ import apps._
 import parser.Parser
 import fastparse._
 
+import java.io.File
+import scopt.OParser
 
 object Main extends App {
-  import Parser._
-  val help: String = s"""
-Please specify the experiment name and select whether you want sparse datalayout for the input [use `sbt "run <exp> [sparse]"`]:
+  case class Config(
+    sparse: Boolean = false,
+    codeLang: String = "CPP",
+    codeMotion: Boolean = true,
+    filePath: String = "",
+    sturOpt: Boolean = false,
+    applicationName: String = "",
+    tool: String = "",
+    applicationHelp: String = s"""
+Please specify the experiment name:
 LRC       = Linear Regression - Creation
 PR2C      = Polynomial Regression Degree 2 - Creation
 PR3C      = Polynomial Regression Degree 3 - Creation
@@ -31,89 +40,102 @@ ODC       = One-Dimensional Convolution
 ODCC      = One-Dimensional Circular Convolution
 PGLM      = Population Growth Leslie Matrix
 """
-  if (args.length >= 1) {
-    val sparse: Boolean = if (args.length >= 2 && (args(1).toLowerCase() == "sparse" || args(1).toLowerCase() == "s" || args(1).toLowerCase() == "-s") ) true else false
-    val codeLang: String = if (args.length >= 3) args(2) else "CPP"
-    val codeMotion: Boolean = if (args.contains("no-cm")) false else true
-    if (codeLang == "CPP") {
-      args(0) match {
-        case "LRC" => LRC(codeMotion=codeMotion)
-        case "PR2C" => PR2C(codeMotion=codeMotion)
-        case "PR3C" => PR3C(codeMotion=codeMotion)
-        case "LRA" => LRA(codeMotion=codeMotion)
-        case "PR2A" => PR2A(codeMotion=codeMotion)
-        case "PR3A" => PR3A(codeMotion=codeMotion)
-        case "TTM_DP" => TTM("diag_p", sparse, codeMotion=codeMotion)
-        case "TTM_J" => TTM("fixed_j", sparse, codeMotion=codeMotion)
-        case "TTM_UT" => TTM("uhc", sparse, codeMotion=codeMotion)
-        case "THP_DP" => THP("diag_p", sparse, codeMotion=codeMotion)
-        case "THP_I" => THP("fixed_i", sparse, codeMotion=codeMotion)
-        case "THP_J" => THP("fixed_j", sparse, codeMotion=codeMotion)
-        case "MTTKRP_IJ" => MTTKRP("fixed_ij", sparse, codeMotion=codeMotion)
-        case "MTTKRP_I" => MTTKRP("fixed_i", sparse, codeMotion=codeMotion)
-        case "MTTKRP_J" => MTTKRP("fixed_j", sparse, codeMotion=codeMotion)
-        case "E2E_LR" => E2E_PRK(1, codeMotion=codeMotion)
-        case "E2E_PR2" => E2E_PRK(2, codeMotion=codeMotion)
-        case "ODC" => ODC(sparse, codeMotion=codeMotion)
-        case "ODCC" => ODCC(sparse, codeMotion=codeMotion)
-        case "PGLM" => PGLM(sparse, codeMotion=codeMotion)
-        case "SpMV_UT" => SpMV("ut", sparse, codeMotion=codeMotion)
-        case "SpMV_D" => SpMV("diag", sparse, codeMotion=codeMotion)
-        case _ => println(help)
+  )
+
+  val builder = OParser.builder[Config]
+  val parser1 = {
+    import builder._
+    OParser.sequence(
+      programName("sturct-tensor"),
+      head("struct-tensor", "0.1"),
+
+      opt[Unit]('s', "sparse")
+        .action((_, c) => c.copy(sparse = true))
+        .text("use sparse data layout for the input"),
+
+      opt[String]('l', "lang")
+        .action((x, c) => c.copy(codeLang = x))
+        .text("select the target language for the generated code").
+        valueName("<lang>"),
+
+      opt[Unit]("no-cm")
+        .action((_, c) => c.copy(codeMotion = false))
+        .text("disable code motion"), 
+      
+      opt[String]('f', "file")
+        .action((x, c) => c.copy(filePath = x))
+        .text("path to the input file")
+        .valueName("<path>"),  
+
+      opt[Unit]("stur-opt-code-gen")
+        .action((_, c) => c.copy(sturOpt = true))
+        .text("send the code through stur-opt path for code generation"),
+
+      help("help").text("prints this usage text"),
+
+      cmd("app")
+        .action((_, c) => c.copy(tool = "app"))
+        .text("run an existing application")
+        .children(
+          opt[String]("app-name")
+            .action((x, c) => c.copy(applicationName = x))
+            .text("name of the selected application to run")
+            .valueName("<name>")
+        ),
+
+      cmd("coalesce")
+        .action((_, c) => c.copy(tool = "coalesce"))
+        .text("run the coalescing pass on the input file"),
+
+      cmd("stur")
+        .action((_, c) => c.copy(tool = "input"))
+        .text("generate code for input file (written in stur)"),
+    )
+  }
+
+  // OParser.parse returns Option[Config]
+  OParser.parse(parser1, args, Config()) match {
+    case Some(config) => {
+      config.tool match {
+        case "app" => {
+          config.applicationName match {
+            case "LRC" => LRC(config.codeMotion, config.codeLang, config.sparse)
+            case "PR2C" => PR2C(config.codeMotion, config.codeLang, config.sparse)
+            case "PR3C" => PR3C(config.codeMotion, config.codeLang, config.sparse)
+            case "LRA" => LRA(config.codeMotion, config.codeLang, config.sparse)
+            case "PR2A" => PR2A(config.codeMotion, config.codeLang, config.sparse)
+            case "PR3A" => PR3A(config.codeMotion, config.codeLang, config.sparse)
+            case "TTM_DP" => TTM("diag_p", config.codeMotion, config.codeLang, config.sparse)
+            case "TTM_J" => TTM("fixed_j", config.codeMotion, config.codeLang, config.sparse)
+            case "TTM_UT" => TTM("uhc", config.codeMotion, config.codeLang, config.sparse)
+            case "THP_DP" => THP("diag_p", config.codeMotion, config.codeLang, config.sparse)
+            case "THP_I" => THP("fixed_i", config.codeMotion, config.codeLang, config.sparse)
+            case "THP_J" => THP("fixed_j", config.codeMotion, config.codeLang, config.sparse)
+            case "MTTKRP_IJ" => MTTKRP("fixed_ij", config.codeMotion, config.codeLang, config.sparse)
+            case "MTTKRP_I" => MTTKRP("fixed_i", config.codeMotion, config.codeLang, config.sparse)
+            case "MTTKRP_J" => MTTKRP("fixed_j", config.codeMotion, config.codeLang, config.sparse)
+            case "E2E_LR" => E2E_PRK(1, config.codeMotion, config.codeLang, config.sparse)
+            case "E2E_PR2" => E2E_PRK(2, config.codeMotion, config.codeLang, config.sparse)
+            case "ODC" => ODC(config.codeMotion, config.codeLang, config.sparse)
+            case "ODCC" => ODCC(config.codeMotion, config.codeLang, config.sparse)
+            case "PGLM" => PGLM(config.codeMotion, config.codeLang, config.sparse)
+            case "SpMV_UT" => SpMV("ut", config.codeMotion, config.codeLang, config.sparse)
+            case "SpMV_D" => SpMV("diag", config.codeMotion, config.codeLang, config.sparse)
+            case _ => println(config.applicationHelp)
+          }
+        }
+        case "coalesce" => {
+
+        }
+        case "input" => {
+
+        }
       }
-    } else if (codeLang == "C") {
-      args(0) match {
-        // case "LRC" => LRC(codeMotion=codeMotion)
-        // case "PR2C" => PR2C(codeMotion=codeMotion)
-        // case "PR3C" => PR3C(codeMotion=codeMotion)
-        // case "LRA" => LRA(codeMotion=codeMotion)
-        // case "PR2A" => PR2A(codeMotion=codeMotion)
-        // case "PR3A" => PR3A(codeMotion=codeMotion)
-        // case "TTM_DP" => TTM("diag_p", sparse, codeMotion=codeMotion)
-        // case "TTM_J" => TTM("fixed_j", sparse, codeMotion=codeMotion)
-        // case "TTM_UT" => TTM("uhc", sparse, codeMotion=codeMotion)
-        // case "THP_DP" => THP("diag_p", sparse, codeMotion=codeMotion)
-        // case "THP_I" => THP("fixed_i", sparse, codeMotion=codeMotion)
-        // case "THP_J" => THP("fixed_j", sparse, codeMotion=codeMotion)
-        case "MTTKRP_IJ" => MTTKRP.C("fixed_ij", sparse, codeMotion=codeMotion)
-        case "MTTKRP_I" => MTTKRP.C("fixed_i", sparse, codeMotion=codeMotion)
-        case "MTTKRP_J" => MTTKRP.C("fixed_j", sparse, codeMotion=codeMotion)
-        // case "E2E_LR" => E2E_PRK(1, codeMotion=codeMotion)
-        // case "E2E_PR2" => E2E_PRK(2, codeMotion=codeMotion)
-        // case "ODC" => ODC(sparse, codeMotion=codeMotion)
-        // case "ODCC" => ODCC(sparse, codeMotion=codeMotion)
-        // case "PGLM" => PGLM(sparse, codeMotion=codeMotion)
-        // case "SpMV_UT" => SpMV("ut", sparse, codeMotion=codeMotion)
-        // case "SpMV_D" => SpMV("diag", sparse, codeMotion=codeMotion)
-        case _ => println(help)
-      }
-    } else if (codeLang == "MLIR") {
-      args(0) match {
-        case "LRC" => LRC.MLIR()
-        case "PR2C" => PR2C.MLIR()
-        case "PR3C" => PR3C.MLIR()
-        case "LRA" => LRA.MLIR()
-        // case "PR2A" => PR2A.MLIR()
-        // case "PR3A" => PR3A.MLIR()
-        case "TTM_DP" => TTM.MLIR("diag_p", sparse)
-        case "TTM_J" => TTM.MLIR("fixed_j", sparse)
-        case "TTM_UT" => TTM.MLIR("uhc", sparse) // Still doesn't work
-        case "THP_DP" => THP.MLIR("diag_p", sparse)
-        case "THP_I" => THP.MLIR("fixed_i", sparse)
-        case "THP_J" => THP.MLIR("fixed_j", sparse)
-        case "MTTKRP_IJ" => MTTKRP.MLIR("fixed_ij", sparse)
-        case "MTTKRP_I" => MTTKRP.MLIR("fixed_i", sparse)
-        case "MTTKRP_J" => MTTKRP.MLIR("fixed_j", sparse)
-        // case "E2E_LR" => E2E_PRK.MLIR(1)
-        // case "E2E_PR2" => E2E_PRK.MLIR(2)
-        // case "ODC" => ODC.MLIR(sparse)
-        // case "ODCC" => ODCC.MLIR(sparse)
-        // case "PGLM" => PGLM.MLIR(sparse)
-        case _ => println(help)
-      }
-    } else println(help)
-  } else println(help)
+    }
+    case _ => println("Error parsing arguments")
+  }
   
+  import Parser._
   val p = "A(i, j, k) := C(k, l) * B(i, j, l) * (0 <= l * 2 + 5 % 2) * (Q > l) * (0 <= i) * (M > i) * (N > i) * (0 <= k) * (P > k) * (i = j)"
   val Parsed.Success(res, _) = parse(p, parser(_))
   println(res(0).prettyFormat)

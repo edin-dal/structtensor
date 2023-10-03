@@ -543,7 +543,16 @@ os << "Cofactor: <CONT_SZ: " << CONT_SZ << ", CAT_SZ: " << CAT_SZ << ">\\n";
   s"$initCode\n$constructorCode\n$afterConstructorCode\n$peqCode\n$afterPeqCode\n$multCode\n$afterMultCode\n$reconstructorCode\n$endCode"
   }
 
-  def apply(k: Int, codeMotion: Boolean = true) = {
+  def apply(k: Int, codeMotion: Boolean = true, codeLang: String = "CPP", sparse: Boolean = false) = {
+    codeLang match {
+      case "CPP" => CPP(k, codeMotion)
+      case "MLIR" => "Not Implemented"
+      case "C" => "Not Implemented"
+      case _ => throw new Exception(f"Unknown code language: $codeLang")
+    }
+  }
+
+  def CPP(k: Int, codeMotion: Boolean = true) = {
     val code = e2ePRkWithSkeletone(k, codeMotion)
     val outName = "E2E_R"
     write2File(s"outputs/$outName.hpp", code)

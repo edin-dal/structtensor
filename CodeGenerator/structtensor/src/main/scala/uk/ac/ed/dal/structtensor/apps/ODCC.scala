@@ -62,8 +62,17 @@ object ODCC {
     } else codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, 1, dataLayoutMap=dataLayoutMap, varReverse=true, codeMotion=codeMotion)
   }
 
+  def apply(codeMotion: Boolean = true, codeLang: String = "CPP", sparse: Boolean = false) = {
+    codeLang match {
+      case "CPP" => CPP(sparse, codeMotion)
+      case "MLIR" => "Not Implemented"
+      case "C" => "Not Implemented"
+      case _ => throw new Exception(f"Unknown code language: $codeLang")
+    }
+  }
+
   // 1D circular convolution
-  def apply(sparse: Boolean, codeMotion: Boolean = true) = {
+  def CPP(sparse: Boolean, codeMotion: Boolean = true) = {
     val outName1 = "ODCC"
     val outName = if (sparse) s"${outName1}_Sparse" else outName1
         val c1 = 

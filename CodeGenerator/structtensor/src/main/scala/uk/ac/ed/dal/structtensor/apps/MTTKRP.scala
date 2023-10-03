@@ -84,8 +84,16 @@ object MTTKRP {
     } else codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, 1, dataLayoutMap=dataLayoutMap, codeLang=codeLang, codeMotion=codeMotion)
   }
 
+  def apply(structure: String, codeMotion: Boolean = true, codeLang: String = "CPP", sparse: Boolean = false) = {
+    codeLang match {
+      case "CPP" => CPP(structure, sparse, codeMotion)
+      case "MLIR" => MLIR(structure, sparse)
+      case "C" => C(structure, sparse, codeMotion)
+      case _ => throw new Exception(f"Unknown code language: $codeLang")
+    }
+  }
 
-  def apply(structure: String, sparse: Boolean, codeMotion: Boolean = true) = {
+  def CPP(structure: String, sparse: Boolean, codeMotion: Boolean = true) = {
     val outName1 = if (structure == "fixed_ij") "MTTKRP_IJ" else if (structure == "fixed_i") "MTTKRP_I" else if (structure == "fixed_j") "MTTKRP_J" else "MTTKRP"
     val outName = if (sparse) s"${outName1}_Sparse" else outName1
     val c1 = CPP_init_code()

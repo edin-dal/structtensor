@@ -72,7 +72,16 @@ object TTM {
     } else codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, 1, dataLayoutMap=dataLayoutMap, codeLang=codeLang, codeMotion=codeMotion)
   }
 
-  def apply(structure: String, sparse: Boolean, codeMotion: Boolean = true) = {
+  def apply(structure: String, codeMotion: Boolean = true, codeLang: String = "CPP", sparse: Boolean = false) = {
+    codeLang match {
+      case "CPP" => CPP(structure, sparse, codeMotion)
+      case "MLIR" => MLIR(structure, sparse)
+      case "C" => "Not Implemented"
+      case _ => throw new Exception(f"Unknown code language: $codeLang")
+    }
+  }
+
+  def CPP(structure: String, sparse: Boolean, codeMotion: Boolean = true) = {
     val outName1 = if (structure == "diag_p") "TTM_DP" else if (structure == "fixed_j") "TTM_J" else if (structure == "uhc") "TTM_UT" else "TTM"
     val outName = if(sparse) s"${outName1}_Sparse" else outName1
     val c1 = 
