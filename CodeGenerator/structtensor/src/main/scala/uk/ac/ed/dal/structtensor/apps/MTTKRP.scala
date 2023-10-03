@@ -8,7 +8,7 @@ import Compiler._
 import Shared._
 
 object MTTKRP {
-  def mttkrp_n(structure: String, mode: Int = 0, sparse: Boolean = false, codeLang: String = "CPP", codeMotion: Boolean = true) = {
+  def mttkrp_n(structure: String, mode: Int = 0, sparse: Boolean = false, codeLang: String = "CPP", codeMotion: Boolean = true, sturOpt: Boolean = false) = {
     val head: Access = Access("A", Seq("i".toVar, "j".toVar), Tensor)
     val var1: Access = Access("B",  Seq("i".toVar, "k".toVar, "l".toVar), Tensor)
     val var2: Access = Access("C",  Seq("k".toVar, "j".toVar), Tensor)
@@ -78,22 +78,22 @@ object MTTKRP {
     val dataLayoutMap: Map[Exp, Function[Seq[Variable], Seq[Index]]] = if (sparse) Map(var1 -> var1DL, var3 -> var3DL) else Map()
 
     if (mode == 0) {
-      println(codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, dataLayoutMap=dataLayoutMap, codeLang=codeLang, codeMotion=codeMotion))
+      println(codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, dataLayoutMap=dataLayoutMap, codeLang=codeLang, codeMotion=codeMotion, sturOpt=sturOpt))
 
       (tensorComputation, infer(tensorComputation, dimInfo, uniqueSets, redundancyMap))
-    } else codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, 1, dataLayoutMap=dataLayoutMap, codeLang=codeLang, codeMotion=codeMotion)
+    } else codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, 1, dataLayoutMap=dataLayoutMap, codeLang=codeLang, codeMotion=codeMotion, sturOpt=sturOpt)
   }
 
-  def apply(structure: String, codeMotion: Boolean = true, codeLang: String = "CPP", sparse: Boolean = false) = {
+  def apply(structure: String, codeMotion: Boolean = true, codeLang: String = "CPP", sparse: Boolean = false, sturOpt: Boolean = false) = {
     codeLang match {
-      case "CPP" => CPP(structure, sparse, codeMotion)
-      case "MLIR" => MLIR(structure, sparse)
-      case "C" => C(structure, sparse, codeMotion)
+      case "CPP" => CPP(structure=structure, sparse=sparse, codeMotion=codeMotion, sturOpt=sturOpt)
+      case "MLIR" => MLIR(structure=structure, sparse=sparse, sturOpt=sturOpt)
+      case "C" => C(structure=structure, sparse=sparse, codeMotion=codeMotion, sturOpt=sturOpt)
       case _ => throw new Exception(f"Unknown code language: $codeLang")
     }
   }
 
-  def CPP(structure: String, sparse: Boolean, codeMotion: Boolean = true) = {
+  def CPP(structure: String, sparse: Boolean, codeMotion: Boolean = true, sturOpt: Boolean = false) = {
     val outName1 = if (structure == "fixed_ij") "MTTKRP_IJ" else if (structure == "fixed_i") "MTTKRP_I" else if (structure == "fixed_j") "MTTKRP_J" else "MTTKRP"
     val outName = if (sparse) s"${outName1}_Sparse" else outName1
     val c1 = CPP_init_code()
@@ -113,7 +113,7 @@ object MTTKRP {
     val c6 = CPP_alloc_and_gen_random_number("A", Seq("M", "Q"), const_condition("false"))
 
     val c7 = CPP_timer_start()
-    val c8 = mttkrp_n(structure, 1, sparse, codeMotion=codeMotion)
+    val c8 = mttkrp_n(structure, 1, sparse, codeMotion=codeMotion, sturOpt=sturOpt)
     val c9 = CPP_timer_end()
     val c10 = CPP_printerr("A", Seq("M", "Q"))
     val c11 = CPP_free("A", Seq("M", "Q"), sparse)
@@ -281,7 +281,7 @@ object MTTKRP {
     write2File(s"outputs/$outName.cpp", code)
   }
 
-  def C(structure: String, sparse: Boolean, codeMotion: Boolean) = {
+  def C(structure: String, sparse: Boolean, codeMotion: Boolean, sturOpt: Boolean = false) = {
     val outName1 = if (structure == "fixed_ij") "MTTKRP_IJ" else if (structure == "fixed_i") "MTTKRP_I" else if (structure == "fixed_j") "MTTKRP_J" else "MTTKRP"
     val outName = if (sparse) s"${outName1}_Sparse" else outName1
     val c1 = C_init_code()
@@ -300,7 +300,7 @@ object MTTKRP {
 
     val c6 = C_alloc_and_gen_random_number("A", Seq("M", "Q"), const_condition("false"))
     val c7 = C_timer_start()
-    val c8 = mttkrp_n(structure, 1, sparse, codeMotion=codeMotion)
+    val c8 = mttkrp_n(structure, 1, sparse, codeMotion=codeMotion, sturOpt=sturOpt)
     val c9 = C_timer_end()
     val c10 = C_printerr("A", Seq("M", "Q"))
     val c11 = C_free(Seq("A", "B", "C", "D"))
@@ -309,7 +309,7 @@ object MTTKRP {
     write2File(s"outputs_c/$outName.c", code)
   }
 
-  def MLIR(structure: String, sparse: Boolean) = {
+  def MLIR(structure: String, sparse: Boolean, sturOpt: Boolean = false) = {
     val outName1 = if (structure == "fixed_ij") "MTTKRP_IJ" else if (structure == "fixed_i") "MTTKRP_I" else if (structure == "fixed_j") "MTTKRP_J" else "MTTKRP"
     val outName = if (sparse) s"${outName1}_Sparse" else outName1
     val c1 = MLIR_init_code()
@@ -328,7 +328,7 @@ object MTTKRP {
     val c6 = MLIR_gen_random_number("D", Seq("P", "Q"), condition2)
     val c7 = MLIR_gen_random_number("A", Seq("M", "Q"), getDefaultCondition("oi0"))
     val c8 = MLIR_start_timer_code()
-    val c9 = mttkrp_n(structure, 1, sparse, "MLIR")
+    val c9 = mttkrp_n(structure, 1, sparse, "MLIR", sturOpt=sturOpt)
     val cerr_load = s"""
     %last = "memref.load"(%A, %0, %0) : (memref<?x?xf64>, index, index) -> f64
 """

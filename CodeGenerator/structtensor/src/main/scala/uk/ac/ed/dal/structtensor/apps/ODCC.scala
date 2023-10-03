@@ -8,7 +8,7 @@ import Compiler._
 import Shared._
 
 object ODCC {
-  def oneDCircularConvolution(mode: Int = 0, sparse: Boolean = false, codeMotion: Boolean = true) = {
+  def oneDCircularConvolution(mode: Int = 0, sparse: Boolean = false, codeMotion: Boolean = true, sturOpt: Boolean = false) = {
     val head: Access = Access("Y", Seq("i".toVar), Tensor)
     val var1: Access = Access("H",  Seq("i".toVar, "j".toVar), Tensor)
     val var2: Access = Access("X",  Seq("j".toVar), Tensor)
@@ -56,15 +56,15 @@ object ODCC {
     val dataLayoutMap: Map[Exp, Function[Seq[Variable], Seq[Index]]] = if (sparse) Map(var1 -> var1DL) else Map()
 
     if (mode == 0) {
-      println(codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, dataLayoutMap=dataLayoutMap, varReverse=true, codeMotion=codeMotion))
+      println(codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, dataLayoutMap=dataLayoutMap, varReverse=true, codeMotion=codeMotion, sturOpt=sturOpt))
 
       (tensorComputation, infer(tensorComputation, dimInfo, uniqueSets, redundancyMap))
-    } else codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, 1, dataLayoutMap=dataLayoutMap, varReverse=true, codeMotion=codeMotion)
+    } else codeGen(tensorComputation, dimInfo, uniqueSets, redundancyMap, 1, dataLayoutMap=dataLayoutMap, varReverse=true, codeMotion=codeMotion, sturOpt=sturOpt)
   }
 
-  def apply(codeMotion: Boolean = true, codeLang: String = "CPP", sparse: Boolean = false) = {
+  def apply(codeMotion: Boolean = true, codeLang: String = "CPP", sparse: Boolean = false, sturOpt: Boolean = false) = {
     codeLang match {
-      case "CPP" => CPP(sparse, codeMotion)
+      case "CPP" => CPP(sparse=sparse, codeMotion=codeMotion, sturOpt=sturOpt)
       case "MLIR" => "Not Implemented"
       case "C" => "Not Implemented"
       case _ => throw new Exception(f"Unknown code language: $codeLang")
@@ -72,7 +72,7 @@ object ODCC {
   }
 
   // 1D circular convolution
-  def CPP(sparse: Boolean, codeMotion: Boolean = true) = {
+  def CPP(sparse: Boolean, codeMotion: Boolean = true, sturOpt: Boolean = false) = {
     val outName1 = "ODCC"
     val outName = if (sparse) s"${outName1}_Sparse" else outName1
         val c1 = 
@@ -131,7 +131,7 @@ s"""
     long time = 0, start, end;
     start = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
 """
-    val c2 = oneDCircularConvolution(1, sparse, codeMotion=codeMotion)
+    val c2 = oneDCircularConvolution(1, sparse, codeMotion=codeMotion, sturOpt=sturOpt)
 
     val c3 = 
 s"""

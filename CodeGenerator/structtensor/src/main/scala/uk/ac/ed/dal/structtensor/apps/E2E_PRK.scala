@@ -293,7 +293,7 @@ object E2E_PRK {
     // println("===========================================================")
   }
 
-  def e2ePRkWithSkeletone(k: Int, codeMotion: Boolean = true) = {
+  def e2ePRkWithSkeletone(k: Int, codeMotion: Boolean = true, sturOpt: Boolean = false) = {
     val initCode: String = s"""
 #ifndef RING_COFACTOR_HPP
 #define RING_COFACTOR_HPP
@@ -337,7 +337,7 @@ struct RingCofactor {
       val res = e2eConstructor(d)
       (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2), mergeMap(Seq(acc._5, res._5))((v1, v2) => v2))
     })
-    val constructorCode: String = const_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, const_dimInfo, const_uniqueSets, const_redundancyMap, 1, false, compressionMaps=const_compressionMap, codeMotion=codeMotion)}")
+    val constructorCode: String = const_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, const_dimInfo, const_uniqueSets, const_redundancyMap, 1, false, compressionMaps=const_compressionMap, codeMotion=codeMotion, sturOpt=sturOpt)}")
     val addus2: Map[Exp, Rule] = const_uniqueSets.map{case (k, v) => (Access("other." + k.asInstanceOf[Access].name, k.asInstanceOf[Access].vars, k.asInstanceOf[Access].kind) -> Rule(Access("other." + v.head.name, v.head.vars, v.head.kind), v.body))}.toMap
     val addrm2: Map[Exp, Rule] = const_redundancyMap.map{case (k, v) => (Access("other." + k.asInstanceOf[Access].name, k.asInstanceOf[Access].vars, k.asInstanceOf[Access].kind) -> Rule(Access("other." + v.head.name, v.head.vars, v.head.kind), v.body))}.toMap
     val addc2: Map[Exp, Rule] = const_compressionMap.map{case (k, v) => (Access("other." + k.asInstanceOf[Access].name, k.asInstanceOf[Access].vars, k.asInstanceOf[Access].kind) -> Rule(Access("other." + v.head.name, v.head.vars, v.head.kind), 
@@ -382,7 +382,7 @@ struct RingCofactor {
       val res = e2ePlusEqual(d, acc._3, acc._4, acc._5)
       (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2), mergeMap(Seq(acc._5, res._5))((v1, v2) => v2))
     })
-    val peqCode: String = peq_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, peq_dimInfo, peq_uniqueSets, peq_redundancyMap, 1, compressionMaps=peq_compressionMap, codeMotion=codeMotion)}")
+    val peqCode: String = peq_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, peq_dimInfo, peq_uniqueSets, peq_redundancyMap, 1, compressionMaps=peq_compressionMap, codeMotion=codeMotion, sturOpt=sturOpt)}")
 
     val afterPeqCode: String = s"""
     }
@@ -409,7 +409,7 @@ struct RingCofactor {
       val res = e2eMultiplication(d, acc._3, acc._4, acc._5)
       (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2), mergeMap(Seq(acc._5, res._5))((v1, v2) => v2))
     })
-    val multCode: String = mult_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, mult_dimInfo, mult_uniqueSets, mult_redundancyMap, 1, codeMotion=codeMotion)}")
+    val multCode: String = mult_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, mult_dimInfo, mult_uniqueSets, mult_redundancyMap, 1, codeMotion=codeMotion, sturOpt=sturOpt)}")
 
     val afterMultCode: String = s"""
         }
@@ -459,7 +459,7 @@ struct RingCofactor {
     void reconstruct() {
 """
 
-    val reconstructorCode: String = const_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, const_dimInfo, const_uniqueSets, const_redundancyMap, 2, compressionMaps=const_compressionMap, codeMotion=codeMotion)}")
+    val reconstructorCode: String = const_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, const_dimInfo, const_uniqueSets, const_redundancyMap, 2, compressionMaps=const_compressionMap, codeMotion=codeMotion, sturOpt=sturOpt)}")
 
     val endCode: String = s"""
         std::cerr << cont_sum1[CONT_SZ - 1];
@@ -543,17 +543,17 @@ os << "Cofactor: <CONT_SZ: " << CONT_SZ << ", CAT_SZ: " << CAT_SZ << ">\\n";
   s"$initCode\n$constructorCode\n$afterConstructorCode\n$peqCode\n$afterPeqCode\n$multCode\n$afterMultCode\n$reconstructorCode\n$endCode"
   }
 
-  def apply(k: Int, codeMotion: Boolean = true, codeLang: String = "CPP", sparse: Boolean = false) = {
+  def apply(k: Int, codeMotion: Boolean = true, codeLang: String = "CPP", sparse: Boolean = false, sturOpt: Boolean = false) = {
     codeLang match {
-      case "CPP" => CPP(k, codeMotion)
+      case "CPP" => CPP(k=k, codeMotion=codeMotion, sturOpt=sturOpt)
       case "MLIR" => "Not Implemented"
       case "C" => "Not Implemented"
       case _ => throw new Exception(f"Unknown code language: $codeLang")
     }
   }
 
-  def CPP(k: Int, codeMotion: Boolean = true) = {
-    val code = e2ePRkWithSkeletone(k, codeMotion)
+  def CPP(k: Int, codeMotion: Boolean = true, sturOpt: Boolean = false) = {
+    val code = e2ePRkWithSkeletone(k, codeMotion, sturOpt=sturOpt)
     val outName = "E2E_R"
     write2File(s"outputs/$outName.hpp", code)
   }

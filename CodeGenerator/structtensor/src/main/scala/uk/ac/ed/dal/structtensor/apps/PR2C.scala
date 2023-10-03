@@ -9,16 +9,16 @@ import Shared._
 
 object PR2C {
   import E2E_PRK._
-  def apply(codeMotion: Boolean = true, codeLang: String = "CPP", sparse: Boolean = false) = {
+  def apply(codeMotion: Boolean = true, codeLang: String = "CPP", sparse: Boolean = false, sturOpt: Boolean = false) = {
     codeLang match {
-      case "CPP" => CPP(codeMotion)
-      case "MLIR" => MLIR(sparse)
+      case "CPP" => CPP(codeMotion=codeMotion, sturOpt=sturOpt)
+      case "MLIR" => MLIR(sparse=sparse, sturOpt=sturOpt)
       case "C" => "Not Implemented"
       case _ => throw new Exception(f"Unknown code language: $codeLang")
     }
   }
 
-  def CPP(codeMotion: Boolean = true) = {
+  def CPP(codeMotion: Boolean = true, sturOpt: Boolean = false) = {
     val c1 = 
 s"""
 #include <iostream>
@@ -66,7 +66,7 @@ int main(int argc, char *argv[]) {
       val res = e2eConstructor(d)
       (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2), mergeMap(Seq(acc._5, res._5))((v1, v2) => v2))
     })
-    val c2 = const_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, const_dimInfo, const_uniqueSets, const_redundancyMap, 1, false, compressionMaps=const_compressionMap, codeMotion=codeMotion)}")
+    val c2 = const_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, const_dimInfo, const_uniqueSets, const_redundancyMap, 1, false, compressionMaps=const_compressionMap, codeMotion=codeMotion, sturOpt=sturOpt)}")
     val c3 = 
 s"""
   long end = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
@@ -95,7 +95,7 @@ s"""
     write2File("outputs/PR2C.cpp", code)
   }
 
-  def MLIR(sparse: Boolean = false) = {
+  def MLIR(sparse: Boolean = false, sturOpt: Boolean = false) = {
     val outName = if (sparse) "PR2C_Sparse" else "PR2C"
     val c1 = MLIR_init_code()
     val argv_names = Seq("CONT_SZ")
@@ -116,7 +116,7 @@ s"""
       val res = e2eConstructor(d)
       (acc._1 :+ res._1, acc._2 ++ res._2, mergeMap(Seq(acc._3, res._3))((v1, v2) => v2), mergeMap(Seq(acc._4, res._4))((v1, v2) => v2))
     })
-    val c9 = const_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, const_dimInfo, const_uniqueSets, const_redundancyMap, 1, sparse, codeLang="MLIR")}")
+    val c9 = const_tensorComputation.foldLeft("")((acc, ctc) => s"$acc\n${codeGen(ctc, const_dimInfo, const_uniqueSets, const_redundancyMap, 1, sparse, codeLang="MLIR", sturOpt=sturOpt)}")
     val cerr_load = s"""
     %last2 = "memref.load"(%cont_degree2, %0, %0) : (memref<?x?xf64>, index, index) -> f64
     "func.call"(%last2) {callee = @print_f64_cerr} : (f64) -> ()

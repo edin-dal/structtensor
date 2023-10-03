@@ -2028,7 +2028,7 @@ object Compiler {
     s"stur-opt stur_output/ex.stur -t C".!!
   }
 
-  def codeGen(tensorComputation: Rule, dimInfo: Seq[DimInfo], uniqueSets: Map[Exp, Rule], redundancyMaps: Map[Exp, Rule], codeGenMode: Int = 0, peqMode: Boolean = true, variableReplacementFlag: Boolean = true, codeMotion: Boolean = true, dataLayoutMap: Map[Exp, Function[Seq[Variable], Seq[Index]]] = Map(), varReverse: Boolean = false, codeLang: String = "default", compressionMaps: Map[Exp, Rule] = Map()): String = {
+  def codeGen(tensorComputation: Rule, dimInfo: Seq[DimInfo], uniqueSets: Map[Exp, Rule], redundancyMaps: Map[Exp, Rule], codeGenMode: Int = 0, peqMode: Boolean = true, variableReplacementFlag: Boolean = true, codeMotion: Boolean = true, dataLayoutMap: Map[Exp, Function[Seq[Variable], Seq[Index]]] = Map(), varReverse: Boolean = false, codeLang: String = "default", compressionMaps: Map[Exp, Rule] = Map(), sturOpt: Boolean = false): String = {
     val variables: Seq[Variable] = if (varReverse) getVariables(tensorComputation).reverse else getVariables(tensorComputation)
     val compressionMap1: Map[Exp, Rule] = uniqueSets.foldLeft(Seq.empty[(Exp, Rule)])((acc, kv) => {
       val (exp, us) = kv
@@ -2297,85 +2297,90 @@ object Compiler {
 
 
 
-    // Makes a call to stur-opt and gets the generated code.
+    if (sturOpt) {
+      // Makes a call to stur-opt and gets the generated code.
 
-    val computation_stur: String = pathC.foldLeft(("", false))((acc, cur) => {
-      val (tensorComputationC, intervalC, eqMapC): (Rule, Seq[Map[Variable, Interval]], Seq[Map[Variable, Index]]) = cur
-      val comps: SoP = getSoPFromInterval(intervalC, eqMapC)
-      val head: Access = tensorComputationC.head
-      val body: SoP = SoPTimesSoP(tensorComputationC.body, comps)
-      val finalRule: Rule = Rule(head, body)
-      val res: String = finalRule.prettyFormat
-      // val peqC: Boolean = peqMode | acc._2
-      // val res: String = codeGenRuleMLIR(tensorComputationC, dimInfo :+ outDI, variables, intervalC, eqMapC, UniqueSet, peqC, codeMotion, dlMapFinal)
-      (acc._1 + res + "\n", true)
-    })._1
-    val finalRC: Rule = Rule(tensorComputationRC.head, SoPTimesSoP(tensorComputationRC.body, getSoPFromInterval(intervalsSimplifiedRM, eqVarMapRM)))
-    val pathRC: Seq[(Rule, Seq[Map[Variable, Interval]], Seq[Map[Variable, Index]])] = getFinalCodeGenPath(tensorComputation.head, finalRC, intervalsSimplifiedRM, eqVarMapRM)
-    val reconstruction_stur: String = pathRC.foldLeft(("", false))((acc, cur) => {
-      val (tensorComputationRC, intervalRC, eqMapRC): (Rule, Seq[Map[Variable, Interval]], Seq[Map[Variable, Index]]) = cur
-      val comps: SoP = getSoPFromInterval(intervalRC, eqMapRC)
-      val head: Access = tensorComputationRC.head
-      val body: SoP = SoPTimesSoP(tensorComputationRC.body, comps)
-      val finalRule: Rule = Rule(head, body)
-      val res: String = finalRule.prettyFormat
-      // val peqC: Boolean = peqMode | acc._2
-      (acc._1 + res + "\n", true)
-    })._1
-    // val compsRC = getSoPFromInterval(intervalsSimplifiedRM, eqVarMapRM)
-    // val headRC: Access = tensorComputationRC.head
-    // val bodyRC: SoP = SoPTimesSoP(tensorComputationRC.body, compsRC)
-    // val finalRuleRC: Rule = Rule(headRC, bodyRC)
-    // val reconstruction_stur: String = finalRuleRC.prettyFormat
-    println("Computation:")
-    println(computation_stur)
-    println("Reconstruction:")
-    println(reconstruction_stur)
-
-    val computation_stur_code: String = sturOptCodeGen(computation_stur, codeLang)
-    val reconstruction_stur_code: String = sturOptCodeGen(reconstruction_stur, codeLang)
-    println("Computation Code:")
-    println(computation_stur_code)
-    println("Reconstruction Code:")
-    println(reconstruction_stur_code)
-    
-
-
-
-
-
-
-    if (codeLang == "MLIR") {
-      val computation: String = pathC.foldLeft(("", false))((acc, cur) => {
+      val computation_stur: String = pathC.foldLeft(("", false))((acc, cur) => {
         val (tensorComputationC, intervalC, eqMapC): (Rule, Seq[Map[Variable, Interval]], Seq[Map[Variable, Index]]) = cur
-        val peqC: Boolean = peqMode | acc._2
-        val res: String = codeGenRuleMLIR(tensorComputationC, dimInfo :+ outDI, variables, intervalC, eqMapC, UniqueSet, peqC, codeMotion, dlMapFinal)
-        (acc._1 + "\n" + res, true)
+        val comps: SoP = getSoPFromInterval(intervalC, eqMapC)
+        val head: Access = tensorComputationC.head
+        val body: SoP = SoPTimesSoP(tensorComputationC.body, comps)
+        val finalRule: Rule = Rule(head, body)
+        val res: String = finalRule.prettyFormat
+        // val peqC: Boolean = peqMode | acc._2
+        // val res: String = codeGenRuleMLIR(tensorComputationC, dimInfo :+ outDI, variables, intervalC, eqMapC, UniqueSet, peqC, codeMotion, dlMapFinal)
+        (acc._1 + res + "\n", true)
       })._1
-      val reconstruction: String = codeGenRuleMLIR(tensorComputationRC, dimInfo :+ outDI, variables.redundancyVarsInplace, intervalsSimplifiedRM, eqVarMapRM, UniqueSet, false, codeMotion, dlMapFinal)
+      val finalRC: Rule = Rule(tensorComputationRC.head, SoPTimesSoP(tensorComputationRC.body, getSoPFromInterval(intervalsSimplifiedRM, eqVarMapRM)))
+      val pathRC: Seq[(Rule, Seq[Map[Variable, Interval]], Seq[Map[Variable, Index]])] = getFinalCodeGenPath(tensorComputation.head, finalRC, intervalsSimplifiedRM, eqVarMapRM)
+      val reconstruction_stur: String = pathRC.foldLeft(("", false))((acc, cur) => {
+        val (tensorComputationRC, intervalRC, eqMapRC): (Rule, Seq[Map[Variable, Interval]], Seq[Map[Variable, Index]]) = cur
+        val comps: SoP = getSoPFromInterval(intervalRC, eqMapRC)
+        val head: Access = tensorComputationRC.head
+        val body: SoP = SoPTimesSoP(tensorComputationRC.body, comps)
+        val finalRule: Rule = Rule(head, body)
+        val res: String = finalRule.prettyFormat
+        // val peqC: Boolean = peqMode | acc._2
+        (acc._1 + res + "\n", true)
+      })._1
+      // val compsRC = getSoPFromInterval(intervalsSimplifiedRM, eqVarMapRM)
+      // val headRC: Access = tensorComputationRC.head
+      // val bodyRC: SoP = SoPTimesSoP(tensorComputationRC.body, compsRC)
+      // val finalRuleRC: Rule = Rule(headRC, bodyRC)
+      // val reconstruction_stur: String = finalRuleRC.prettyFormat
+      
+      // println("Computation:")
+      // println(computation_stur)
+      // println("Reconstruction:")
+      // println(reconstruction_stur)
 
-      if (codeGenMode == 0) "void compute() {\n" + computation + "\n}\n\n\nvoid reconstruct() {\n" + reconstruction + "\n}\n"
-      else if (codeGenMode == 1) computation
-      else if (codeGenMode == 2) reconstruction
-      else ""
+      val computation_stur_code: String = sturOptCodeGen(computation_stur, codeLang)
+      val reconstruction_stur_code: String = sturOptCodeGen(reconstruction_stur, codeLang)
+      
+      // println("Computation Code:")
+      // println(computation_stur_code)
+      // println("Reconstruction Code:")
+      // println(reconstruction_stur_code)
+
+      codeGenMode match {
+        case 0 => "void compute() {\n" + computation_stur_code + "\n}\n\n\nvoid reconstruct() {\n" + reconstruction_stur_code + "\n}\n"
+        case 1 => computation_stur_code
+        case 2 => reconstruction_stur_code
+        case _ => ""
+      }      
     } else {
-      val computation: String = pathC.foldLeft(("", false))((acc, cur) => {
-        val (tensorComputationC, intervalC, eqMapC): (Rule, Seq[Map[Variable, Interval]], Seq[Map[Variable, Index]]) = cur
-        val peqC: Boolean = peqMode | acc._2
-        val res: String = codeGenRule(tensorComputationC, dimInfo :+ outDI, variables, intervalC, eqMapC, UniqueSet, peqC, codeMotion, dlMapFinal)
-        (acc._1 + "\n" + res, true)
-      })._1
-      // val reconstruction: String = pathRC.foldLeft(("", false))((acc, cur) => {
-      //   val (tensorComputationRC, intervalRC, eqMapRC): (Rule, Seq[Map[Variable, Interval]], Seq[Map[Variable, Index]]) = cur
-      //   val peqRC: Boolean = peqMode | acc._2
-      //   val res: String = codeGenRule(tensorComputationRC, dimInfo :+ outDI, variables, intervalRC, eqMapRC, UniqueSet, peqRC, codeMotion, dataLayoutMap)
-      //   (acc._1 + "\n" + res, true)
-      // })._1
-      val reconstruction: String = codeGenRule(tensorComputationRC, dimInfo :+ outDI, variables.redundancyVarsInplace, intervalsSimplifiedRM, eqVarMapRM, UniqueSet, false, codeMotion, dlMapFinal)
-      if (codeGenMode == 0) "void compute() {\n" + computation + "\n}\n\n\nvoid reconstruct() {\n" + reconstruction + "\n}\n"
-      else if (codeGenMode == 1) computation
-      else if (codeGenMode == 2) reconstruction
-      else ""
+      if (codeLang == "MLIR") {
+        val computation: String = pathC.foldLeft(("", false))((acc, cur) => {
+          val (tensorComputationC, intervalC, eqMapC): (Rule, Seq[Map[Variable, Interval]], Seq[Map[Variable, Index]]) = cur
+          val peqC: Boolean = peqMode | acc._2
+          val res: String = codeGenRuleMLIR(tensorComputationC, dimInfo :+ outDI, variables, intervalC, eqMapC, UniqueSet, peqC, codeMotion, dlMapFinal)
+          (acc._1 + "\n" + res, true)
+        })._1
+        val reconstruction: String = codeGenRuleMLIR(tensorComputationRC, dimInfo :+ outDI, variables.redundancyVarsInplace, intervalsSimplifiedRM, eqVarMapRM, UniqueSet, false, codeMotion, dlMapFinal)
+
+        if (codeGenMode == 0) "void compute() {\n" + computation + "\n}\n\n\nvoid reconstruct() {\n" + reconstruction + "\n}\n"
+        else if (codeGenMode == 1) computation
+        else if (codeGenMode == 2) reconstruction
+        else ""
+      } else {
+        val computation: String = pathC.foldLeft(("", false))((acc, cur) => {
+          val (tensorComputationC, intervalC, eqMapC): (Rule, Seq[Map[Variable, Interval]], Seq[Map[Variable, Index]]) = cur
+          val peqC: Boolean = peqMode | acc._2
+          val res: String = codeGenRule(tensorComputationC, dimInfo :+ outDI, variables, intervalC, eqMapC, UniqueSet, peqC, codeMotion, dlMapFinal)
+          (acc._1 + "\n" + res, true)
+        })._1
+        // val reconstruction: String = pathRC.foldLeft(("", false))((acc, cur) => {
+        //   val (tensorComputationRC, intervalRC, eqMapRC): (Rule, Seq[Map[Variable, Interval]], Seq[Map[Variable, Index]]) = cur
+        //   val peqRC: Boolean = peqMode | acc._2
+        //   val res: String = codeGenRule(tensorComputationRC, dimInfo :+ outDI, variables, intervalRC, eqMapRC, UniqueSet, peqRC, codeMotion, dataLayoutMap)
+        //   (acc._1 + "\n" + res, true)
+        // })._1
+        val reconstruction: String = codeGenRule(tensorComputationRC, dimInfo :+ outDI, variables.redundancyVarsInplace, intervalsSimplifiedRM, eqVarMapRM, UniqueSet, false, codeMotion, dlMapFinal)
+        if (codeGenMode == 0) "void compute() {\n" + computation + "\n}\n\n\nvoid reconstruct() {\n" + reconstruction + "\n}\n"
+        else if (codeGenMode == 1) computation
+        else if (codeGenMode == 2) reconstruction
+        else ""
+      }
     }
   }
 
