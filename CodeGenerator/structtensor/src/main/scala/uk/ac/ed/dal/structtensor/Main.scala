@@ -2,8 +2,9 @@ package uk.ac.ed.dal
 package structtensor
 
 import apps._
-import parser.Parser
+import parser._
 import fastparse._
+import compiler._
 
 import java.io.File
 import scopt.OParser
@@ -17,6 +18,8 @@ object Main extends App {
     sturOpt: Boolean = false,
     applicationName: String = "",
     tool: String = "",
+    initTensors: Boolean = false,
+    enforceDimensions: Boolean = false,
     applicationHelp: String = s"""
 Please specify the experiment name:
 LRC       = Linear Regression - Creation
@@ -60,12 +63,7 @@ PGLM      = Population Growth Leslie Matrix
 
       opt[Unit]("no-cm")
         .action((_, c) => c.copy(codeMotion = false))
-        .text("disable code motion"), 
-      
-      opt[String]('f', "file")
-        .action((x, c) => c.copy(filePath = x))
-        .text("path to the input file")
-        .valueName("<path>"),  
+        .text("disable code motion"),   
 
       opt[Unit]("stur-opt-code-gen")
         .action((_, c) => c.copy(sturOpt = true))
@@ -77,7 +75,7 @@ PGLM      = Population Growth Leslie Matrix
         .action((_, c) => c.copy(tool = "app"))
         .text("run an existing application")
         .children(
-          opt[String]("app-name")
+          opt[String]("name")
             .action((x, c) => c.copy(applicationName = x))
             .text("name of the selected application to run")
             .valueName("<name>")
@@ -89,7 +87,19 @@ PGLM      = Population Growth Leslie Matrix
 
       cmd("stur")
         .action((_, c) => c.copy(tool = "input"))
-        .text("generate code for input file (written in stur)"),
+        .text("generate code for input file (written in stur)")
+        .children(
+          opt[String]("file-path")
+            .action((x, c) => c.copy(filePath = x))
+            .text("path to the stur input file")
+            .valueName("<path>"),
+          opt[Unit]("init-tensors")
+            .action((_, c) => c.copy(initTensors = true))
+            .text("initialize the tensors randomly in the generated code"),
+          opt[Unit]("enforce-dims")
+            .action((_, c) => c.copy(enforceDimensions = true))
+            .text("enforce the dimensions of the tensors in the generated code by multiplying dimensions by unique set (if false, we assume unique set is in the dimension boundaries)")
+        )
     )
   }
 
@@ -128,17 +138,34 @@ PGLM      = Population Growth Leslie Matrix
 
         }
         case "input" => {
-
+          if (config.filePath != "") {
+            import Parser._
+            import Convertor._
+            import Compiler.codeGen
+            val lines = scala.io.Source.fromFile(config.filePath).mkString
+            val lineSeq: Seq[String] = lines.split("\n").toSeq
+            val parsedRules: Seq[Rule] = lineSeq.map(line => {
+              val Parsed.Success(res, _) = parse(line, parser(_))
+              res(0)
+            }).toSeq
+            parsedRules.map(r => println(r.prettyFormat))
+            val (tensorComputations, dimInfo, uniqueSets, redundancyMaps): (Seq[Rule], Seq[DimInfo], Map[Exp, Rule], Map[Exp, Rule]) = convertRules(parsedRules, config.initTensors, config.enforceDimensions)
+            val code_strs = tensorComputations.map(tc => {
+              codeGen(tc, dimInfo, uniqueSets, redundancyMaps, codeGenMode=0, codeMotion=config.codeMotion, codeLang=config.codeLang, sturOpt=config.sturOpt)
+            })
+          } else {
+            println("Please specify the stur code or the file path")
+          }
         }
       }
     }
     case _ => println("Error parsing arguments")
   }
   
-  import Parser._
-  val p = "A(i, j, k) := C(k, l) * B(i, j, l) * (0 <= l * 2 + 5 % 2) * (Q > l) * (0 <= i) * (M > i) * (N > i) * (0 <= k) * (P > k) * (i = j)"
-  val Parsed.Success(res, _) = parse(p, parser(_))
-  println(res(0).prettyFormat)
-  println(p)
-  println(res)
+  // import Parser._
+  // val p = "A(i, j, k) := C(k, l) * B(i, j, l) * (0 <= l * 2 + 5 % 2) * (Q > l) * (0 <= i) * (M > i) * (N > i) * (0 <= k) * (P > k) * (i = j)"
+  // val Parsed.Success(res, _) = parse(p, parser(_))
+  // println(res(0).prettyFormat)
+  // println(p)
+  // println(res)
 }

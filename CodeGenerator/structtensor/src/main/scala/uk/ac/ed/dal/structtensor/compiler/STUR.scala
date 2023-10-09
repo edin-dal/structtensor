@@ -47,6 +47,12 @@ case object RedundancyMap extends AccessType {
   def cFormat(m: Map[Variable, Index]): String = cFormat
 }
 
+case object DimensionType extends AccessType {
+  def prettyFormat(): String = "D"
+  def cFormat(): String = "D"
+  def cFormat(m: Map[Variable, Index]): String = cFormat
+}
+
 
 case class Variable(name: String) extends Index with Dim {
   def prettyFormat(): String = name

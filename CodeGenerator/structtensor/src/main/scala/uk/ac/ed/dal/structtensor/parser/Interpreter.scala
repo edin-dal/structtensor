@@ -12,14 +12,14 @@ object Interpreter {
   }
 
   def interpretAccess(n: String, v: Seq[Variable]): Access = {
-    if (n.endsWith("_U")) Access(n.substring(0, n.length-2), v, UniqueSet)
-    else if (n.endsWith("_Dim")) Access(n.substring(0, n.length-4), v, UniqueSet)
-    else if (n.endsWith("_R")) Access(n.substring(0, n.length-2), v, RedundancyMap)
-    else if (n.endsWith("_C")) Access(n.substring(0, n.length-2), v, CompressedTensor)
-    else Access(n, v, Tensor)
+    if (n.length < 3 && !n.contains(":")) return Access(n, v, Tensor)
+    else n.substring(n.length-2, n.length) match {
+      case ":U" => Access(n.substring(0, n.length-2), v, UniqueSet)
+      case ":D" => Access(n.substring(0, n.length-2), v, DimensionType)
+      case ":R" => Access(n.substring(0, n.length-2), v, RedundancyMap)
+      case _ => if (!n.contains(":")) Access(n, v, Tensor) else throw new Exception("Invalid access name")
+    }
   }
-
-  def interpretSeqAccess(n: String, v: Seq[Variable]): Seq[Access] = Seq(interpretAccess(n, v))
 
   def reverseOp(op: String): String = op match {
     case "<=" => ">="
