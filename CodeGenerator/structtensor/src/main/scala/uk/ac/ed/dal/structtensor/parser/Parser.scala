@@ -14,7 +14,7 @@ object Parser {
 
   def name[$: P]: P[String] = P( CharIn("A-Za-z") ~ CharIn("A-Za-z0-9._").rep ~ (":" ~ CharIn("DUR")).? ).!
 
-  def access[$: P]: P[Access] = P("(" ~ access ~ ")") | P( name.! ~ "(" ~ variableSeq ~ ")" ).map({case (n, v) => interpretAccess(n, v)})
+  def access[$: P]: P[Access] = P( name.! ~ "(" ~ variableSeq ~ ")" ).map({case (n, v) => interpretAccess(n, v)}) | P("(" ~ access ~ ")") 
 
   def integer[$: P]: P[ConstantInt] = P( CharIn("0-9").rep(1).!.map(_.toInt) ).map(ConstantInt(_))
 
@@ -38,15 +38,15 @@ object Parser {
 
   def comp_op[$: P]: P[String] = P( "<=" | ">=" | "==" | "=" | "<" | ">" | "!=" ).!
 
-  def comparison[$: P]: P[Seq[Comparison]] = P("(" ~ comparison ~ ")" ) | P (arithmetic ~ comp_op ~ arithmetic).map({case (i1, op, i2) => interpretComparison(op, i1, i2)})
+  def comparison[$: P]: P[Seq[Comparison]] = P (arithmetic ~ comp_op ~ arithmetic).map({case (i1, op, i2) => interpretComparison(op, i1, i2)})
     
-  def exp[$: P]: P[Seq[Exp]] = P( "(" ~ exp ~ ")" ) | P(access.rep(exactly=1)) | P(comparison)
+  def exp[$: P]: P[Seq[Exp]] = P(access.rep(exactly=1)) | P(comparison) | P( "(" ~ exp ~ ")" )
 
-  def factor[$: P]: P[Prod] = P( "(" ~ factor ~ ")") | P( exp ~ ("*" ~ exp).rep ).map{case(e, se) => interpretProd(e, se)}
+  def factor[$: P]: P[Prod] = P( exp ~ ("*" ~ exp).rep ).map{case(e, se) => interpretProd(e, se)} | P( "(" ~ factor ~ ")")
 
-  def sop[$: P]: P[SoP] = P( "(" ~ sop ~ ")" ) | P( factor ~ ("+" ~ factor).rep ).map{case(f, sf) => SoP(f +: sf)}
+  def sop[$: P]: P[SoP] = P( factor ~ ("+" ~ factor).rep ).map{case(f, sf) => SoP(f +: sf)} | P( "(" ~ sop ~ ")" )
 
-  def rule[$: P]: P[Rule] = P("(" ~ rule ~ ")" ) | P( access ~ ":=" ~ sop ).map({case (a, b) => Rule(a, b)})
+  def rule[$: P]: P[Rule] = P( access ~ ":=" ~ sop ).map({case (a, b) => Rule(a, b)}) | P("(" ~ rule ~ ")" )
 
   def program[$: P]: P[Seq[Rule]] = P( rule.rep(sep="\n") )
 
