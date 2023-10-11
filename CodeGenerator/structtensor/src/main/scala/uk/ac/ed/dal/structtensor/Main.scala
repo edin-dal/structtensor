@@ -148,7 +148,7 @@ PGLM      = Population Growth Leslie Matrix
               val Parsed.Success(res, _) = parse(line, parser(_))
               res(0)
             }).toSeq
-            parsedRules.map(r => println(r.prettyFormat))
+            // parsedRules.map(r => println(r.prettyFormat))
             val (tensorComputations, dimInfo, uniqueSets, redundancyMaps): (Seq[Rule], Seq[DimInfo], Map[Exp, Rule], Map[Exp, Rule]) = convertRules(parsedRules, config.initTensors, config.enforceDimensions)
             val code_strs = tensorComputations.map(tc => {
               println(codeGen(tc, dimInfo, uniqueSets, redundancyMaps, codeGenMode=0, codeMotion=config.codeMotion, codeLang=config.codeLang, sturOpt=config.sturOpt))

@@ -170,24 +170,15 @@ object Compiler {
   }
 
   def getBinOpDimInfo(e1: Exp, e2: Exp, outAccess: Access, dimInfo: Seq[DimInfo], multOrAdd: String): DimInfo = { // it doesn't work perfectly
-    println("----------------")
-    println(dimInfo)
     val accessMap: Map[Access, Seq[Dim]] = dimInfo.toAccessMap
-    println(accessMap)
     val inp1DimSeq: Seq[Dim] = if (e1.isInstanceOf[Access]) accessMap.getOrElse(e1.asInstanceOf[Access], Seq.empty[Dim]) else Seq.empty[Dim]
     val inp2DimSeq: Seq[Dim] = if (e2.isInstanceOf[Access]) accessMap.getOrElse(e2.asInstanceOf[Access], Seq.empty[Dim]) else Seq.empty[Dim]
     val in1Vars: Seq[Variable] = if (e1.isInstanceOf[Access]) e1.asInstanceOf[Access].vars else Seq.empty[Variable]
     val in2Vars: Seq[Variable] = if (e2.isInstanceOf[Access]) e2.asInstanceOf[Access].vars else Seq.empty[Variable]
     val outVars: Seq[Variable] = outAccess.vars
-    println(e1)
-    println(e2)
-    println(inp1DimSeq)
     val outDim: Seq[Dim] = outVars.map(v => {
       val i1: Int = in1Vars.indexOf(v)
       val i2: Int = in2Vars.indexOf(v)
-      println(i1)
-      println(i2)
-      println("---------------")
       if (i1 == -1 && i2 == -1) Arithmetic("+", ConstantInt(1), v) else if (i2 == -1) inp1DimSeq(i1) else if (i1 == -1) inp2DimSeq(i2) else if (multOrAdd == "mult") dimMin(inp1DimSeq(i1), inp2DimSeq(i2)) else if (multOrAdd == "add") dimMax(inp1DimSeq(i1), inp2DimSeq(i2)) else inp1DimSeq(i1) // else shouldn't happen normally
     })
     return DimInfo(outAccess, outDim)
@@ -1681,7 +1672,8 @@ object Compiler {
     val tcBodyEQ: SoP = getNoComparisonButEQSoP(tensorComputation.body)
 
     if (intervals == Seq.empty[Map[Variable, Interval]]) {
-      return s"${tensorComputation.head.cFormat} += ${tcBodya.cFormat};"
+      if (tensorComputation.head.vars == Seq.empty[Variable]) return s"${tensorComputation.head.cFormat} += ${tcBodya.cFormat};"
+      else return ""
     }
 
     (intervals zip equalityVarMap).foldLeft("")((acc, mapEqVar) => {

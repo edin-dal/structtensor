@@ -42,7 +42,6 @@ object Convertor {
 
   def checkDimsAvailable(nameToTensorMap: Map[String, Rule], nameToDimensionMap: Map[String, Rule]): Boolean = {
     getNamesThatRequireDim(nameToTensorMap).foldLeft(true)((acc, name) => {
-      println(name)
       nameToDimensionMap.get(name) match {
         case None => false
         case Some(d) => acc
@@ -93,7 +92,7 @@ object Convertor {
     dimInfoMap.foldLeft(Map.empty[Exp, Rule])((acc, nameDimInfo) => {
       val name = nameDimInfo._1
       val dimInfo = nameDimInfo._2
-      val head = dimInfo.access
+      val head = Access(dimInfo.access.name, dimInfo.access.vars, Tensor)
       val body = dimInfo.toSoP
       val newBody = if (kind == UniqueSet) nameToSetMap.get(name) match {
         case Some(r) => SoPTimesSoP(body, r.body)
@@ -113,19 +112,19 @@ object Convertor {
     val dimsAvailable = checkDimsAvailable(nameToTensorMap, nameToDimensionMap)
     if (!dimsAvailable) throw new Exception("Dimensions not available for all tensors")
     val (dimInfo, dimInfoMap): (Seq[DimInfo], Map[String, DimInfo]) = extractDims(nameToDimensionMap)
-    val uniqueSets: Map[Exp, Rule] = if (!enforceDimensions) nameToUniqueSetMap.values.map(r => (r.head -> r)).toMap else extractSet(nameToUniqueSetMap, dimInfoMap, UniqueSet)
-    val redundancyMaps: Map[Exp, Rule] = if (!enforceDimensions) nameToRedundancyMapMap.values.map(r => (r.head -> r)).toMap else extractSet(nameToRedundancyMapMap, dimInfoMap, RedundancyMap)
+    val uniqueSets: Map[Exp, Rule] = if (!enforceDimensions) nameToUniqueSetMap.values.map(r => (r.head -> Rule(Access(r.head.name, r.head.vars, Tensor), r.body))).toMap else extractSet(nameToUniqueSetMap, dimInfoMap, UniqueSet)
+    val redundancyMaps: Map[Exp, Rule] = if (!enforceDimensions) nameToRedundancyMapMap.values.map(r => (r.head -> Rule(Access(r.head.name, r.head.vars, Tensor), r.body))).toMap else extractSet(nameToRedundancyMapMap, dimInfoMap, RedundancyMap)
     val tensorComputations: Seq[Rule] = nameToTensorMap.values.toSeq
-    println("Enforce Dimensions:")
-    println(enforceDimensions)
-    println("Tensor Computations:")
-    tensorComputations.map(r => println(r.prettyFormat))
-    println("Unique Sets:")
-    uniqueSets.values.toSeq.map(r => println(r.prettyFormat))
-    println("Redundancy Maps:")
-    redundancyMaps.values.toSeq.map(r => println(r.prettyFormat))
-    println("Dimensions:")
-    println(dimInfo)
+    // println("Enforce Dimensions:")
+    // println(enforceDimensions)
+    // println("Tensor Computations:")
+    // tensorComputations.map(r => println(r.prettyFormat))
+    // println("Unique Sets:")
+    // uniqueSets.values.toSeq.map(r => println(r.prettyFormat))
+    // println("Redundancy Maps:")
+    // redundancyMaps.values.toSeq.map(r => println(r.prettyFormat))
+    // println("Dimensions:")
+    // println(dimInfo)
     return (tensorComputations, dimInfo, uniqueSets, redundancyMaps)
   }
 }
