@@ -703,7 +703,7 @@ object Compiler {
         val us2: Rule = uniqueSet.get(tc.head).get
         val rm2: Rule = redundancyMap.get(tc.head).get
         // val c2: Rule = compressionMap.get(tc.head).get
-        if (areProdTCsEqiv(tc, firstTC) && isSoPDisjoint(us1.body, us2.body) && isSoPDisjoint(rm1.body, rm2.body)) {
+        if (areProdTCsEqiv(tc, firstTC) && !isSoPDisjoint(us1.body, us2.body) && !isSoPDisjoint(rm1.body, rm2.body)) {
           val s1: Seq[Access] = firstTC.body.prods.foldLeft(Seq.empty[Access])((acc, prod) => acc ++ prod.exps.foldLeft(Seq.empty[Access])((acc2, exp) => acc2 :+ exp.asInstanceOf[Access]))
           val s2: Seq[Access] = tc.body.prods.foldLeft(Seq.empty[Access])((acc, prod) => acc ++ prod.exps.foldLeft(Seq.empty[Access])((acc2, exp) => acc2 :+ exp.asInstanceOf[Access]))
           val vMap1: Map[Variable, Variable] = (tc.head.vars zip firstTC.head.vars).toMap
@@ -752,6 +752,7 @@ object Compiler {
     val prods: Seq[Prod] = tensorComputation.body.prods
     val head: Access = tensorComputation.head
     val nonSizeVariables: Seq[Variable] = getVariables(tensorComputation)
+    // println("infer:")
     // println(tensorComputation.prettyFormat)
     if (prods.length == 1) {
       val exps: Seq[Exp] = prods(0).exps
@@ -2026,7 +2027,7 @@ object Compiler {
     write2File(s"stur_output/ex.stur", stur)
     // TODO: uncomment the below (error for now is -t can't accept CPP)
     val newCodeLang = if (codeLang == "default" || codeLang == "CPP") "C" else codeLang
-    s"stur-opt stur_output/ex.stur -t $codeLang".!!
+    s"stur-opt stur_output/ex.stur -t $newCodeLang".!!
   }
 
   def codeGen(tensorComputation: Rule, dimInfo: Seq[DimInfo], uniqueSets: Map[Exp, Rule], redundancyMaps: Map[Exp, Rule], codeGenMode: Int = 0, peqMode: Boolean = true, variableReplacementFlag: Boolean = true, codeMotion: Boolean = true, dataLayoutMap: Map[Exp, Function[Seq[Variable], Seq[Index]]] = Map(), varReverse: Boolean = false, codeLang: String = "default", compressionMaps: Map[Exp, Rule] = Map(), sturOpt: Boolean = false): String = {
@@ -2330,10 +2331,10 @@ object Compiler {
       // val finalRuleRC: Rule = Rule(headRC, bodyRC)
       // val reconstruction_stur: String = finalRuleRC.prettyFormat
       
-      // println("Computation:")
-      // println(computation_stur)
-      // println("Reconstruction:")
-      // println(reconstruction_stur)
+      println("Computation:")
+      println(computation_stur)
+      println("Reconstruction:")
+      println(reconstruction_stur)
 
       val computation_stur_code: String = sturOptCodeGen(computation_stur, codeLang)
       val reconstruction_stur_code: String = sturOptCodeGen(reconstruction_stur, codeLang)

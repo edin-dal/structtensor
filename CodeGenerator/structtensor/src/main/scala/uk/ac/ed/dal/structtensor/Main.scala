@@ -14,12 +14,13 @@ object Main extends App {
     sparse: Boolean = false,
     codeLang: String = "CPP",
     codeMotion: Boolean = true,
-    filePath: String = "",
+    inFilePath: String = "",
     sturOpt: Boolean = false,
     applicationName: String = "",
     tool: String = "",
     initTensors: Boolean = false,
     enforceDimensions: Boolean = false,
+    outFilePath: String = "",
     applicationHelp: String = s"""
 Please specify the experiment name:
 LRC       = Linear Regression - Creation
@@ -89,9 +90,13 @@ PGLM      = Population Growth Leslie Matrix
         .action((_, c) => c.copy(tool = "input"))
         .text("generate code for input file (written in stur)")
         .children(
-          opt[String]("file-path")
-            .action((x, c) => c.copy(filePath = x))
+          opt[String]("inf")
+            .action((x, c) => c.copy(inFilePath = x))
             .text("path to the stur input file")
+            .valueName("<path>"),
+          opt[String]("outf")
+            .action((x, c) => c.copy(outFilePath = x))
+            .text("where to stored the generated code")
             .valueName("<path>"),
           opt[Unit]("init-tensors")
             .action((_, c) => c.copy(initTensors = true))
@@ -138,11 +143,11 @@ PGLM      = Population Growth Leslie Matrix
 
         }
         case "input" => {
-          if (config.filePath != "") {
+          if (config.inFilePath != "") {
             import Parser._
             import Convertor._
             import Compiler.codeGen
-            val lines = scala.io.Source.fromFile(config.filePath).mkString
+            val lines = scala.io.Source.fromFile(config.inFilePath).mkString
             val lineSeq: Seq[String] = lines.split("\n").toSeq
             val parsedRules: Seq[Rule] = lineSeq.map(line => {
               val Parsed.Success(res, _) = parse(line, parser(_))
