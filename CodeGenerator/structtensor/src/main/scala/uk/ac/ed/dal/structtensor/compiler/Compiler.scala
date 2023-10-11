@@ -2302,52 +2302,70 @@ object Compiler {
     if (sturOpt) {
       // Makes a call to stur-opt and gets the generated code.
 
-      val computation_stur: String = pathC.foldLeft(("", false))((acc, cur) => {
+      val (computation_stur, computation_stur2p, _): (String, String, Boolean) = pathC.foldLeft(("", "", false))((acc, cur) => {
         val (tensorComputationC, intervalC, eqMapC): (Rule, Seq[Map[Variable, Interval]], Seq[Map[Variable, Index]]) = cur
         val comps: SoP = getSoPFromInterval(intervalC, eqMapC)
         val head: Access = tensorComputationC.head
         val body: SoP = SoPTimesSoP(tensorComputationC.body, comps)
         val finalRule: Rule = Rule(head, body)
         val res: String = finalRule.prettyFormat
+        val res2: String = finalRule.body.prettyFormat
         // val peqC: Boolean = peqMode | acc._2
         // val res: String = codeGenRuleMLIR(tensorComputationC, dimInfo :+ outDI, variables, intervalC, eqMapC, UniqueSet, peqC, codeMotion, dlMapFinal)
-        (acc._1 + res + "\n", true)
-      })._1
+        (acc._1 + res + "\n", acc._2 + res2 + " + ", true)
+      })
       val finalRC: Rule = Rule(tensorComputationRC.head, SoPTimesSoP(tensorComputationRC.body, getSoPFromInterval(intervalsSimplifiedRM, eqVarMapRM)))
       val pathRC: Seq[(Rule, Seq[Map[Variable, Interval]], Seq[Map[Variable, Index]])] = getFinalCodeGenPath(tensorComputation.head, finalRC, intervalsSimplifiedRM, eqVarMapRM)
-      val reconstruction_stur: String = pathRC.foldLeft(("", false))((acc, cur) => {
+      val (reconstruction_stur, reconstruction_stur2p, _): (String, String, Boolean) = pathRC.foldLeft(("", "", false))((acc, cur) => {
         val (tensorComputationRC, intervalRC, eqMapRC): (Rule, Seq[Map[Variable, Interval]], Seq[Map[Variable, Index]]) = cur
         val comps: SoP = getSoPFromInterval(intervalRC, eqMapRC)
         val head: Access = tensorComputationRC.head
         val body: SoP = SoPTimesSoP(tensorComputationRC.body, comps)
         val finalRule: Rule = Rule(head, body)
         val res: String = finalRule.prettyFormat
+        val res2: String = finalRule.body.prettyFormat
         // val peqC: Boolean = peqMode | acc._2
-        (acc._1 + res + "\n", true)
-      })._1
+        (acc._1 + res + "\n", acc._2 + res2 + " + ", true)
+      })
       // val compsRC = getSoPFromInterval(intervalsSimplifiedRM, eqVarMapRM)
       // val headRC: Access = tensorComputationRC.head
       // val bodyRC: SoP = SoPTimesSoP(tensorComputationRC.body, compsRC)
       // val finalRuleRC: Rule = Rule(headRC, bodyRC)
       // val reconstruction_stur: String = finalRuleRC.prettyFormat
       
+      val computation_stur2 = tensorComputation.head.prettyFormat + " := " + computation_stur2p.dropRight(3) + "\n"
+      val reconstruction_stur2 = tensorComputation.head.prettyFormat + " := " + reconstruction_stur2p.dropRight(3) + "\n"
+
       println("Computation:")
       println(computation_stur)
       println("Reconstruction:")
       println(reconstruction_stur)
 
+      println("Computation2:")
+      println(computation_stur2)
+      println("Reconstruction2:")
+      println(reconstruction_stur2)
+
       val computation_stur_code: String = sturOptCodeGen(computation_stur, codeLang)
       val reconstruction_stur_code: String = sturOptCodeGen(reconstruction_stur, codeLang)
+
+      val computation_stur_code2: String = sturOptCodeGen(computation_stur2, codeLang)
+      val reconstruction_stur_code2: String = sturOptCodeGen(reconstruction_stur2, codeLang)
       
       // println("Computation Code:")
       // println(computation_stur_code)
       // println("Reconstruction Code:")
       // println(reconstruction_stur_code)
 
+      println("Computation Code:")
+      println(computation_stur_code2)
+      println("Reconstruction Code:")
+      println(reconstruction_stur_code2)
+
       codeGenMode match {
-        case 0 => "void compute() {\n" + computation_stur_code + "\n}\n\n\nvoid reconstruct() {\n" + reconstruction_stur_code + "\n}\n"
-        case 1 => computation_stur_code
-        case 2 => reconstruction_stur_code
+        case 0 => "void compute() {\n" + computation_stur_code2 + "\n}\n\n\nvoid reconstruct() {\n" + reconstruction_stur_code2 + "\n}\n"
+        case 1 => computation_stur_code2
+        case 2 => reconstruction_stur_code2
         case _ => ""
       }      
     } else {

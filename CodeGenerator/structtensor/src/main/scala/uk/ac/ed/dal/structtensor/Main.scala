@@ -147,6 +147,7 @@ PGLM      = Population Growth Leslie Matrix
             import Parser._
             import Convertor._
             import Compiler.codeGen
+            import Shared._
             val lines = scala.io.Source.fromFile(config.inFilePath).mkString
             val lineSeq: Seq[String] = lines.split("\n").toSeq
             val parsedRules: Seq[Rule] = lineSeq.map(line => {
@@ -154,7 +155,7 @@ PGLM      = Population Growth Leslie Matrix
               res(0)
             }).toSeq
             // parsedRules.map(r => println(r.prettyFormat))
-            val (tensorComputations, dimInfo, uniqueSets, redundancyMaps): (Seq[Rule], Seq[DimInfo], Map[Exp, Rule], Map[Exp, Rule]) = convertRules(parsedRules, config.initTensors, config.enforceDimensions)
+            val (init_str, tensorComputations, dimInfo, uniqueSets, redundancyMaps, end_str): (String, Seq[Rule], Seq[DimInfo], Map[Exp, Rule], Map[Exp, Rule], String) = convertRules(parsedRules, config.initTensors, config.enforceDimensions)
             val code_strs = tensorComputations.map(tc => {
               println(codeGen(tc, dimInfo, uniqueSets, redundancyMaps, codeGenMode=0, codeMotion=config.codeMotion, codeLang=config.codeLang, sturOpt=config.sturOpt))
             })
