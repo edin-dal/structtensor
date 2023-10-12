@@ -8,7 +8,7 @@ import apps._
 object Convertor {
   import Compiler._
   import STURHelper._
-  import Shared._
+  import Bodygen._
 
   def groupRules(rules: Seq[Rule]): (Map[String, Rule], Map[String, Rule], Map[String, Rule], Map[String, Rule]) = {
     rules.foldLeft((Map.empty[String, Rule], Map.empty[String, Rule], Map.empty[String, Rule], Map.empty[String, Rule]))((acc, r) => {
@@ -109,15 +109,7 @@ object Convertor {
     }) 
   }
 
-  def generateInit(): String = {
-    ""
-  }
-
-  def generateEnd(): String = {
-    ""
-  }
-
-  def convertRules(rules: Seq[Rule], initTensors: Boolean, enforceDimensions: Boolean): (String, Seq[Rule], Seq[DimInfo], Map[Exp, Rule], Map[Exp, Rule], String) = {
+  def convertRules(rules: Seq[Rule], initTensors: Boolean, enforceDimensions: Boolean, codeLang: String): (String, Seq[Rule], Seq[DimInfo], Map[Exp, Rule], Map[Exp, Rule], String) = {
     val (nameToTensorMap, nameToUniqueSetMap, nameToRedundancyMapMap, nameToDimensionMap) = groupRules(rules)
     val dimsAvailable = checkDimsAvailable(nameToTensorMap, nameToDimensionMap)
     if (!dimsAvailable) throw new Exception("Dimensions not available for all tensors")
@@ -135,8 +127,9 @@ object Convertor {
     // redundancyMaps.values.toSeq.map(r => println(r.prettyFormat))
     // println("Dimensions:")
     // println(dimInfo)
-    val init = if (!initTensors) "" else generateInit() 
-    val end = if (!initTensors) "" else generateEnd()
+    val (init, end) = if (!initTensors) ("", "") else rules.foldLeft(("", ""))((acc, r) => {
+      Bodygen(codeLang) // TODO: pass the rule (at least the head), dimInfo, uniqueSets, and the inferred dimension of the output tensors
+    })
     return (init, tensorComputations, dimInfo, uniqueSets, redundancyMaps, end)
   }
 }
