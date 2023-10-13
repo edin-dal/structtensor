@@ -269,16 +269,18 @@ fprintf(stderr, "%f\\n", $var_name[${dimensions.map(e => s"$e - 1").mkString("][
       acc + " || " + res2.slice(4, res2.length)
     })
     val flag = getVar("flag")
-    (flag, flag + " = " + res.slice(4, res.length) + ";\n")
+    val fl_code = flag + " = " + (if (res.slice(4, res.length).length == 0) "0" else res.slice(4, res.length)) + ";\n"
+    (flag, fl_code)
   }
 
   def CPP_convert_condition(condition: SoP): (String, String) = C_convert_condition(condition)
 
 
-  def C_alloc_and_gen_random_number(head: Access, dimensions: Seq[String], sopCond: SoP): String = {
+  def C_alloc_and_gen_random_number(head: Access, dims: Seq[Dim], sopCond: SoP): String = {
     val var_name = head.name
     val vars = head.vars
-    val iter_seq: vars.map(_.name)
+    val iter_seq = vars.map(_.name)
+    val dimensions = dims.map(C_convert_index(_))
     val (flag, c11) = C_convert_condition(sopCond)
     val c0 = s"double (*$var_name) = malloc(sizeof(double) * ${dimensions.mkString(" * ")});\n"
     val c1 = dimensions.zip(iter_seq).foldLeft("")((acc, dimId) => {
@@ -291,14 +293,15 @@ fprintf(stderr, "%f\\n", $var_name[${dimensions.map(e => s"$e - 1").mkString("][
     s"$c0$c1$c11$c2$c3"
   }
 
-  def CPP_alloc_and_gen_random_number(head: Access, dimensions: Seq[String], sopCond: SoP): String = {
+  def CPP_alloc_and_gen_random_number(head: Access, dims: Seq[Dim], sopCond: SoP): String = {
     val var_name = head.name
     val vars = head.vars
-    val iter_seq: vars.map(_.name)
+    val iter_seq = vars.map(_.name)
+    val dimensions = dims.map(C_convert_index(_)).toSeq
     val (flag, c11) = CPP_convert_condition(sopCond)
-    val c0 s"double *$var_name = new double[" + dimensions.mkString(" * ") + s"];\n" 
+    val c0 = s"double *$var_name = new double[" + dimensions.mkString(" * ") + s"];\n" 
     val c1 = dimensions.zip(iter_seq).zipWithIndex.foldLeft("")((acc, dimIdNum) => {
-      val ((dim, i), n) = dimId
+      val ((dim, i), n) = dimIdNum
       val c_sub1 = s"for (size_t $i = 0; $i < $dim; ++$i) {\n"
       val c_sub2 = if (n != dimensions.length - 1) s"$var_name[${iter_seq.slice(0, n + 1).mkString("][")}] = new double" + "*" * (dimensions.length - 2 - n) + s"[${dimensions(n + 1)}];\n" else ""
       acc + c_sub1 + c_sub2
@@ -308,13 +311,13 @@ fprintf(stderr, "%f\\n", $var_name[${dimensions.map(e => s"$e - 1").mkString("][
     s"$c0$c1$c11$c2$c3"
   }
 
-  MLIR_generate_arith(op: String, i1: String, i2: String, output_var: String): String = {
+  def MLIR_generate_arith(op: String, i1: String, i2: String, output_var: String): String = {
     op match {
-      case "%" => s"$output_var = \"arith.remui\"(%$i1, %$i2) : (i32, i32) -> i32"
-      case "+" => s"$output_var = \"arith.addi\"(%$i1, %$i2) : (i32, i32) -> i32"
-      case "-" => s"$output_var = \"arith.subi\"(%$i1, %$i2) : (i32, i32) -> i32"
-      case "*" => s"$output_var = \"arith.muli\"(%$i1, %$i2) : (i32, i32) -> i32"
-      case "/" => s"$output_var = \"arith.divui\"(%$i1, %$i2) : (i32, i32) -> i32"
+      case "%" => s"""$output_var = "arith.remui"(%$i1, %$i2) : (i32, i32) -> i32"""
+      case "+" => s"""$output_var = "arith.addi"(%$i1, %$i2) : (i32, i32) -> i32"""
+      case "-" => s"""$output_var = "arith.subi"(%$i1, %$i2) : (i32, i32) -> i32"""
+      case "*" => s"""$output_var = "arith.muli"(%$i1, %$i2) : (i32, i32) -> i32"""
+      case "/" => s"""$output_var = "arith.divui"(%$i1, %$i2) : (i32, i32) -> i32"""
       case _ => throw new Exception("Invalid arithmetic operator")
     }
   }
@@ -349,8 +352,8 @@ fprintf(stderr, "%f\\n", $var_name[${dimensions.map(e => s"$e - 1").mkString("][
   def MLIR_convert_condition(condition: SoP): (String, String) = {
     val orFlag = getVar("%orFlag")
     val andFlag = getVar("%andFlag")
-    val orFlagCode = s"$orFlag = \"arith.constant\"() {value = 0 : i1} : () -> i1"
-    val andFlagCode = s"$andFlag = \"arith.constant\"() {value = 1 : i1} : () -> i1"
+    val orFlagCode = s"""$orFlag = "arith.constant"() {value = 0 : i1} : () -> i1"""
+    val andFlagCode = s"""$andFlag = "arith.constant"() {value = 1 : i1} : () -> i1"""
     val (flag, res) = condition.prods.foldLeft((orFlag, ""))((acc, p) => {
       val (flag2, res2) = p.exps.foldLeft((andFlag, ""))((acc2, e) => {
         e match {
@@ -359,23 +362,26 @@ fprintf(stderr, "%f\\n", $var_name[${dimensions.map(e => s"$e - 1").mkString("][
             val cmp_var = getVar("%cmpFlag")
             val pred = MLIR_comp_to_predicate(op)
             val (arith_var, arith_code) = MLIR_convert_index(index)
-            val cmp_code = s"$cmp_var = \"arith.cmpi\"($arith_var, %${variable.name}) {predicate = \"$pred\" : i64} : (i32, i32) -> i1"
-            val and_code = s"$f = \"arith.andi\"(${acc2._1}, $cmp_var) : (i1, i1) -> i1"
+            val cmp_code = s"""$cmp_var = "arith.cmpi"($arith_var, %${variable.name}) {predicate = \"$pred\" : i64} : (i32, i32) -> i1"""
+            val and_code = s"""$f = "arith.andi"(${acc2._1}, $cmp_var) : (i1, i1) -> i1"""
             (f, acc2._2 + "\n" + arith_code + "\n" + cmp_code + "\n" + and_code + "\n")
           }
           case _ => acc2
         }
       })
-      val or_code = s"$flag2 = \"arith.ori\"(${acc._1}, $flag2) : (i1, i1) -> i1"
+      val or_code = s"""$flag2 = "arith.ori"(${acc._1}, $flag2) : (i1, i1) -> i1"""
       (flag2, acc._2 + "\n" + res2 + "\n" + or_code + "\n")
     })
     (flag, orFlagCode + "\n" + andFlagCode + "\n" + res)
   }
 
-  def MLIR_alloc_and_gen_random_number(head: Access, dimensions: Seq[String], sopCond: SoP): String = {
+  def MLIR_alloc_and_gen_random_number(head: Access, dims: Seq[Dim], sopCond: SoP): String = {
     val var_name = head.name
     val vars = head.vars
-    val iter_seq: vars.map(_.name)
+    val iter_seq = vars.map(_.name)
+    val dimsAndCode: Seq[(String, String)] = dims.map(MLIR_convert_index(_))
+    val dimensions = dimsAndCode.map(_._1)
+    val dimensions_code = dimsAndCode.map(_._2).mkString("\n")
     val c0 = s"%$var_name = memref.alloc(%${dimensions.mkString(", %")}) : memref<${"?x" * dimensions.length}f64>"
 
     val (flag, c11) = MLIR_convert_condition(sopCond)
@@ -387,7 +393,7 @@ fprintf(stderr, "%f\\n", $var_name[${dimensions.map(e => s"$e - 1").mkString("][
     ^bb0(%$i: index):
 """
     })
-    val ivars = iter_seq.map(_ => "%" + _).mkString(", ")
+    val ivars = iter_seq.map(e => s"%$e").mkString(", ")
     val qvars = dimensions.map(e => s"?").mkString("x") + "x"
     val index_vars = dimensions.map(e => s"index").mkString(", ")
 
@@ -414,8 +420,43 @@ fprintf(stderr, "%f\\n", $var_name[${dimensions.map(e => s"$e - 1").mkString("][
     }) : (index, index, index) -> ()
 """
     })
-    return s"$c0\n$c1\n$c11\n$c2\n$c3"
+    return s"$dimensions_code\n$c0\n$c1\n$c11\n$c2\n$c3"
   }
+
+  def MLIR_timer_end(): String = """
+%time = "func.call"(%stime) {callee = @timer_elapsed} : (i64) -> i64
+"func.call"(%time) {callee = @print_i64} : (i64) -> ()"""
+
+  def CPP_printerr(access: Access): String = s"cerr << ${access.name}[${access.vars.map(e => s"0").mkString("][")}] << endl;"
+
+  def C_printerr(access: Access): String = s"""fprintf(stderr, "%f\\n", ${access.name}[${access.vars.map(e => s"0").mkString("][")}]);"""
+
+  def MLIR_printerr(access: Access): String = s"""
+  %last = "memref.load"(%${access.name}${", %0" * access.vars.length}) : (memref<${"?x" * access.vars.length}f64>${", index" * access.vars.length}) -> f64
+  "func.call"(%last) {callee = @print_f64_cerr} : (f64) -> ()
+  """
+
+  def CPP_free(var_name: String, dims: Seq[Dim]) = {
+    val dimensions = dims.map(C_convert_index(_))
+    val c0 = dimensions.slice(1, dimensions.length).zipWithIndex.foldLeft("")((acc, dimId) => {
+      val (dim, i) = dimId
+      val c_sub1 = s"for (size_t i$i = 0; i$i < $dim; ++i$i) {\n"
+      acc + c_sub1
+    })
+    val iter_seq: Seq[String] = dimensions.slice(1, dimensions.length).zipWithIndex.map(dimId => s"i${dimId._2}")
+    val c1 = iter_seq.zipWithIndex.foldLeft("")((acc, iterId) => {
+      val (iter, i) = iterId
+      val c_sub1 = s"delete[] $var_name[${iter_seq.slice(0, iter_seq.length - i).mkString("][")}];\n}\n"
+      acc + c_sub1
+    })
+    val c2 = s"delete[] $var_name;"
+    s"$c0$c1$c2"
+  }
+
+  def MLIR_return(): String = """"func.return"() : () -> ()
+    })  {function_type = (i32, !llvm.ptr<!llvm.ptr<i8>>) -> (), sym_name = "main", sym_visibility = "private"} : () -> ()
+}) : () -> ()
+""""""
   
   
   def init_code(lang: String): String = lang match {
@@ -432,10 +473,45 @@ fprintf(stderr, "%f\\n", $var_name[${dimensions.map(e => s"$e - 1").mkString("][
     case _ => throw new Exception("Unknown code language")
   }
 
-  def alloc_and_gen_random_number(lang: String, head: Access, dimensions: Seq[String], sopCond: SoP): String = lang match {
-    case "C" => C_alloc_and_gen_random_number(head, dimensions, sopCond)
-    case "CPP" => CPP_alloc_and_gen_random_number(head, dimensions, sopCond)
-    case "MLIR" => MLIR_alloc_and_gen_random_number(head, dimensions, sopCond)
+  def alloc_and_gen_random_number(lang: String, head: Access, dims: Seq[Dim], sopCond: SoP): String = lang match {
+    case "C" => C_alloc_and_gen_random_number(head, dims, sopCond)
+    case "CPP" => CPP_alloc_and_gen_random_number(head, dims, sopCond)
+    case "MLIR" => MLIR_alloc_and_gen_random_number(head, dims, sopCond)
+    case _ => throw new Exception("Unknown code language")
+  }
+
+  def init_timer(lang: String): String = lang match {
+    case "C" => C_timer_start()
+    case "CPP" => CPP_timer_start()
+    case "MLIR" => MLIR_start_timer_code()
+    case _ => throw new Exception("Unknown code language")
+  }
+
+  def end_timer(lang: String): String = lang match {
+    case "C" => C_timer_end()
+    case "CPP" => CPP_timer_end()
+    case "MLIR" => MLIR_timer_end()
+    case _ => throw new Exception("Unknown code language")
+  }
+
+  def printerr(lang: String, head: Access): String = lang match {
+    case "C" => C_printerr(head)
+    case "CPP" => CPP_printerr(head)
+    case "MLIR" => MLIR_printerr(head)
+    case _ => throw new Exception("Unknown code language")
+  }
+
+  def free(lang: String, var_name: String, dims: Seq[Dim]) = lang match {
+    case "C" => C_free(var_name)
+    case "CPP" => CPP_free(var_name, dims)
+    case "MLIR" => ""
+    case _ => throw new Exception("Unknown code language")
+  }
+
+  def return_code(lang: String): String = lang match {
+    case "C" => C_return()
+    case "CPP" => CPP_return()
+    case "MLIR" => MLIR_return()
     case _ => throw new Exception("Unknown code language")
   }
 

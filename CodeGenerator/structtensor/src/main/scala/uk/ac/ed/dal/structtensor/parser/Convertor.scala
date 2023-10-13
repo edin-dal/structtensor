@@ -109,7 +109,20 @@ object Convertor {
     }) 
   }
 
-  def convertRules(rules: Seq[Rule], initTensors: Boolean, enforceDimensions: Boolean, codeLang: String): (String, Seq[Rule], Seq[DimInfo], Map[Exp, Rule], Map[Exp, Rule], String) = {
+  def getAllTensors(rules: Seq[Rule]): Seq[Access] = {
+    rules.foldLeft(Seq.empty[Access])((acc, r) => {
+      (acc :+ r.head) ++ r.body.prods.foldLeft(Seq.empty[Access])((acc2, p) => {
+        acc2 ++ p.exps.foldLeft(Seq.empty[Access])((acc3, e) => {
+          e match {
+            case Access(_, _, _) => acc3 :+ e.asInstanceOf[Access]
+            case _ => acc3
+          }
+        })
+      })
+    })
+  }
+
+  def convertRules(rules: Seq[Rule], initTensors: Boolean, enforceDimensions: Boolean, codeLang: String, sturOpt: Boolean): (String, Seq[Rule], Seq[DimInfo], Map[Exp, Rule], Map[Exp, Rule], String) = {
     val (nameToTensorMap, nameToUniqueSetMap, nameToRedundancyMapMap, nameToDimensionMap) = groupRules(rules)
     val dimsAvailable = checkDimsAvailable(nameToTensorMap, nameToDimensionMap)
     if (!dimsAvailable) throw new Exception("Dimensions not available for all tensors")
@@ -127,9 +140,9 @@ object Convertor {
     // redundancyMaps.values.toSeq.map(r => println(r.prettyFormat))
     // println("Dimensions:")
     // println(dimInfo)
-    val (init, end) = if (!initTensors) ("", "") else rules.foldLeft(("", ""))((acc, r) => {
-      Bodygen(codeLang) // TODO: pass the rule (at least the head), dimInfo, uniqueSets, and the inferred dimension of the output tensors
-    })
+    val all_dimensions: Seq[DimInfo] = dimInfo ++ tensorComputations.map(r => infer(r, dimInfo, uniqueSets, redundancyMaps)._4)
+    val all_tensors: Seq[Access] = getAllTensors(tensorComputations).distinct
+    val (init, end) = if (!initTensors) ("", "") else Bodygen(codeLang, tensorComputations, all_tensors, all_dimensions.toAccessMap, uniqueSets, sturOpt)
     return (init, tensorComputations, dimInfo, uniqueSets, redundancyMaps, end)
   }
 }

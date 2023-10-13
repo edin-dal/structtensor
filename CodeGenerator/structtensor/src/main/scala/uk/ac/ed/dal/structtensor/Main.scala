@@ -155,10 +155,12 @@ PGLM      = Population Growth Leslie Matrix
               res(0)
             }).toSeq
             // parsedRules.map(r => println(r.prettyFormat))
-            val (init_str, tensorComputations, dimInfo, uniqueSets, redundancyMaps, end_str): (String, Seq[Rule], Seq[DimInfo], Map[Exp, Rule], Map[Exp, Rule], String) = convertRules(parsedRules, config.initTensors, config.enforceDimensions, config.codeLang)
+            val (init_str, tensorComputations, dimInfo, uniqueSets, redundancyMaps, end_str): (String, Seq[Rule], Seq[DimInfo], Map[Exp, Rule], Map[Exp, Rule], String) = convertRules(parsedRules, config.initTensors, config.enforceDimensions, config.codeLang, config.sturOpt)
+            println(init_str)
             val code_strs = tensorComputations.map(tc => {
               println(codeGen(tc, dimInfo, uniqueSets, redundancyMaps, codeGenMode=0, codeMotion=config.codeMotion, codeLang=config.codeLang, sturOpt=config.sturOpt))
             })
+            println(end_str)
           } else {
             println("Please specify the stur code or the file path")
           }
