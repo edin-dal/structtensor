@@ -40,36 +40,13 @@ int main(int argc, char **argv){
 
     long time = 0, start, end;
     start = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
-
-
-
-int i = 0;
-if (0 < W) {
-double tmp = 0.0;
-
-auto &cm1 = L[i];
-
-for (int j = 0; j < W; ++j) {
-
-
-tmp += (cm1[j] * N[j]);
-}
-M[i] += tmp;
+{
+  for (int i = 0; i < W; i += 1)
+    M[0] += L[0][i] * N[i];
+  for (int i = 0; i < W - 1; i += 1)
+    M[i + 1] += L[i + 1][i] * N[i];
 }
 
-
-
-for (int i = 1; i < W; ++i) {
-double tmp = 0.0;
-
-auto &cm2 = L[i];
-
-
-
-
-tmp += (cm2[(i - 1)] * N[(i - 1)]);
-M[i] += tmp;
-}
 
     end = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
     time += end - start;

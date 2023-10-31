@@ -142,7 +142,7 @@ object Convertor {
     // println(dimInfo)
     val all_dimensions: Seq[DimInfo] = dimInfo ++ tensorComputations.map(r => infer(r, dimInfo, uniqueSets, redundancyMaps)._4)
     val all_tensors: Seq[Access] = getAllTensors(tensorComputations).distinct
-    val (init, end) = if (!initTensors) ("", "") else Bodygen(codeLang, tensorComputations, all_tensors, all_dimensions.toAccessMap, uniqueSets, sturOpt)
+    val (init, end) = if (!initTensors) ("", "") else Bodygen(codeLang, rules, all_tensors, all_dimensions.toAccessMap, uniqueSets, sturOpt)
     return (init, tensorComputations, dimInfo, uniqueSets, redundancyMaps, end)
   }
 }

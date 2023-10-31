@@ -140,36 +140,19 @@
 
     %stime = "func.call"() {callee = @timer} : () -> i64
 
-
-
-
-affine.for %i = %0 to %M step 1 {
-
-affine.for %j = affine_map<(s)[]->(s)>(%i) to %N step 1 {
-
-affine.for %k = %0 to %P step 1 {
-
-%l_sum = affine.for %l = %0 to %Q step 1 iter_args(%iter_sum_l = %zerof) -> (f64) {
-
-%tmp22 = affine.load %C[%k, %l] : memref<?x?xf64>
-
-%tmp23 = affine.load %B[%i, %j, %l] : memref<?x?x?xf64>
-
-%finalV22 = "arith.mulf"(%tmp22, %tmp23) {"fastmath" = #arith.fastmath<fast>} : (f64, f64) -> f64
-
-
-%new_sum_l = "arith.addf"(%finalV22, %iter_sum_l) {"fastmath" = #arith.fastmath<fast>} : (f64, f64) -> f64
-"affine.yield"(%new_sum_l): (f64) -> ()
+affine.for %i = affine_map<()[] -> (0)> () [] to affine_map<()[N, M] -> (min(N, M))> () [%N, %M] step 1 {
+  affine.for %j = affine_map<(i)[] -> (i)> (%i) [] to affine_map<()[N] -> (N)> () [%N] step 1 {
+    affine.for %k = affine_map<()[] -> (0)> () [] to affine_map<()[P] -> (P)> () [%P] step 1 {
+      affine.for %l = affine_map<()[] -> (0)> () [] to affine_map<()[Q] -> (Q)> () [%Q] step 1 {
+        %A_0 = affine.load %C[%k, %l] : memref<?x?xf64>
+        %A_1 = affine.load %B[%i, %j, %l] : memref<?x?x?xf64>
+        %A_2 = arith.mulf %A_0, %A_1 : f64
+        affine.store %A_2, %A[%i, %j, %k] : memref<?x?x?xf64>
+      }
+    }
+  }
 }
-%preVal223 = affine.load %A[%i, %j, %k] : memref<?x?x?xf64>
-%peqVal224 = "arith.addf"(%l_sum, %preVal223) {"fastmath" = #arith.fastmath<fast>} : (f64, f64) -> f64
-affine.store %peqVal224, %A[%i, %j, %k] : memref<?x?x?xf64>
-"affine.yield"() : () -> ()
-}
-"affine.yield"() : () -> ()
-}
-"affine.yield"() : () -> ()
-}
+
 
     %time = "func.call"(%stime) {callee = @timer_elapsed} : (i64) -> i64
     

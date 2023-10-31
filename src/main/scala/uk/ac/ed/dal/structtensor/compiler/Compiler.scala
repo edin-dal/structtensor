@@ -2026,8 +2026,8 @@ object Compiler {
     if (stur.contains("∅")) return ""
     write2File(s"stur_output/ex.stur", stur)
     // TODO: uncomment the below (error for now is -t can't accept CPP)
-    val newCodeLang = if (codeLang == "default" || codeLang == "CPP") "C" else codeLang
-    s"stur-opt stur_output/ex.stur -t $newCodeLang".!!
+    val newCodeLang = if (codeLang == "default") "C" else codeLang
+    s"stur-opt stur_output/ex.stur -t $newCodeLang --timer".!!
   }
 
   def codeGen(tensorComputation: Rule, dimInfo: Seq[DimInfo], uniqueSets: Map[Exp, Rule], redundancyMaps: Map[Exp, Rule], codeGenMode: Int = 0, peqMode: Boolean = true, variableReplacementFlag: Boolean = true, codeMotion: Boolean = true, dataLayoutMap: Map[Exp, Function[Seq[Variable], Seq[Index]]] = Map(), varReverse: Boolean = false, codeLang: String = "default", compressionMaps: Map[Exp, Rule] = Map(), sturOpt: Boolean = false): String = {

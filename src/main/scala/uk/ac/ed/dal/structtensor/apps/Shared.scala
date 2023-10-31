@@ -311,41 +311,50 @@ fprintf(stderr, "%f\\n", $var_name[${dimensions.map(e => s"$e - 1").mkString("][
     s"$c0$c1$c11$c2$c3"
   }
 
-  def MLIR_generate_arith(op: String, i1: String, i2: String, output_var: String): String = {
+  def MLIR_generate_arith(op: String, i1: String, i2: String, output_var: String, op_type: Int = 0): String = {
+    val tp = if (op_type == 0) "i32" else "index"
     op match {
-      case "%" => s"""$output_var = "arith.remui"(%$i1, %$i2) : (i32, i32) -> i32"""
-      case "+" => s"""$output_var = "arith.addi"(%$i1, %$i2) : (i32, i32) -> i32"""
-      case "-" => s"""$output_var = "arith.subi"(%$i1, %$i2) : (i32, i32) -> i32"""
-      case "*" => s"""$output_var = "arith.muli"(%$i1, %$i2) : (i32, i32) -> i32"""
-      case "/" => s"""$output_var = "arith.divui"(%$i1, %$i2) : (i32, i32) -> i32"""
+      case "%" => s"""$output_var = "arith.remui"($i1, $i2) : ($tp, $tp) -> $tp"""
+      case "+" => s"""$output_var = "arith.addi"($i1, $i2) : ($tp, $tp) -> $tp"""
+      case "-" => s"""$output_var = "arith.subi"($i1, $i2) : ($tp, $tp) -> $tp"""
+      case "*" => s"""$output_var = "arith.muli"($i1, $i2) : ($tp, $tp) -> $tp"""
+      case "/" => s"""$output_var = "arith.divui"($i1, $i2) : ($tp, $tp) -> $tp"""
       case _ => throw new Exception("Invalid arithmetic operator")
     }
   }
 
-  def MLIR_convert_index(index: Index): (String, String) = {
+  def MLIR_convert_index(index: Index, op_type: Int = 0): (String, String) = {
     index match {
       case Variable(name) => (s"%$name", "")
       case Arithmetic(op, i1, i2) => {
-        val (arith_var1, arith_code1) = MLIR_convert_index(i1)
-        val (arith_var2, arith_code2) = MLIR_convert_index(i2)
+        val (arith_var1, arith_code1) = MLIR_convert_index(i1, op_type)
+        val (arith_var2, arith_code2) = MLIR_convert_index(i2, op_type)
         val arith_var = getVar("%arith_var")
-        val arith_code = MLIR_generate_arith(op, arith_var1, arith_var2, arith_var)
+        val arith_code = MLIR_generate_arith(op, arith_var1, arith_var2, arith_var, op_type)
         (arith_var, arith_code1 + "\n" + arith_code2 + "\n" + arith_code + "\n")
       }
-      case ConstantInt(i) => (i.toString, "")
-      case ConstantDouble(d) => (d.toString, "")
+      case ConstantInt(i) => {
+        val tp = if (op_type == 0) "i32" else "index"
+        val var_name = getVar("%consti")
+        (var_name, s"""$var_name = "arith.constant"() {value = $i : $tp} : () -> $tp""")
+      }
+      case ConstantDouble(d) => {
+        val tp = "f64"
+        val var_name = getVar("%constf")
+        (var_name, s"""$var_name = "arith.constant"() {value = $d : $tp} : () -> $tp""")
+      }
       case _ => throw new Exception("Invalid index")
     }
   }
 
   def MLIR_comp_to_predicate(op: String): String = op match {
-    case "<" => "slt"
-    case ">" => "sgt"
-    case "<=" => "sle"
-    case ">=" => "sge"
-    case "==" => "eq"
-    case "=" => "eq"
-    case "!=" => "ne"
+    case "<" => "2" // "slt"
+    case ">" => "4" // "sgt"
+    case "<=" => "3" // "sle"
+    case ">=" => "5" // "sge"
+    case "==" => "0" // "eq"
+    case "=" => "0" //"eq"
+    case "!=" => "1" // "ne"
     case _ => throw new Exception("Invalid comparison operator")
   }
 
@@ -361,16 +370,17 @@ fprintf(stderr, "%f\\n", $var_name[${dimensions.map(e => s"$e - 1").mkString("][
             val f = getVar("%andFlag")
             val cmp_var = getVar("%cmpFlag")
             val pred = MLIR_comp_to_predicate(op)
-            val (arith_var, arith_code) = MLIR_convert_index(index)
-            val cmp_code = s"""$cmp_var = "arith.cmpi"($arith_var, %${variable.name}) {predicate = \"$pred\" : i64} : (i32, i32) -> i1"""
+            val (arith_var, arith_code) = MLIR_convert_index(index, 1)
+            val cmp_code = s"""$cmp_var = "arith.cmpi"($arith_var, %${variable.name}) {predicate = $pred : i64} : (index, index) -> i1"""
             val and_code = s"""$f = "arith.andi"(${acc2._1}, $cmp_var) : (i1, i1) -> i1"""
             (f, acc2._2 + "\n" + arith_code + "\n" + cmp_code + "\n" + and_code + "\n")
           }
           case _ => acc2
         }
       })
-      val or_code = s"""$flag2 = "arith.ori"(${acc._1}, $flag2) : (i1, i1) -> i1"""
-      (flag2, acc._2 + "\n" + res2 + "\n" + or_code + "\n")
+      val fflag = getVar("%orFlag")
+      val or_code = s"""$fflag = "arith.ori"(${acc._1}, $flag2) : (i1, i1) -> i1"""
+      (fflag, acc._2 + "\n" + res2 + "\n" + or_code + "\n")
     })
     (flag, orFlagCode + "\n" + andFlagCode + "\n" + res)
   }
@@ -382,14 +392,14 @@ fprintf(stderr, "%f\\n", $var_name[${dimensions.map(e => s"$e - 1").mkString("][
     val dimsAndCode: Seq[(String, String)] = dims.map(MLIR_convert_index(_))
     val dimensions = dimsAndCode.map(_._1)
     val dimensions_code = dimsAndCode.map(_._2).mkString("\n")
-    val c0 = s"%$var_name = memref.alloc(%${dimensions.mkString(", %")}) : memref<${"?x" * dimensions.length}f64>"
+    val c0 = s"%$var_name = memref.alloc(${dimensions.mkString(", ")}) : memref<${"?x" * dimensions.length}f64>"
 
     val (flag, c11) = MLIR_convert_condition(sopCond)
     
     val c1 = dimensions.zip(iter_seq).foldLeft("")((acc, dimId) => {
       val (dim, i) = dimId
       acc + s"""
-    "scf.for"(%0, %$dim, %1) ({
+    "scf.for"(%0, $dim, %1) ({
     ^bb0(%$i: index):
 """
     })
@@ -402,7 +412,7 @@ fprintf(stderr, "%f\\n", $var_name[${dimensions.map(e => s"$e - 1").mkString("][
     val rval3 = getVar("rval")
     val rval4 = getVar("rval")
     val c2 = s"""
-    "scf.if"(%${flag}) ({
+    "scf.if"(${flag}) ({
       %$rval1 = "func.call"() {callee = @rand} : () -> i32
       %$rval2 = "arith.remui"(%$rval1, %1000000) : (i32, i32) -> i32
       %$rval3 = "arith.sitofp"(%$rval2) : (i32) -> f64
@@ -456,7 +466,7 @@ fprintf(stderr, "%f\\n", $var_name[${dimensions.map(e => s"$e - 1").mkString("][
   def MLIR_return(): String = """"func.return"() : () -> ()
     })  {function_type = (i32, !llvm.ptr<!llvm.ptr<i8>>) -> (), sym_name = "main", sym_visibility = "private"} : () -> ()
 }) : () -> ()
-""""""
+"""
   
   
   def init_code(lang: String): String = lang match {

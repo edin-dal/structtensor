@@ -15,6 +15,10 @@ object Bodygen {
   def generateInit(codeLang: String, rules: Seq[Rule], all_tensors: Seq[Access], all_dimensions: Map[Access, Seq[Dim]], uniqueSets: Map[Exp, Rule], sturOpt: Boolean): String = {
     val c1 = init_code(codeLang)
     val argv_names = unboundVariables(rules).toSeq
+    val all_vars = allVariables(rules).toSeq
+    println("rules: " + rules)
+    println("all_vars: " + all_vars)
+    println("argv_names: " + argv_names)
     val c2 = read_argv(codeLang, argv_names)
     val c3 = all_tensors.map(t => alloc_and_gen_random_number(codeLang, t, all_dimensions(t), uniqueSets.getOrElse(t, emptyRule()).body)).mkString("\n")
     val c4 = if (!sturOpt) init_timer(codeLang) else ""
