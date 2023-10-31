@@ -2025,8 +2025,7 @@ object Compiler {
   def sturOptCodeGen(stur: String, codeLang: String): String = {
     if (stur.contains("∅")) return ""
     write2File(s"stur_output/ex.stur", stur)
-    // TODO: uncomment the below (error for now is -t can't accept CPP)
-    val newCodeLang = if (codeLang == "default") "C" else codeLang
+    val newCodeLang = if (codeLang == "default") "C" else if (codeLang == "CPP") "C++" else codeLang
     s"stur-opt stur_output/ex.stur -t $newCodeLang --timer".!!
   }
 

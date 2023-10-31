@@ -249,7 +249,7 @@ fprintf(stderr, "%f\\n", $var_name[${dimensions.map(e => s"$e - 1").mkString("][
   def C_convert_index(index: Index): String = {
     index match {
       case Variable(name) => name
-      case Arithmetic(op, i1, i2) => s"(${C_convert_index(i1)} $op ${C_convert_index(i2)})"
+      case Arithmetic(op, i1, i2) => s"(${C_convert_index(i1)} ${op} ${C_convert_index(i2)})"
       case ConstantInt(i) => i.toString
       case ConstantDouble(d) => d.toString
       case _ => throw new Exception("Invalid index")
@@ -261,7 +261,7 @@ fprintf(stderr, "%f\\n", $var_name[${dimensions.map(e => s"$e - 1").mkString("][
       val res2 = p.exps.foldLeft("")((acc2, e) => {
         e match {
           case Comparison(op, index, variable) => {
-            acc2 + " && " + C_convert_index(index) + " " + op + " " + variable.name
+            acc2 + " && " + C_convert_index(index) + " " + (if (op == "=") "==" else op) + " " + variable.name
           }
           case _ => acc2
         }
@@ -269,7 +269,7 @@ fprintf(stderr, "%f\\n", $var_name[${dimensions.map(e => s"$e - 1").mkString("][
       acc + " || " + res2.slice(4, res2.length)
     })
     val flag = getVar("flag")
-    val fl_code = flag + " = " + (if (res.slice(4, res.length).length == 0) "0" else res.slice(4, res.length)) + ";\n"
+    val fl_code = "int " + flag + " = " + (if (res.slice(4, res.length).length == 0) "0" else res.slice(4, res.length)) + ";\n"
     (flag, fl_code)
   }
 
@@ -281,8 +281,8 @@ fprintf(stderr, "%f\\n", $var_name[${dimensions.map(e => s"$e - 1").mkString("][
     val vars = head.vars
     val iter_seq = vars.map(_.name)
     val dimensions = dims.map(C_convert_index(_))
-    val (flag, c11) = C_convert_condition(sopCond)
-    val c0 = s"double (*$var_name) = malloc(sizeof(double) * ${dimensions.mkString(" * ")});\n"
+    val (flag, c11) = C_convert_condition(sopCond)    
+    val c0 = if (dimensions.length == 1) s"double (*$var_name) = malloc(sizeof(double) * ${dimensions.mkString(" * ")});\n" else s"double (*$var_name)[${dimensions.slice(1, dimensions.length).mkString("][")}] = malloc(sizeof(double) * ${dimensions.mkString(" * ")});\n"
     val c1 = dimensions.zip(iter_seq).foldLeft("")((acc, dimId) => {
       val (dim, i) = dimId
       val c_sub1 = s"for (size_t $i = 0; $i < $dim; ++$i) {\n"
@@ -299,7 +299,7 @@ fprintf(stderr, "%f\\n", $var_name[${dimensions.map(e => s"$e - 1").mkString("][
     val iter_seq = vars.map(_.name)
     val dimensions = dims.map(C_convert_index(_)).toSeq
     val (flag, c11) = CPP_convert_condition(sopCond)
-    val c0 = s"double *$var_name = new double[" + dimensions.mkString(" * ") + s"];\n" 
+    val c0 = s"double " + "*" * dimensions.length + s"$var_name = new double" + "*" * (dimensions.length - 1) + s"[${dimensions(0)}];\n"
     val c1 = dimensions.zip(iter_seq).zipWithIndex.foldLeft("")((acc, dimIdNum) => {
       val ((dim, i), n) = dimIdNum
       val c_sub1 = s"for (size_t $i = 0; $i < $dim; ++$i) {\n"
