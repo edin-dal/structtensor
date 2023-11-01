@@ -26,7 +26,8 @@ object Bodygen {
   }
 
   def generateEnd(codeLang: String, rules: Seq[Rule], all_tensors: Seq[Access], all_dimensions: Map[Access, Seq[Dim]], sturOpt: Boolean): String = {
-    val c1 = if(sturOpt) "" else end_timer(codeLang)
+    // if(sturOpt) "" else got removed from c1, needs to be reverted when emilien generates timers
+    val c1 = end_timer(codeLang)
     // val c2 = if(sturOpt) "" else rules.map(r => printerr(codeLang, r.head)).mkString("\n")
     val c2 = rules.map(r => printerr(codeLang, r.head)).mkString("\n")
     val c3 = all_tensors.map(t => free(codeLang, t.name, all_dimensions(t))).mkString("\n")
