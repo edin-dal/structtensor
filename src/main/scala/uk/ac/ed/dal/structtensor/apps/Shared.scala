@@ -441,10 +441,13 @@ fprintf(stderr, "%f\\n", $var_name[${dimensions.map(e => s"$e - 1").mkString("][
 
   def C_printerr(access: Access): String = s"""fprintf(stderr, "%f\\n", ${access.name}[${access.vars.map(e => s"0").mkString("][")}]);"""
 
-  def MLIR_printerr(access: Access): String = s"""
-  %last = "memref.load"(%${access.name}${", %0" * access.vars.length}) : (memref<${"?x" * access.vars.length}f64>${", index" * access.vars.length}) -> f64
-  "func.call"(%last) {callee = @print_f64_cerr} : (f64) -> ()
-  """
+  def MLIR_printerr(access: Access): String = {
+    val last = getVar("%last")
+    s"""
+$last = "memref.load"(%${access.name}${", %0" * access.vars.length}) : (memref<${"?x" * access.vars.length}f64>${", index" * access.vars.length}) -> f64
+"func.call"($last) {callee = @print_f64_cerr} : (f64) -> ()
+"""
+  }
 
   def CPP_free(var_name: String, dims: Seq[Dim]) = {
     val dimensions = dims.map(C_convert_index(_))

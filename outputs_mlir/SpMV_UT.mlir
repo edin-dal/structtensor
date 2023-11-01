@@ -164,6 +164,21 @@ affine.for %i = affine_map<()[] -> (0)> () [] to affine_map<()[M, N] -> (min(M, 
 
 
 
+  %last = "memref.load"(%A, %0) : (memref<?xf64>, index) -> f64
+  "func.call"(%last) {callee = @print_f64_cerr} : (f64) -> ()
+  
+
+  %last = "memref.load"(%B, %0, %0) : (memref<?x?xf64>, index, index) -> f64
+  "func.call"(%last) {callee = @print_f64_cerr} : (f64) -> ()
+  
+
+  %last = "memref.load"(%C, %0) : (memref<?xf64>, index) -> f64
+  "func.call"(%last) {callee = @print_f64_cerr} : (f64) -> ()
+  
+
+  %last = "memref.load"(%B, %0, %0) : (memref<?x?xf64>, index, index) -> f64
+  "func.call"(%last) {callee = @print_f64_cerr} : (f64) -> ()
+  
 
 
 
