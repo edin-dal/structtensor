@@ -21,7 +21,8 @@ object Bodygen {
     println("argv_names: " + argv_names)
     val c2 = read_argv(codeLang, argv_names)
     val c3 = all_tensors.map(t => alloc_and_gen_random_number(codeLang, t, all_dimensions(t), uniqueSets.getOrElse(t, emptyRule()).body)).mkString("\n")
-    val c4 = if (!sturOpt) init_timer(codeLang) else ""
+    // if (!sturOpt) ... else "" got removed from c4, needs to be reverted when emilien generates timers
+    val c4 = init_timer(codeLang) 
     return c1 + "\n" + c2 + "\n" + c3 + "\n" + c4    
   }
 
