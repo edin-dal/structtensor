@@ -2348,8 +2348,12 @@ object Compiler {
       val computation_stur_code: String = sturOptCodeGen(computation_stur, codeLang)
       val reconstruction_stur_code: String = sturOptCodeGen(reconstruction_stur, codeLang)
 
-      val computation_stur_code2: String = sturOptCodeGen(computation_stur2, codeLang)
-      val reconstruction_stur_code2: String = sturOptCodeGen(reconstruction_stur2, codeLang)
+      val computation_stur_code21: String = sturOptCodeGen(computation_stur2, codeLang)
+      val reconstruction_stur_code21: String = sturOptCodeGen(reconstruction_stur2, codeLang)
+
+      // new change to get rid of extra return in stur, might revert it back later
+      val computation_stur_code2: String = computation_stur_code21.split("\n").dropRight(1).mkString("\n")
+      val reconstruction_stur_code2: String = reconstruction_stur_code21.split("\n").dropRight(1).mkString("\n")
       
       // println("Computation Code:")
       // println(computation_stur_code)
