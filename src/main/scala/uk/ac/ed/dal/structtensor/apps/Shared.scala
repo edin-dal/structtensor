@@ -28,10 +28,10 @@ object Shared {
 
   "func.func"() ({
     ^bb0(%argc : i32, %argv : !llvm.ptr<!llvm.ptr<i8>>):
-    %0 = "arith.constant"() {"value" = 0 : index} : () -> index
+    %const_val_0 = "arith.constant"() {"value" = 0 : index} : () -> index
     %zi32 = "arith.constant"() {"value" = 0 : i32} : () -> i32
     %zerof = "arith.constant"() {"value" = 0.0 : f64} : () -> f64
-    %1 = "arith.constant"() {"value" = 1 : index} : () -> index
+    %const_val_1 = "arith.constant"() {"value" = 1 : index} : () -> index
     %oi1 = "arith.constant"() {"value" = 1 : i1} : () -> i1
     %oi0 = "arith.constant"() {"value" = 0 : i1} : () -> i1
     "func.call"(%zi32) {callee = @srand} : (i32) -> ()
@@ -61,7 +61,7 @@ object Shared {
     val c1 = dimensions.zipWithIndex.foldLeft("")((acc, dimId) => {
       val (dim, i) = dimId
       acc + s"""
-    "scf.for"(%0, %$dim, %1) ({
+    "scf.for"(%const_val_0, %$dim, %const_val_1) ({
     ^bb0(${ivars_nostr(i)}: index):
 """
     })
@@ -399,7 +399,7 @@ fprintf(stderr, "%f\\n", $var_name[${dimensions.map(e => s"$e - 1").mkString("][
     val c1 = dimensions.zip(iter_seq).foldLeft("")((acc, dimId) => {
       val (dim, i) = dimId
       acc + s"""
-    "scf.for"(%0, $dim, %1) ({
+    "scf.for"(%const_val_0, $dim, %const_val_1) ({
     ^bb0(%$i: index):
 """
     })
@@ -444,7 +444,7 @@ fprintf(stderr, "%f\\n", $var_name[${dimensions.map(e => s"$e - 1").mkString("][
   def MLIR_printerr(access: Access): String = {
     val last = getVar("%last")
     s"""
-$last = "memref.load"(%${access.name}${", %0" * access.vars.length}) : (memref<${"?x" * access.vars.length}f64>${", index" * access.vars.length}) -> f64
+$last = "memref.load"(%${access.name}${", %const_val_0" * access.vars.length}) : (memref<${"?x" * access.vars.length}f64>${", index" * access.vars.length}) -> f64
 "func.call"($last) {callee = @print_f64_cerr} : (f64) -> ()
 """
   }
