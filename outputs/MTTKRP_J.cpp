@@ -15,8 +15,7 @@ const int M = atoi(argv[1]);
 const int N = atoi(argv[2]);
 const int P = atoi(argv[3]);
 const int Q = atoi(argv[4]);
-const int I = atoi(argv[5]);
-const int J = atoi(argv[6]);
+const int J = atoi(argv[5]);
 
 double ***B = new double**[M];
 for (size_t i0 = 0; i0 < M; ++i0) {
@@ -24,7 +23,7 @@ B[i0] = new double*[N];
 for (size_t i1 = 0; i1 < N; ++i1) {
 B[i0][i1] = new double[P];
 for (size_t i2 = 0; i2 < P; ++i2) {
-if (i0 == I) {
+if (1) {
 B[i0][i1][i2] = (double) (rand() % 1000000) / 1e6;
 } else {
 B[i0][i1][i2] = 0.0;
@@ -74,8 +73,7 @@ start = duration_cast<microseconds>(system_clock::now().time_since_epoch()).coun
 
 
 
-int i = I;
-if (i < M) {
+for (int i = 0; i < M; ++i) {
 auto &cm2 = A[i];
 
 auto &cm3 = B[i];

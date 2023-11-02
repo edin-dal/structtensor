@@ -12,10 +12,10 @@
 
   "func.func"() ({
     ^bb0(%argc : i32, %argv : !llvm.ptr<!llvm.ptr<i8>>):
-    %0 = "arith.constant"() {"value" = 0 : index} : () -> index
+    %const_val_0 = "arith.constant"() {"value" = 0 : index} : () -> index
     %zi32 = "arith.constant"() {"value" = 0 : i32} : () -> i32
     %zerof = "arith.constant"() {"value" = 0.0 : f64} : () -> f64
-    %1 = "arith.constant"() {"value" = 1 : index} : () -> index
+    %const_val_1 = "arith.constant"() {"value" = 1 : index} : () -> index
     %oi1 = "arith.constant"() {"value" = 1 : i1} : () -> i1
     %oi0 = "arith.constant"() {"value" = 0 : i1} : () -> i1
     "func.call"(%zi32) {callee = @srand} : (i32) -> ()
@@ -31,7 +31,7 @@
 
 %A = memref.alloc(%W) : memref<?xf64>
 
-    "scf.for"(%0, %W, %1) ({
+    "scf.for"(%const_val_0, %W, %const_val_1) ({
     ^bb0(%i: index):
 
 %orFlag1 = "arith.constant"() {value = 0 : i1} : () -> i1
@@ -58,10 +58,10 @@
 
 %B = memref.alloc(%W, %W) : memref<?x?xf64>
 
-    "scf.for"(%0, %W, %1) ({
+    "scf.for"(%const_val_0, %W, %const_val_1) ({
     ^bb0(%i: index):
 
-    "scf.for"(%0, %W, %1) ({
+    "scf.for"(%const_val_0, %W, %const_val_1) ({
     ^bb0(%j: index):
 
 %orFlag7 = "arith.constant"() {value = 0 : i1} : () -> i1
@@ -166,7 +166,7 @@
 
 %C = memref.alloc(%W) : memref<?xf64>
 
-    "scf.for"(%0, %W, %1) ({
+    "scf.for"(%const_val_0, %W, %const_val_1) ({
     ^bb0(%j: index):
 
 %orFlag59 = "arith.constant"() {value = 0 : i1} : () -> i1
@@ -201,20 +201,43 @@
     }) : (index, index, index) -> ()
 
 
-affine.for %i = affine_map<()[] -> (0)> () [] to affine_map<()[W] -> (W)> () [%W] step 1 {
-  %A_0 = affine.load %B[%0, %i] : memref<?x?xf64>
-  %A_1 = affine.load %C[%i] : memref<?xf64>
-  %A_2 = arith.mulf %A_0, %A_1 : f64
-  affine.store %A_2, %A[%0] : memref<?xf64>
-}
-affine.for %i = affine_map<()[] -> (0)> () [] to affine_map<()[W] -> (W - 1)> () [%W] step 1 {
-  %A_0 = affine.load %B[%i + 1, %i] : memref<?x?xf64>
-  %A_1 = affine.load %C[%i] : memref<?xf64>
-  %A_2 = arith.mulf %A_0, %A_1 : f64
-  affine.store %A_2, %A[%i + 1] : memref<?xf64>
-}
+    %stime = "func.call"() {callee = @timer} : () -> i64
+
+%0 = arith.constant 0 : index
+"affine.for"(%W) ({
+^0(%i : index):
+  %1 = "affine.load"(%B, %i) {"map" = affine_map<(d0) -> (0, d0)>} : (memref<?x?xf64>, index) -> f64
+  %2 = "affine.load"(%C, %i) {"map" = affine_map<(d0) -> (d0)>} : (memref<?xf64>, index) -> f64
+  %3 = arith.mulf %1, %2 : f64
+  "affine.store"(%3, %A) {"map" = affine_map<() -> (0)>} : (f64, memref<?xf64>) -> ()
+  "affine.yield"() : () -> ()
+}) {"lower_bound" = affine_map<() -> (0)>, "upper_bound" = affine_map<()[s0] -> (s0)>, "step" = 1 : index} : (index) -> ()
+"affine.for"(%W) ({
+^1(%i_1 : index):
+  %4 = "affine.load"(%B, %i_1) {"map" = affine_map<(d0) -> ((d0 + 1), d0)>} : (memref<?x?xf64>, index) -> f64
+  %5 = "affine.load"(%C, %i_1) {"map" = affine_map<(d0) -> (d0)>} : (memref<?xf64>, index) -> f64
+  %6 = arith.mulf %4, %5 : f64
+  "affine.store"(%6, %A, %i_1) {"map" = affine_map<(d0) -> ((d0 + 1))>} : (f64, memref<?xf64>, index) -> ()
+  "affine.yield"() : () -> ()
+}) {"lower_bound" = affine_map<() -> (0)>, "upper_bound" = affine_map<()[s0] -> ((s0 + -1))>, "step" = 1 : index} : (index) -> ()
+
+%time = "func.call"(%stime) {callee = @timer_elapsed} : (i64) -> i64
+"func.call"(%time) {callee = @print_i64} : (i64) -> ()
+
+%last71 = "memref.load"(%A, %const_val_0) : (memref<?xf64>, index) -> f64
+"func.call"(%last71) {callee = @print_f64_cerr} : (f64) -> ()
 
 
+%last72 = "memref.load"(%B, %const_val_0, %const_val_0) : (memref<?x?xf64>, index, index) -> f64
+"func.call"(%last72) {callee = @print_f64_cerr} : (f64) -> ()
+
+
+%last73 = "memref.load"(%C, %const_val_0) : (memref<?xf64>, index) -> f64
+"func.call"(%last73) {callee = @print_f64_cerr} : (f64) -> ()
+
+
+%last74 = "memref.load"(%B, %const_val_0, %const_val_0) : (memref<?x?xf64>, index, index) -> f64
+"func.call"(%last74) {callee = @print_f64_cerr} : (f64) -> ()
 
 
 

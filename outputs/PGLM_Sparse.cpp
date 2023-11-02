@@ -46,7 +46,7 @@ double tmp = 0.0;
 for (int j = 0; j < W; ++j) {
 
 
-tmp += (N[j] * L1[i]);
+tmp += (N[j] * L1[j]);
 }
 M[i] += tmp;
 }

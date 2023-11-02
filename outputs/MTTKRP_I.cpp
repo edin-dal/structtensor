@@ -16,7 +16,6 @@ const int N = atoi(argv[2]);
 const int P = atoi(argv[3]);
 const int Q = atoi(argv[4]);
 const int I = atoi(argv[5]);
-const int J = atoi(argv[6]);
 
 double ***B = new double**[M];
 for (size_t i0 = 0; i0 < M; ++i0) {
@@ -49,7 +48,7 @@ double **D = new double*[P];
 for (size_t i0 = 0; i0 < P; ++i0) {
 D[i0] = new double[Q];
 for (size_t i1 = 0; i1 < Q; ++i1) {
-if (i1 == J) {
+if (1) {
 D[i0][i1] = (double) (rand() % 1000000) / 1e6;
 } else {
 D[i0][i1] = 0.0;
@@ -80,8 +79,7 @@ auto &cm2 = A[i];
 
 auto &cm3 = B[i];
 
-int j = J;
-if (j < Q) {
+for (int j = 0; j < Q; ++j) {
 double tmp = 0.0;
 
 

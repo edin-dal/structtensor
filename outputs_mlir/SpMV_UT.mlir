@@ -12,10 +12,10 @@
 
   "func.func"() ({
     ^bb0(%argc : i32, %argv : !llvm.ptr<!llvm.ptr<i8>>):
-    %0 = "arith.constant"() {"value" = 0 : index} : () -> index
+    %const_val_0 = "arith.constant"() {"value" = 0 : index} : () -> index
     %zi32 = "arith.constant"() {"value" = 0 : i32} : () -> i32
     %zerof = "arith.constant"() {"value" = 0.0 : f64} : () -> f64
-    %1 = "arith.constant"() {"value" = 1 : index} : () -> index
+    %const_val_1 = "arith.constant"() {"value" = 1 : index} : () -> index
     %oi1 = "arith.constant"() {"value" = 1 : i1} : () -> i1
     %oi0 = "arith.constant"() {"value" = 0 : i1} : () -> i1
     "func.call"(%zi32) {callee = @srand} : (i32) -> ()
@@ -36,7 +36,7 @@
 
 %A = memref.alloc(%M) : memref<?xf64>
 
-    "scf.for"(%0, %M, %1) ({
+    "scf.for"(%const_val_0, %M, %const_val_1) ({
     ^bb0(%i: index):
 
 %orFlag1 = "arith.constant"() {value = 0 : i1} : () -> i1
@@ -63,10 +63,10 @@
 
 %B = memref.alloc(%M, %N) : memref<?x?xf64>
 
-    "scf.for"(%0, %M, %1) ({
+    "scf.for"(%const_val_0, %M, %const_val_1) ({
     ^bb0(%i: index):
 
-    "scf.for"(%0, %N, %1) ({
+    "scf.for"(%const_val_0, %N, %const_val_1) ({
     ^bb0(%j: index):
 
 %orFlag7 = "arith.constant"() {value = 0 : i1} : () -> i1
@@ -118,7 +118,7 @@
 
 %C = memref.alloc(%N) : memref<?xf64>
 
-    "scf.for"(%0, %N, %1) ({
+    "scf.for"(%const_val_0, %N, %const_val_1) ({
     ^bb0(%j: index):
 
 %orFlag26 = "arith.constant"() {value = 0 : i1} : () -> i1
@@ -153,32 +153,40 @@
     }) : (index, index, index) -> ()
 
 
-affine.for %i = affine_map<()[] -> (0)> () [] to affine_map<()[M, N] -> (min(M, N))> () [%M, %N] step 1 {
-  affine.for %j = affine_map<(i)[] -> (i)> (%i) [] to affine_map<()[N] -> (N)> () [%N] step 1 {
-    %A_0 = affine.load %B[%i, %j] : memref<?x?xf64>
-    %A_1 = affine.load %C[%j] : memref<?xf64>
-    %A_2 = arith.mulf %A_0, %A_1 : f64
-    affine.store %A_2, %A[%i] : memref<?xf64>
-  }
-}
+    %stime = "func.call"() {callee = @timer} : () -> i64
+
+%0 = arith.constant 0 : index
+"affine.for"(%M, %N) ({
+^0(%i : index):
+  "affine.for"(%i, %N) ({
+  ^1(%j : index):
+    %1 = "affine.load"(%B, %j, %i) {"map" = affine_map<(d0, d1) -> (d1, d0)>} : (memref<?x?xf64>, index, index) -> f64
+    %2 = "affine.load"(%C, %j) {"map" = affine_map<(d0) -> (d0)>} : (memref<?xf64>, index) -> f64
+    %3 = arith.mulf %1, %2 : f64
+    "affine.store"(%3, %A, %i) {"map" = affine_map<(d0) -> (d0)>} : (f64, memref<?xf64>, index) -> ()
+    "affine.yield"() : () -> ()
+  }) {"lower_bound" = affine_map<(d0) -> (d0)>, "upper_bound" = affine_map<()[s0] -> (s0)>, "step" = 1 : index} : (index, index) -> ()
+  "affine.yield"() : () -> ()
+}) {"lower_bound" = affine_map<() -> (0)>, "upper_bound" = affine_map<()[s0, s1] -> (s0, s1)>, "step" = 1 : index} : (index, index) -> ()
+
+%time = "func.call"(%stime) {callee = @timer_elapsed} : (i64) -> i64
+"func.call"(%time) {callee = @print_i64} : (i64) -> ()
+
+%last38 = "memref.load"(%A, %const_val_0) : (memref<?xf64>, index) -> f64
+"func.call"(%last38) {callee = @print_f64_cerr} : (f64) -> ()
 
 
+%last39 = "memref.load"(%B, %const_val_0, %const_val_0) : (memref<?x?xf64>, index, index) -> f64
+"func.call"(%last39) {callee = @print_f64_cerr} : (f64) -> ()
 
-  %last = "memref.load"(%A, %0) : (memref<?xf64>, index) -> f64
-  "func.call"(%last) {callee = @print_f64_cerr} : (f64) -> ()
-  
 
-  %last = "memref.load"(%B, %0, %0) : (memref<?x?xf64>, index, index) -> f64
-  "func.call"(%last) {callee = @print_f64_cerr} : (f64) -> ()
-  
+%last40 = "memref.load"(%C, %const_val_0) : (memref<?xf64>, index) -> f64
+"func.call"(%last40) {callee = @print_f64_cerr} : (f64) -> ()
 
-  %last = "memref.load"(%C, %0) : (memref<?xf64>, index) -> f64
-  "func.call"(%last) {callee = @print_f64_cerr} : (f64) -> ()
-  
 
-  %last = "memref.load"(%B, %0, %0) : (memref<?x?xf64>, index, index) -> f64
-  "func.call"(%last) {callee = @print_f64_cerr} : (f64) -> ()
-  
+%last41 = "memref.load"(%B, %const_val_0, %const_val_0) : (memref<?x?xf64>, index, index) -> f64
+"func.call"(%last41) {callee = @print_f64_cerr} : (f64) -> ()
+
 
 
 

@@ -12,10 +12,10 @@
 
   "func.func"() ({
     ^bb0(%argc : i32, %argv : !llvm.ptr<!llvm.ptr<i8>>):
-    %0 = "arith.constant"() {"value" = 0 : index} : () -> index
+    %const_val_0 = "arith.constant"() {"value" = 0 : index} : () -> index
     %zi32 = "arith.constant"() {"value" = 0 : i32} : () -> i32
     %zerof = "arith.constant"() {"value" = 0.0 : f64} : () -> f64
-    %1 = "arith.constant"() {"value" = 1 : index} : () -> index
+    %const_val_1 = "arith.constant"() {"value" = 1 : index} : () -> index
     %oi1 = "arith.constant"() {"value" = 1 : i1} : () -> i1
     %oi0 = "arith.constant"() {"value" = 0 : i1} : () -> i1
     "func.call"(%zi32) {callee = @srand} : (i32) -> ()
@@ -25,13 +25,13 @@
 
     %argvv1 = llvm.getelementptr %argv[1] : (!llvm.ptr<!llvm.ptr<i8>>) -> !llvm.ptr<!llvm.ptr<i8>>
     %argv1 = "llvm.load"(%argvv1) : (!llvm.ptr<!llvm.ptr<i8>>) -> !llvm.ptr<i8>
-    %Mi32 = "func.call"(%argv1) {callee = @atoi} : (!llvm.ptr<i8>) -> i32
-    %M = arith.index_cast %Mi32 : i32 to index
+    %Ni32 = "func.call"(%argv1) {callee = @atoi} : (!llvm.ptr<i8>) -> i32
+    %N = arith.index_cast %Ni32 : i32 to index
 
     %argvv2 = llvm.getelementptr %argv[2] : (!llvm.ptr<!llvm.ptr<i8>>) -> !llvm.ptr<!llvm.ptr<i8>>
     %argv2 = "llvm.load"(%argvv2) : (!llvm.ptr<!llvm.ptr<i8>>) -> !llvm.ptr<i8>
-    %Ni32 = "func.call"(%argv2) {callee = @atoi} : (!llvm.ptr<i8>) -> i32
-    %N = arith.index_cast %Ni32 : i32 to index
+    %Mi32 = "func.call"(%argv2) {callee = @atoi} : (!llvm.ptr<i8>) -> i32
+    %M = arith.index_cast %Mi32 : i32 to index
 
     %argvv3 = llvm.getelementptr %argv[3] : (!llvm.ptr<!llvm.ptr<i8>>) -> !llvm.ptr<!llvm.ptr<i8>>
     %argv3 = "llvm.load"(%argvv3) : (!llvm.ptr<!llvm.ptr<i8>>) -> !llvm.ptr<i8>
@@ -39,36 +39,35 @@
     %P = arith.index_cast %Pi32 : i32 to index
 
 
-    %A = memref.alloc(%M, %N, %P) : memref<?x?x?xf64>
-    %B = memref.alloc(%M, %N, %P) : memref<?x?x?xf64>
-    %C = memref.alloc(%M, %N, %P) : memref<?x?x?xf64>
 
 
-    "scf.for"(%0, %M, %1) ({
-    ^bb0(%i2: index):
+%A = memref.alloc(%M, %N, %P) : memref<?x?x?xf64>
 
-    "scf.for"(%0, %N, %1) ({
-    ^bb0(%i3: index):
+    "scf.for"(%const_val_0, %M, %const_val_1) ({
+    ^bb0(%i: index):
 
-    "scf.for"(%0, %P, %1) ({
-    ^bb0(%i4: index):
+    "scf.for"(%const_val_0, %N, %const_val_1) ({
+    ^bb0(%j: index):
 
-    %gen_cond1 = "arith.cmpi"(%i2, %i3) {predicate = 0 : i64} : (index, index) -> i1   
+    "scf.for"(%const_val_0, %P, %const_val_1) ({
+    ^bb0(%k: index):
 
-    "scf.if"(%gen_cond1) ({
-      %rval5 = "func.call"() {callee = @rand} : () -> i32
-      %rval6 = "arith.remui"(%rval5, %1000000) : (i32, i32) -> i32
-      %rval7 = "arith.sitofp"(%rval6) : (i32) -> f64
-      %rval8 = "arith.divf"(%rval7, %f1000000) : (f64, f64) -> f64
-      "memref.store"(%rval8, %B, %i2, %i3, %i4): (f64, memref<?x?x?xf64>, index, index, index) -> ()
+%orFlag1 = "arith.constant"() {value = 0 : i1} : () -> i1
+%andFlag2 = "arith.constant"() {value = 1 : i1} : () -> i1
+
+
+    "scf.if"(%orFlag1) ({
+      %rval3 = "func.call"() {callee = @rand} : () -> i32
+      %rval4 = "arith.remui"(%rval3, %1000000) : (i32, i32) -> i32
+      %rval5 = "arith.sitofp"(%rval4) : (i32) -> f64
+      %rval6 = "arith.divf"(%rval5, %f1000000) : (f64, f64) -> f64
+      "memref.store"(%rval6, %A, %i, %j, %k): (f64, memref<?x?x?xf64>, index, index, index) -> ()
       "scf.yield"() : () -> ()
     }, {
-      "memref.store"(%zerof, %B, %i2, %i3, %i4): (f64, memref<?x?x?xf64>, index, index, index) -> ()
+      "memref.store"(%zerof, %A, %i, %j, %k): (f64, memref<?x?x?xf64>, index, index, index) -> ()
       "scf.yield"() : () -> ()
     }) : (i1) -> ()
 
-    "scf.yield"() : () -> ()
-    }) : (index, index, index) -> ()
 
     "scf.yield"() : () -> ()
     }) : (index, index, index) -> ()
@@ -76,30 +75,70 @@
     "scf.yield"() : () -> ()
     }) : (index, index, index) -> ()
 
+    "scf.yield"() : () -> ()
+    }) : (index, index, index) -> ()
 
-    "scf.for"(%0, %M, %1) ({
-    ^bb0(%i9: index):
 
-    "scf.for"(%0, %N, %1) ({
-    ^bb0(%i10: index):
 
-    "scf.for"(%0, %P, %1) ({
-    ^bb0(%i11: index):
 
-    "scf.if"(%oi1) ({
-      %rval12 = "func.call"() {callee = @rand} : () -> i32
-      %rval13 = "arith.remui"(%rval12, %1000000) : (i32, i32) -> i32
-      %rval14 = "arith.sitofp"(%rval13) : (i32) -> f64
-      %rval15 = "arith.divf"(%rval14, %f1000000) : (f64, f64) -> f64
-      "memref.store"(%rval15, %C, %i9, %i10, %i11): (f64, memref<?x?x?xf64>, index, index, index) -> ()
+%B = memref.alloc(%M, %N, %P) : memref<?x?x?xf64>
+
+    "scf.for"(%const_val_0, %M, %const_val_1) ({
+    ^bb0(%i: index):
+
+    "scf.for"(%const_val_0, %N, %const_val_1) ({
+    ^bb0(%j: index):
+
+    "scf.for"(%const_val_0, %P, %const_val_1) ({
+    ^bb0(%k: index):
+
+%orFlag7 = "arith.constant"() {value = 0 : i1} : () -> i1
+%andFlag8 = "arith.constant"() {value = 1 : i1} : () -> i1
+
+
+%consti11 = "arith.constant"() {value = 0 : index} : () -> index
+%cmpFlag10 = "arith.cmpi"(%consti11, %i) {predicate = 3 : i64} : (index, index) -> i1
+%andFlag9 = "arith.andi"(%andFlag8, %cmpFlag10) : (i1, i1) -> i1
+
+
+%cmpFlag13 = "arith.cmpi"(%M, %i) {predicate = 4 : i64} : (index, index) -> i1
+%andFlag12 = "arith.andi"(%andFlag9, %cmpFlag13) : (i1, i1) -> i1
+
+%consti16 = "arith.constant"() {value = 0 : index} : () -> index
+%cmpFlag15 = "arith.cmpi"(%consti16, %j) {predicate = 3 : i64} : (index, index) -> i1
+%andFlag14 = "arith.andi"(%andFlag12, %cmpFlag15) : (i1, i1) -> i1
+
+
+%cmpFlag18 = "arith.cmpi"(%N, %j) {predicate = 4 : i64} : (index, index) -> i1
+%andFlag17 = "arith.andi"(%andFlag14, %cmpFlag18) : (i1, i1) -> i1
+
+%consti21 = "arith.constant"() {value = 0 : index} : () -> index
+%cmpFlag20 = "arith.cmpi"(%consti21, %k) {predicate = 3 : i64} : (index, index) -> i1
+%andFlag19 = "arith.andi"(%andFlag17, %cmpFlag20) : (i1, i1) -> i1
+
+
+%cmpFlag23 = "arith.cmpi"(%P, %k) {predicate = 4 : i64} : (index, index) -> i1
+%andFlag22 = "arith.andi"(%andFlag19, %cmpFlag23) : (i1, i1) -> i1
+
+
+%cmpFlag25 = "arith.cmpi"(%i, %j) {predicate = 0 : i64} : (index, index) -> i1
+%andFlag24 = "arith.andi"(%andFlag22, %cmpFlag25) : (i1, i1) -> i1
+
+%orFlag26 = "arith.ori"(%orFlag7, %andFlag24) : (i1, i1) -> i1
+
+
+    "scf.if"(%orFlag26) ({
+      %rval27 = "func.call"() {callee = @rand} : () -> i32
+      %rval28 = "arith.remui"(%rval27, %1000000) : (i32, i32) -> i32
+      %rval29 = "arith.sitofp"(%rval28) : (i32) -> f64
+      %rval30 = "arith.divf"(%rval29, %f1000000) : (f64, f64) -> f64
+      "memref.store"(%rval30, %B, %i, %j, %k): (f64, memref<?x?x?xf64>, index, index, index) -> ()
       "scf.yield"() : () -> ()
     }, {
-      "memref.store"(%zerof, %C, %i9, %i10, %i11): (f64, memref<?x?x?xf64>, index, index, index) -> ()
+      "memref.store"(%zerof, %B, %i, %j, %k): (f64, memref<?x?x?xf64>, index, index, index) -> ()
       "scf.yield"() : () -> ()
     }) : (i1) -> ()
 
-    "scf.yield"() : () -> ()
-    }) : (index, index, index) -> ()
 
     "scf.yield"() : () -> ()
     }) : (index, index, index) -> ()
@@ -107,27 +146,66 @@
     "scf.yield"() : () -> ()
     }) : (index, index, index) -> ()
 
+    "scf.yield"() : () -> ()
+    }) : (index, index, index) -> ()
 
-    "scf.for"(%0, %M, %1) ({
-    ^bb0(%i16: index):
 
-    "scf.for"(%0, %N, %1) ({
-    ^bb0(%i17: index):
 
-    "scf.for"(%0, %P, %1) ({
-    ^bb0(%i18: index):
 
-    "scf.if"(%oi0) ({
-      %rval19 = "func.call"() {callee = @rand} : () -> i32
-      %rval20 = "arith.remui"(%rval19, %1000000) : (i32, i32) -> i32
-      %rval21 = "arith.sitofp"(%rval20) : (i32) -> f64
-      %rval22 = "arith.divf"(%rval21, %f1000000) : (f64, f64) -> f64
-      "memref.store"(%rval22, %A, %i16, %i17, %i18): (f64, memref<?x?x?xf64>, index, index, index) -> ()
+%C = memref.alloc(%M, %N, %P) : memref<?x?x?xf64>
+
+    "scf.for"(%const_val_0, %M, %const_val_1) ({
+    ^bb0(%i: index):
+
+    "scf.for"(%const_val_0, %N, %const_val_1) ({
+    ^bb0(%j: index):
+
+    "scf.for"(%const_val_0, %P, %const_val_1) ({
+    ^bb0(%k: index):
+
+%orFlag31 = "arith.constant"() {value = 0 : i1} : () -> i1
+%andFlag32 = "arith.constant"() {value = 1 : i1} : () -> i1
+
+
+%consti35 = "arith.constant"() {value = 0 : index} : () -> index
+%cmpFlag34 = "arith.cmpi"(%consti35, %i) {predicate = 3 : i64} : (index, index) -> i1
+%andFlag33 = "arith.andi"(%andFlag32, %cmpFlag34) : (i1, i1) -> i1
+
+
+%cmpFlag37 = "arith.cmpi"(%M, %i) {predicate = 4 : i64} : (index, index) -> i1
+%andFlag36 = "arith.andi"(%andFlag33, %cmpFlag37) : (i1, i1) -> i1
+
+%consti40 = "arith.constant"() {value = 0 : index} : () -> index
+%cmpFlag39 = "arith.cmpi"(%consti40, %j) {predicate = 3 : i64} : (index, index) -> i1
+%andFlag38 = "arith.andi"(%andFlag36, %cmpFlag39) : (i1, i1) -> i1
+
+
+%cmpFlag42 = "arith.cmpi"(%N, %j) {predicate = 4 : i64} : (index, index) -> i1
+%andFlag41 = "arith.andi"(%andFlag38, %cmpFlag42) : (i1, i1) -> i1
+
+%consti45 = "arith.constant"() {value = 0 : index} : () -> index
+%cmpFlag44 = "arith.cmpi"(%consti45, %k) {predicate = 3 : i64} : (index, index) -> i1
+%andFlag43 = "arith.andi"(%andFlag41, %cmpFlag44) : (i1, i1) -> i1
+
+
+%cmpFlag47 = "arith.cmpi"(%P, %k) {predicate = 4 : i64} : (index, index) -> i1
+%andFlag46 = "arith.andi"(%andFlag43, %cmpFlag47) : (i1, i1) -> i1
+
+%orFlag48 = "arith.ori"(%orFlag31, %andFlag46) : (i1, i1) -> i1
+
+
+    "scf.if"(%orFlag48) ({
+      %rval49 = "func.call"() {callee = @rand} : () -> i32
+      %rval50 = "arith.remui"(%rval49, %1000000) : (i32, i32) -> i32
+      %rval51 = "arith.sitofp"(%rval50) : (i32) -> f64
+      %rval52 = "arith.divf"(%rval51, %f1000000) : (f64, f64) -> f64
+      "memref.store"(%rval52, %C, %i, %j, %k): (f64, memref<?x?x?xf64>, index, index, index) -> ()
       "scf.yield"() : () -> ()
     }, {
-      "memref.store"(%zerof, %A, %i16, %i17, %i18): (f64, memref<?x?x?xf64>, index, index, index) -> ()
+      "memref.store"(%zerof, %C, %i, %j, %k): (f64, memref<?x?x?xf64>, index, index, index) -> ()
       "scf.yield"() : () -> ()
     }) : (i1) -> ()
+
 
     "scf.yield"() : () -> ()
     }) : (index, index, index) -> ()
@@ -141,23 +219,45 @@
 
     %stime = "func.call"() {callee = @timer} : () -> i64
 
-affine.for %i = affine_map<()[] -> (0)> () [] to affine_map<()[M, N] -> (min(M, N))> () [%M, %N] step 1 {
-  affine.for %j = affine_map<()[] -> (0)> () [] to affine_map<()[P] -> (P)> () [%P] step 1 {
-    %A_0 = affine.load %B[%i, %i, %j] : memref<?x?x?xf64>
-    %A_1 = affine.load %C[%i, %i, %j] : memref<?x?x?xf64>
-    %A_2 = arith.mulf %A_0, %A_1 : f64
-    affine.store %A_2, %A[%i, %i, %j] : memref<?x?x?xf64>
-  }
-}
+%0 = arith.constant 0 : index
+"affine.for"(%M) ({
+^0(%i : index):
+  "affine.for"(%N) ({
+  ^1(%j : index):
+    "affine.for"(%P) ({
+    ^2(%k : index):
+      %1 = "affine.load"(%B, %k, %j, %i) {"map" = affine_map<(d0, d1, d2) -> (d2, d1, d0)>} : (memref<?x?x?xf64>, index, index, index) -> f64
+      %2 = "affine.load"(%C, %k, %j, %i) {"map" = affine_map<(d0, d1, d2) -> (d2, d1, d0)>} : (memref<?x?x?xf64>, index, index, index) -> f64
+      %3 = arith.mulf %1, %2 : f64
+      "affine.store"(%3, %A, %k, %j, %i) {"map" = affine_map<(d0, d1, d2) -> (d2, d1, d0)>} : (f64, memref<?x?x?xf64>, index, index, index) -> ()
+      "affine.yield"() : () -> ()
+    }) {"lower_bound" = affine_map<() -> (0)>, "upper_bound" = affine_map<()[s0] -> (s0)>, "step" = 1 : index} : (index) -> ()
+    "affine.yield"() : () -> ()
+  }) {"lower_bound" = affine_map<() -> (0)>, "upper_bound" = affine_map<()[s0] -> (s0)>, "step" = 1 : index} : (index) -> ()
+  "affine.yield"() : () -> ()
+}) {"lower_bound" = affine_map<() -> (0)>, "upper_bound" = affine_map<()[s0] -> (s0)>, "step" = 1 : index} : (index) -> ()
+
+%time = "func.call"(%stime) {callee = @timer_elapsed} : (i64) -> i64
+"func.call"(%time) {callee = @print_i64} : (i64) -> ()
+
+%last53 = "memref.load"(%A, %const_val_0, %const_val_0, %const_val_0) : (memref<?x?x?xf64>, index, index, index) -> f64
+"func.call"(%last53) {callee = @print_f64_cerr} : (f64) -> ()
 
 
-    %time = "func.call"(%stime) {callee = @timer_elapsed} : (i64) -> i64
-    
-    %last = "memref.load"(%A, %0, %0, %0) : (memref<?x?x?xf64>, index, index, index) -> f64
+%last54 = "memref.load"(%B, %const_val_0, %const_val_0, %const_val_0) : (memref<?x?x?xf64>, index, index, index) -> f64
+"func.call"(%last54) {callee = @print_f64_cerr} : (f64) -> ()
 
-    "func.call"(%last) {callee = @print_f64_cerr} : (f64) -> ()
-    "func.call"(%time) {callee = @print_i64} : (i64) -> ()
-    
-    "func.return"() : () -> ()
+
+%last55 = "memref.load"(%C, %const_val_0, %const_val_0, %const_val_0) : (memref<?x?x?xf64>, index, index, index) -> f64
+"func.call"(%last55) {callee = @print_f64_cerr} : (f64) -> ()
+
+
+%last56 = "memref.load"(%B, %const_val_0, %const_val_0, %const_val_0) : (memref<?x?x?xf64>, index, index, index) -> f64
+"func.call"(%last56) {callee = @print_f64_cerr} : (f64) -> ()
+
+
+
+
+"func.return"() : () -> ()
     })  {function_type = (i32, !llvm.ptr<!llvm.ptr<i8>>) -> (), sym_name = "main", sym_visibility = "private"} : () -> ()
 }) : () -> ()

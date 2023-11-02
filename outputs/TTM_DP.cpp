@@ -64,17 +64,32 @@ int main(int argc, char **argv){
     long time = 0, start, end;
     start = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
 
-auto computation_start = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
 
-for (int i = 0; i < min(M, N); i += 1)
-  for (int j = 0; j < P; j += 1)
-    for (int k = 0; k < Q; k += 1)
-      A[i][i][j] += C[j][k] * B[i][i][k];
 
-auto computation_end = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
-auto computation_time = computation_end - computation_start;
-std::cout << "computation: " << computation_time << "\n";
 
+for (int i = 0; i < std::min({M, N}); ++i) {
+auto &cm1 = A[i];
+
+auto &cm2 = B[i];
+
+
+auto &cm3 = cm1[i];
+
+auto &cm4 = cm2[i];
+
+for (int k = 0; k < P; ++k) {
+double tmp = 0.0;
+
+auto &cm5 = C[k];
+
+for (int l = 0; l < Q; ++l) {
+
+
+tmp += (cm5[l] * cm4[l]);
+}
+cm3[k] += tmp;
+}
+}
 
 
   end = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
