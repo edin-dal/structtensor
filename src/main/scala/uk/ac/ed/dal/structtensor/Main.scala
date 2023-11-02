@@ -21,6 +21,7 @@ object Main extends App {
     initTensors: Boolean = false,
     enforceDimensions: Boolean = false,
     outFilePath: String = "",
+    compress: Boolean = false,
     applicationHelp: String = s"""
 Please specify the experiment name:
 LRC       = Linear Regression - Creation
@@ -103,7 +104,10 @@ PGLM      = Population Growth Leslie Matrix
             .text("initialize the tensors randomly in the generated code"),
           opt[Unit]("enforce-dims")
             .action((_, c) => c.copy(enforceDimensions = true))
-            .text("enforce the dimensions of the tensors in the generated code by multiplying dimensions by unique set (if false, we assume unique set is in the dimension boundaries)")
+            .text("enforce the dimensions of the tensors in the generated code by multiplying dimensions by unique set (if false, we assume unique set is in the dimension boundaries)"),
+          opt[Unit]("compress")
+            .action((_, c) => c.copy(compress = true))
+            .text("generate the compressed code")
         )
     )
   }
@@ -158,7 +162,7 @@ PGLM      = Population Growth Leslie Matrix
             val (init_str, tensorComputations, dimInfo, uniqueSets, redundancyMaps, end_str): (String, Seq[Rule], Seq[DimInfo], Map[Exp, Rule], Map[Exp, Rule], String) = convertRules(parsedRules, config.initTensors, config.enforceDimensions, config.codeLang, config.sturOpt)
             // println(init_str)
             val code_strs = tensorComputations.map(tc => {
-              codeGen(tc, dimInfo, uniqueSets, redundancyMaps, codeGenMode=1, codeMotion=config.codeMotion, codeLang=config.codeLang, sturOpt=config.sturOpt)
+              codeGen(tc, dimInfo, uniqueSets, redundancyMaps, codeGenMode=1, codeMotion=config.codeMotion, codeLang=config.codeLang, sturOpt=config.sturOpt, compress=config.compress)
             })
             // println(end_str)
             write2File(config.outFilePath, init_str + "\n" + code_strs.mkString("\n") + "\n" + end_str)

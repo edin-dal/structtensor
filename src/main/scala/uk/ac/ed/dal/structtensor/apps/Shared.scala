@@ -466,6 +466,11 @@ $last = "memref.load"(%${access.name}${", %const_val_0" * access.vars.length}) :
     s"$c0$c1$c2"
   }
 
+  def MLIR_free(var_name: String, dims: Seq[Dim]) = {
+    val dim_str = "?x" * dims.length
+    s""""memref.dealloc"(%$var_name) : (memref<${dim_str}f64>) -> ()"""
+  }
+
   def MLIR_return(): String = """"func.return"() : () -> ()
     })  {function_type = (i32, !llvm.ptr<!llvm.ptr<i8>>) -> (), sym_name = "main", sym_visibility = "private"} : () -> ()
 }) : () -> ()
@@ -517,7 +522,7 @@ $last = "memref.load"(%${access.name}${", %const_val_0" * access.vars.length}) :
   def free(lang: String, var_name: String, dims: Seq[Dim]) = lang match {
     case "C" => C_free(var_name)
     case "CPP" => CPP_free(var_name, dims)
-    case "MLIR" => ""
+    case "MLIR" => MLIR_free(var_name, dims)
     case _ => throw new Exception("Unknown code language")
   }
 
