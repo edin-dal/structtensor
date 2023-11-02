@@ -2026,7 +2026,8 @@ object Compiler {
     if (stur.contains("∅")) return ""
     write2File(s"stur_output/ex.stur", stur)
     val newCodeLang = if (codeLang == "default") "C" else if (codeLang == "CPP") "C++" else codeLang
-    s"stur-opt stur_output/ex.stur -t $newCodeLang --timer".!!
+    // --timer removed from the command, will be reverted later
+    s"stur-opt stur_output/ex.stur -t $newCodeLang".!!
   }
 
   def codeGen(tensorComputation: Rule, dimInfo: Seq[DimInfo], uniqueSets: Map[Exp, Rule], redundancyMaps: Map[Exp, Rule], codeGenMode: Int = 0, peqMode: Boolean = true, variableReplacementFlag: Boolean = true, codeMotion: Boolean = true, dataLayoutMap: Map[Exp, Function[Seq[Variable], Seq[Index]]] = Map(), varReverse: Boolean = false, codeLang: String = "default", compressionMaps: Map[Exp, Rule] = Map(), sturOpt: Boolean = false): String = {
@@ -2345,21 +2346,9 @@ object Compiler {
       println("Reconstruction2:")
       println(reconstruction_stur2)
 
-      val computation_stur_code: String = sturOptCodeGen(computation_stur, codeLang)
-      val reconstruction_stur_code: String = sturOptCodeGen(reconstruction_stur, codeLang)
-
-      val computation_stur_code21: String = sturOptCodeGen(computation_stur2, codeLang)
-      val reconstruction_stur_code21: String = sturOptCodeGen(reconstruction_stur2, codeLang)
-
-      // new change to get rid of extra return in stur, might revert it back later
-      val computation_stur_code2: String = computation_stur_code21.split("\n").dropRight(1).mkString("\n")
-      val reconstruction_stur_code2: String = reconstruction_stur_code21.split("\n").dropRight(1).mkString("\n")
+      val computation_stur_code2: String = sturOptCodeGen(computation_stur2, codeLang)
+      val reconstruction_stur_code2: String = sturOptCodeGen(reconstruction_stur2, codeLang)
       
-      // println("Computation Code:")
-      // println(computation_stur_code)
-      // println("Reconstruction Code:")
-      // println(reconstruction_stur_code)
-
       println("Computation Code:")
       println(computation_stur_code2)
       println("Reconstruction Code:")
