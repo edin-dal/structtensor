@@ -106,7 +106,7 @@ s"""
     for (size_t i = 0; i < M; ++i){
       ${if (structure == "diag") "" else if (structure == "ut") "for(size_t j = i; j < N; ++j){" else ""}
         ${if (structure == "diag") "B[i]" else if (structure == "ut") "B[i * M + j - (i * (i + 1) / 2)]" else ""} = (double) (rand() % 1000000) / 1e6;
-      }
+      ${if (structure == "diag") "" else "}"}
     }
 """
     } else {
