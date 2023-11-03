@@ -1,4 +1,4 @@
 A(i, j, k) := B(i, j, k) * C(i, j, k)
 B:D(i, j, k) := (0 <= i) * (i < M) * (0 <= j) * (j < N) * (0 <= k) * (k < P)
 C:D(i, j, k) := (0 <= i) * (i < M) * (0 <= j) * (j < N) * (0 <= k) * (k < P)
-B:U(i, j, k) := (i == I)
+B:U(i, j, k) := (i = I)
