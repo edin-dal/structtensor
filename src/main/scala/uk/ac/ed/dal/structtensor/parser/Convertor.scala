@@ -139,9 +139,15 @@ object Convertor {
     // println("Redundancy Maps:")
     // redundancyMaps.values.toSeq.map(r => println(r.prettyFormat))
     // println("Dimensions:")
-    val all_dimensions: Seq[DimInfo] = dimInfo ++ tensorComputations.map(r => DimInfo(r.head, infer(r, dimInfo, uniqueSets, redundancyMaps)._4.dims))
+    // println(dimInfo)
+    val all_dimensions: Seq[DimInfo] = tensorComputations.foldLeft(dimInfo)((acc, r) => {
+      val d = DimInfo(r.head, infer(r, acc, uniqueSets, redundancyMaps)._4.dims)
+      acc :+ d
+    })
+    // println("All Dimensions:")
+    // println(all_dimensions)
     val all_tensors: Seq[Access] = getAllTensors(tensorComputations).distinct
     val (init, end) = if (!initTensors) ("", "") else Bodygen(codeLang, rules, all_tensors, all_dimensions.toAccessMap, uniqueSets, sturOpt)
-    return (init, tensorComputations, dimInfo, uniqueSets, redundancyMaps, end)
+    return (init, tensorComputations, all_dimensions, uniqueSets, redundancyMaps, end)
   }
 }

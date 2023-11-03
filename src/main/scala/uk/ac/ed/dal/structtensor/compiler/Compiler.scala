@@ -179,6 +179,11 @@ object Compiler {
     val outDim: Seq[Dim] = outVars.map(v => {
       val i1: Int = in1Vars.indexOf(v)
       val i2: Int = in2Vars.indexOf(v)
+      // println(s"i1: $i1, i2: $i2")
+      // println(s"e1: $e1, e2: $e2")
+      // println(accessMap)
+      // println(inp1DimSeq)
+      // println(inp2DimSeq)
       if (i1 == -1 && i2 == -1) Arithmetic("+", ConstantInt(1), v) else if (i2 == -1) inp1DimSeq(i1) else if (i1 == -1) inp2DimSeq(i2) else if (multOrAdd == "mult") dimMin(inp1DimSeq(i1), inp2DimSeq(i2)) else if (multOrAdd == "add") dimMax(inp1DimSeq(i1), inp2DimSeq(i2)) else inp1DimSeq(i1) // else shouldn't happen normally
     })
     return DimInfo(outAccess, outDim)
