@@ -1331,6 +1331,7 @@ object Compiler {
           case ">" => (Seq(), Seq(index))
           case ">=" => (Seq(), Seq(Arithmetic("+", index, ConstantInt(1))))
           case "=" => if (eqVarMap.contains(variable)) (Seq(), Seq()) else (Seq(index), Seq(Arithmetic("+", index, ConstantInt(1))))
+          case "==" => if (eqVarMap.contains(variable)) (Seq(), Seq()) else (Seq(index), Seq(Arithmetic("+", index, ConstantInt(1))))
           case _ => (Seq(), Seq())
         }
         (acc2._1 ++ b, acc2._2 ++ e)
