@@ -16,9 +16,6 @@ object Bodygen {
     val c1 = init_code(codeLang)
     val argv_names = unboundVariables(rules).toSeq
     val all_vars = allVariables(rules).toSeq
-    println("rules: " + rules)
-    println("all_vars: " + all_vars)
-    println("argv_names: " + argv_names)
     val c2 = read_argv(codeLang, argv_names)
     val c3 = all_tensors.map(t => alloc_and_gen_random_number(codeLang, t, all_dimensions(t), uniqueSets.getOrElse(t, emptyRule()).body)).mkString("\n")
     val c4 = if (sturOpt) "" else init_timer(codeLang) 
