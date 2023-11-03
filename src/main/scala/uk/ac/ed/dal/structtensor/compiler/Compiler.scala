@@ -2028,7 +2028,7 @@ object Compiler {
     write2File(s"stur_output/ex.stur", stur)
     val newCodeLang = if (codeLang == "default") "C" else if (codeLang == "CPP") "C++" else codeLang
     val compress_flag = if(compress) "--compress" else ""
-    s"stur-opt stur_output/ex.stur -t $newCodeLang --timer $compress_flag".!!
+    s"stur-opt stur_output/ex.stur -t $newCodeLang --print-op-generic --timer $compress_flag".!!
   }
 
   def codeGen(tensorComputation: Rule, dimInfo: Seq[DimInfo], uniqueSets: Map[Exp, Rule], redundancyMaps: Map[Exp, Rule], codeGenMode: Int = 0, peqMode: Boolean = true, variableReplacementFlag: Boolean = true, codeMotion: Boolean = true, dataLayoutMap: Map[Exp, Function[Seq[Variable], Seq[Index]]] = Map(), varReverse: Boolean = false, codeLang: String = "default", compressionMaps: Map[Exp, Rule] = Map(), sturOpt: Boolean = false, compress: Boolean = false): String = {
