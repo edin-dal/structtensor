@@ -100,7 +100,7 @@ object Convertor {
         case Some(r) => SoPTimesSoP(body, r.body)
         case None => body
       } else {
-        headToSetMap.get(old_head) match {
+        headToSetMap.get(Access(old_head.name, old_head.vars.redundancyVarsInplace, Tensor)) match {
           case Some(r) => SoPTimesSoP(body, r.body)
           case None => emptySoP()
         }
@@ -127,8 +127,8 @@ object Convertor {
     val dimsAvailable = checkDimsAvailable(headToTensorMap, headToDimensionMap)
     if (!dimsAvailable) throw new Exception("Dimensions not available for all tensors")
     val (dimInfo, dimInfoMap): (Seq[DimInfo], Map[Access, DimInfo]) = extractDims(headToDimensionMap)
-    val uniqueSets: Map[Exp, Rule] = if (!enforceDimensions) headToUniqueSetMap.values.map(r => (r.head -> Rule(Access(r.head.name, r.head.vars, Tensor), r.body))).toMap else extractSet(headToUniqueSetMap, dimInfoMap, UniqueSet)
-    val redundancyMaps: Map[Exp, Rule] = if (!enforceDimensions) headToRedundancyMapMap.values.map(r => (r.head -> Rule(Access(r.head.name, r.head.vars, Tensor), r.body))).toMap else extractSet(headToRedundancyMapMap, dimInfoMap, RedundancyMap)
+    val uniqueSets: Map[Exp, Rule] = if (!enforceDimensions) headToUniqueSetMap.values.map(r => (Access(r.head.name, r.head.vars, Tensor) -> Rule(Access(r.head.name, r.head.vars, UniqueSet), r.body))).toMap else extractSet(headToUniqueSetMap, dimInfoMap, UniqueSet)
+    val redundancyMaps: Map[Exp, Rule] = if (!enforceDimensions) headToRedundancyMapMap.values.map(r => (Access(r.head.name, r.head.vars.slice(0, r.head.vars.length / 2), Tensor) -> Rule(Access(r.head.name, r.head.vars, RedundancyMap), r.body))).toMap else extractSet(headToRedundancyMapMap, dimInfoMap, RedundancyMap)
     val tensorComputations: Seq[Rule] = headToTensorMap.values.toSeq
     // println("Enforce Dimensions:")
     // println(enforceDimensions)
@@ -140,10 +140,7 @@ object Convertor {
     // redundancyMaps.values.toSeq.map(r => println(r.prettyFormat))
     // println("Dimensions:")
     // println(dimInfo)
-    val all_dimensions: Seq[DimInfo] = tensorComputations.foldLeft(dimInfo)((acc, r) => {
-      val d = DimInfo(r.head, infer(r, acc, uniqueSets, redundancyMaps)._4.dims)
-      acc :+ d
-    })
+    val all_dimensions: Seq[DimInfo] = tensorComputations.foldLeft(dimInfo)((acc, r) => acc :+ DimInfo(r.head, infer(r, acc, uniqueSets, redundancyMaps)._4.dims))
     // println("All Dimensions:")
     // println(all_dimensions)
     val all_tensors: Seq[Access] = getAllTensors(tensorComputations).distinct
