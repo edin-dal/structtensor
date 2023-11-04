@@ -88,7 +88,7 @@ using namespace std::chrono;
 int main(int argc, char **argv){
     srand(0);
 
-    int M = atoi(argv[1]), N = atoi(argv[2]);
+    int N = atoi(argv[1]), M = atoi(argv[2]);
 
     ${if (sparse) 
 s"""
