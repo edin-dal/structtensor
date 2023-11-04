@@ -26,7 +26,7 @@ object Bodygen {
     // println("argv_names: ", argv_names)
     val all_vars = allVariables(rules).toSeq
     val c2 = read_argv(codeLang, argv_names)
-    val c3 = all_tensors.map(t => alloc_and_gen_random_number(codeLang, t, all_dimensions(t), uniqueSets.getOrElse(t, emptyRule()).body)).mkString("\n")
+    val c3 = all_tensors.distinctBy(_.name).map(t => alloc_and_gen_random_number(codeLang, t, all_dimensions(t), uniqueSets.getOrElse(t, emptyRule()).body)).mkString("\n")
     val c4 = if (sturOpt) "" else init_timer(codeLang) 
     return c1 + "\n" + c2 + "\n" + c3 + "\n" + c4    
   }
@@ -35,7 +35,7 @@ object Bodygen {
     val c1 = if(sturOpt) "" else end_timer(codeLang)
     // val c2 = if(sturOpt) "" else rules.map(r => printerr(codeLang, r.head)).mkString("\n")
     val c2 = rules.map(r => printerr(codeLang, r.head)).mkString("\n")
-    val c3 = all_tensors.map(t => free(codeLang, t.name, all_dimensions(t))).mkString("\n")
+    val c3 = all_tensors.distinctBy(_.name).map(t => free(codeLang, t.name, all_dimensions(t))).mkString("\n")
     val c4 = return_code(codeLang)
     return c1 + "\n" + c2 + "\n" + c3 + "\n" + c4
   }
