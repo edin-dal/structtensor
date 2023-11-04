@@ -161,9 +161,12 @@ PGLM      = Population Growth Leslie Matrix
             // parsedRules.map(r => println(r.prettyFormat))
             val (init_str, tensorComputations, dimInfo, uniqueSets, redundancyMaps, end_str): (String, Seq[Rule], Seq[DimInfo], Map[Exp, Rule], Map[Exp, Rule], String) = convertRules(parsedRules, config.initTensors, config.enforceDimensions, config.codeLang, config.sturOpt)
             // println(init_str)
-            val code_strs = tensorComputations.map(tc => {
-              codeGen(tc, dimInfo, uniqueSets, redundancyMaps, codeGenMode=1, codeMotion=config.codeMotion, codeLang=config.codeLang, sturOpt=config.sturOpt, compress=config.compress)
-            })
+            val code_strs = tensorComputations.zipWithIndex.map{case(tc, i) => {
+              if (tensorComputations.length == 1) codeGen(tc, dimInfo, uniqueSets, redundancyMaps, codeGenMode=1, codeMotion=config.codeMotion, codeLang=config.codeLang, sturOpt=config.sturOpt, compress=config.compress, append_stur_opt_file=false, run_stur_opt=true)
+              else if (i == 0) codeGen(tc, dimInfo, uniqueSets, redundancyMaps, codeGenMode=1, codeMotion=config.codeMotion, codeLang=config.codeLang, sturOpt=config.sturOpt, compress=config.compress, append_stur_opt_file=false, run_stur_opt=false)
+              else if (i == tensorComputations.length - 1) codeGen(tc, dimInfo, uniqueSets, redundancyMaps, codeGenMode=1, codeMotion=config.codeMotion, codeLang=config.codeLang, sturOpt=config.sturOpt, compress=config.compress, append_stur_opt_file=true, run_stur_opt=true)
+              else codeGen(tc, dimInfo, uniqueSets, redundancyMaps, codeGenMode=1, codeMotion=config.codeMotion, codeLang=config.codeLang, sturOpt=config.sturOpt, compress=config.compress, append_stur_opt_file=true, run_stur_opt=false)
+            }}
             // println(end_str)
             write2File(config.outFilePath, init_str + "\n" + code_strs.mkString("\n") + "\n" + end_str)
           } else {

@@ -184,7 +184,7 @@ object Compiler {
       // println(accessMap)
       // println(inp1DimSeq)
       // println(inp2DimSeq)
-      if (i1 == -1 && i2 == -1) Arithmetic("+", ConstantInt(1), v) else if (i2 == -1) inp1DimSeq(i1) else if (i1 == -1) inp2DimSeq(i2) else if (multOrAdd == "mult") dimMin(inp1DimSeq(i1), inp2DimSeq(i2)) else if (multOrAdd == "add") dimMax(inp1DimSeq(i1), inp2DimSeq(i2)) else inp1DimSeq(i1) // else shouldn't happen normally
+      if (i1 == -1 && i2 == -1) Arithmetic("+", ConstantInt(1), v) else if (i2 == -1) inp1DimSeq(i1) else if (i1 == -1) inp2DimSeq(i2) else if (multOrAdd == "mult") dimMin(inp1DimSeq(i1), inp2DimSeq(i2)) else if (multOrAdd == "add") dimMax(inp1DimSeq(i1), inp2DimSeq(i2)) else if (inp1DimSeq.length > i1) inp1DimSeq(i1) else inp2DimSeq(i2) // last 2 else shouldn't happen normally
     })
     return DimInfo(outAccess, outDim)
   }
@@ -2028,15 +2028,18 @@ object Compiler {
     })
   }
 
-  def sturOptCodeGen(stur: String, codeLang: String, compress: Boolean): String = {
+  def sturOptCodeGen(stur: String, codeLang: String, compress: Boolean, append_stur_opt_file: Boolean, run_stur_opt: Boolean): String = {
     if (stur.contains("∅")) return ""
-    write2File(s"stur_output/ex.stur", stur)
-    val newCodeLang = if (codeLang == "default") "C" else if (codeLang == "CPP") "C++" else codeLang
-    val compress_flag = if(compress) "--compress" else ""
-    s"stur-opt stur_output/ex.stur -t $newCodeLang --print-op-generic --timer $compress_flag".!!
+    write2File(s"stur_output/ex.stur", stur, append_stur_opt_file)
+    if (run_stur_opt) {
+      val newCodeLang = if (codeLang == "default") "C" else if (codeLang == "CPP") "C++" else codeLang
+      val compress_flag = if(compress) "--compress" else ""
+      s"stur-opt stur_output/ex.stur -t $newCodeLang --print-op-generic --timer $compress_flag".!!
+    }
+    else ""
   }
 
-  def codeGen(tensorComputation: Rule, dimInfo: Seq[DimInfo], uniqueSets: Map[Exp, Rule], redundancyMaps: Map[Exp, Rule], codeGenMode: Int = 0, peqMode: Boolean = true, variableReplacementFlag: Boolean = true, codeMotion: Boolean = true, dataLayoutMap: Map[Exp, Function[Seq[Variable], Seq[Index]]] = Map(), varReverse: Boolean = false, codeLang: String = "default", compressionMaps: Map[Exp, Rule] = Map(), sturOpt: Boolean = false, compress: Boolean = false): String = {
+  def codeGen(tensorComputation: Rule, dimInfo: Seq[DimInfo], uniqueSets: Map[Exp, Rule], redundancyMaps: Map[Exp, Rule], codeGenMode: Int = 0, peqMode: Boolean = true, variableReplacementFlag: Boolean = true, codeMotion: Boolean = true, dataLayoutMap: Map[Exp, Function[Seq[Variable], Seq[Index]]] = Map(), varReverse: Boolean = false, codeLang: String = "default", compressionMaps: Map[Exp, Rule] = Map(), sturOpt: Boolean = false, compress: Boolean = false, append_stur_opt_file: Boolean = false, run_stur_opt: Boolean = true): String = {
     val variables: Seq[Variable] = if (varReverse) getVariables(tensorComputation).reverse else getVariables(tensorComputation)
     val compressionMap1: Map[Exp, Rule] = uniqueSets.foldLeft(Seq.empty[(Exp, Rule)])((acc, kv) => {
       val (exp, us) = kv
@@ -2352,8 +2355,8 @@ object Compiler {
       println("Reconstruction2:")
       println(reconstruction_stur2)
 
-      val computation_stur_code2: String = sturOptCodeGen(computation_stur2, codeLang, compress)
-      val reconstruction_stur_code2: String = sturOptCodeGen(reconstruction_stur2, codeLang, compress)
+      val computation_stur_code2: String = sturOptCodeGen(computation_stur2, codeLang, compress, append_stur_opt_file, run_stur_opt)
+      val reconstruction_stur_code2: String = sturOptCodeGen(reconstruction_stur2, codeLang, compress, append_stur_opt_file, run_stur_opt)
       
       println("Computation Code:")
       println(computation_stur_code2)

@@ -7,9 +7,9 @@ import compiler._
 import Compiler._
 
 object Shared {
-  def write2File(filename: String, s: String): Unit = { // taken from https://alvinalexander.com/scala/how-to-write-text-files-in-scala-printwriter-filewriter/
+  def write2File(filename: String, s: String, append: Boolean = false): Unit = { // taken from https://alvinalexander.com/scala/how-to-write-text-files-in-scala-printwriter-filewriter/
     val file = new File(filename)
-    val bw = new BufferedWriter(new FileWriter(file))
+    val bw = new BufferedWriter(new FileWriter(file, append))
     bw.write(s)
     bw.close()
   }
