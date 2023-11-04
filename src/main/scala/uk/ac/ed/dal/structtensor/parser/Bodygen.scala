@@ -14,7 +14,16 @@ object Bodygen {
 
   def generateInit(codeLang: String, rules: Seq[Rule], all_tensors: Seq[Access], all_dimensions: Map[Access, Seq[Dim]], uniqueSets: Map[Exp, Rule], sturOpt: Boolean): String = {
     val c1 = init_code(codeLang)
-    val argv_names = unboundVariables(rules).toSeq
+    val dim_names = all_dimensions.foldLeft(Set.empty[String])((acc, d) => {
+      acc ++ d._2.foldLeft(Set.empty[String])((acc2, e) => {
+        e match {
+          case Variable(name) => acc2 ++ Set(name)
+          case _ => acc2
+        }
+      })
+    }).toSeq
+    val argv_names = dim_names ++ unboundVariables(rules).toSeq.diff(dim_names)
+    // println("argv_names: ", argv_names)
     val all_vars = allVariables(rules).toSeq
     val c2 = read_argv(codeLang, argv_names)
     val c3 = all_tensors.map(t => alloc_and_gen_random_number(codeLang, t, all_dimensions(t), uniqueSets.getOrElse(t, emptyRule()).body)).mkString("\n")
