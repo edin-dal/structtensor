@@ -389,7 +389,7 @@ fprintf(stderr, "%f\\n", $var_name[${dimensions.map(e => s"$e - 1").mkString("][
     val var_name = head.name
     val vars = head.vars
     val iter_seq = vars.map(_.name)
-    val dimsAndCode: Seq[(String, String)] = dims.map(MLIR_convert_index(_))
+    val dimsAndCode: Seq[(String, String)] = dims.map(d => MLIR_convert_index(d, 1))
     val dimensions = dimsAndCode.map(_._1)
     val dimensions_code = dimsAndCode.map(_._2).mkString("\n")
     val c0 = s"%$var_name = memref.alloc(${dimensions.mkString(", ")}) : memref<${"?x" * dimensions.length}f64>"
