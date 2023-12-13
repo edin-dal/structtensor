@@ -5,6 +5,60 @@ package compiler
 object Sompiler {
   import STURHelper._
 
+  var cnt = 0
+  def getVar(name: String): String = {
+    cnt += 1
+    return s"$name$cnt"
+  }
+
+
+  def getNonDimensionVariables(prod: Prod): Seq[Variable] = {
+    prod.exps.foldLeft(Seq[Variable]())((acc, exp) => {
+      val varSeq = exp match {
+        case Access(name, vars, kind) => vars
+        case _ => Seq()
+      }
+      acc ++ varSeq
+    })
+  }
+
+  def getNonDimensionVariables(sop: SoP): Seq[Variable] = sop.prods.foldLeft(Seq[Variable]())((acc, prod) => acc ++ getNonDimensionVariables(prod))
+
+  def getNonDimensionVariables(rule: Rule): Seq[Variable] = (rule.head.vars ++ getNonDimensionVariables(rule.body)).distinct
+
+
+  def getAllVariables(index: Index): Seq[Variable] = {
+    index match {
+      case v @ Variable(name) => Seq(v)
+      case Arithmetic(op, index1, index2) => getAllVariables(index1) ++ getAllVariables(index2)
+      case _ => Seq()
+    }
+  }
+
+  def getAllVariables(exp: Exp): Seq[Variable] = {
+    exp match {
+      case Access(_, vars, _) => vars
+      case Comparison(_, index, variable) => Seq(variable) ++ getAllVariables(index)
+      case _ => Seq.empty[Variable]
+    }
+  }
+
+  def normalizeSingleProdRule(r: Rule): Seq[Rule] = {
+    assert(r.body.prods.length == 1)
+    val prod = r.body.prods(0)
+    if (prod.exps.length <= 2) r
+    else {
+      val nonSizeVariables = getNonDimensionVariables(r)
+      val newVariables = (getAllVariables(prod.exps(0)) ++ getAllVariables(prod.exps(1))).filter(v => nonSizeVariables.contains(v))
+      val newHead = Access(getVar("head"), newVariables, Tensor)
+      val newBody = SoP(Seq(Prod(Seq(prod.exps(0), prod.exps(1)))))
+      val newRule = Rule(newHead, newBody)
+
+      val restBody = SoP(Seq(Prod(Seq(newHead) ++ prod.exps.slice(2, prod.exps.length))))
+      Seq(newRule) ++ normalizeSingleProdRule(Rule(r.head, restBody))
+    }
+  }
+
   def normalize(r: Rule): Seq[Rule] = {
     return Seq(r)
   }
