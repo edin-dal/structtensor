@@ -43,14 +43,18 @@ object Sompiler {
     }
   }
 
+  def appendDistinctVars(v1: Seq[Variable], v2: Seq[Variable]): Seq[Variable] = v2.foldLeft(v1.distinct)((acc, cur) => if (acc.contains(cur)) acc else acc :+ cur)
+
+
   def normalizeSingleProdRule(r: Rule): Seq[Rule] = {
     assert(r.body.prods.length == 1)
     val prod = r.body.prods(0)
-    if (prod.exps.length <= 2) r
+    if (prod.exps.length < 2) Seq(r)
+    else if (prod.exps.length == 2 && r.head.vars.toSet == appendDistinctVars(getAllVariables(prod.exps(0)), getAllVariables(prod.exps(1))).filter(v => nonSizeVariables.contains(v)).toSet) Seq(r)
     else {
       val nonSizeVariables = getNonDimensionVariables(r)
-      val newVariables = (getAllVariables(prod.exps(0)) ++ getAllVariables(prod.exps(1))).filter(v => nonSizeVariables.contains(v))
-      val newHead = Access(getVar("head"), newVariables, Tensor)
+      val newVariables = appendDistinctVars(getAllVariables(prod.exps(0)), getAllVariables(prod.exps(1))).filter(v => nonSizeVariables.contains(v))
+      val newHead = Access(getVar("prodHead"), newVariables, Tensor)
       val newBody = SoP(Seq(Prod(Seq(prod.exps(0), prod.exps(1)))))
       val newRule = Rule(newHead, newBody)
 
@@ -59,8 +63,13 @@ object Sompiler {
     }
   }
 
+  def normalizeSingleSumRule(r: Rule): Seq[Rule] = {
+
+  }
+
   def normalize(r: Rule): Seq[Rule] = {
-    return Seq(r)
+    val seqOfSeqOfRules = r.body.prods.map(prod => normalizeSingleProdRule(Rule(Access(getVar("interHead"), r.head.vars, Tensor), SoP(Seq(prod)))))
+    seqOfSeqOfRules(0)
   }
 
   def isShift(exps: Seq[Exp], outAccess: Access): Boolean = {
