@@ -152,6 +152,7 @@ PGLM      = Population Growth Leslie Matrix
             import Convertor._
             import Compiler.codeGen
             import Shared._
+            import Sompiler._
             val lines = scala.io.Source.fromFile(config.inFilePath).mkString
             val lineSeq: Seq[String] = lines.split("\n").toSeq
             val parsedRules: Seq[Rule] = lineSeq.map(line => {
@@ -169,6 +170,35 @@ PGLM      = Population Growth Leslie Matrix
             }}
             // println(end_str)
             write2File(config.outFilePath, init_str + "\n" + code_strs.mkString("\n") + "\n" + end_str)
+
+            tensorComputations.foldLeft()((acc, tc) => {
+              val inps: Seq[(Rule, Rule, Rule, Rule)] = tc.body.prods.flatMap(prod => prod.exps.map(e => {
+                val us = Rule(uniqueSets(e.asInstanceOf[Access]).head.uniqueHead, uniqueSets(e.asInstanceOf[Access]).body)
+                val rm = Rule(redundancyMaps(e.asInstanceOf[Access]).head.redundancyHead, redundancyMaps(e.asInstanceOf[Access]).body)
+                val cc = Rule(uniqueSets(e.asInstanceOf[Access]).head.compressedHead, SoPTimesSoP(SoP(Seq(Prod(Seq(e)))), uniqueSets(e.asInstanceOf[Access]).body))
+                val t = Rule(e.asInstanceOf[Access], SoP(Seq(Prod(Seq(e)))))
+                (us, rm, cc, t) 
+              }))
+              // println("=====================================")
+              // println("inps:")
+              // println(inps)
+              // println("=====================================")
+              compile(tc, inps)
+              // normalizeSingleProdRule(tc).map(r => {
+              //   println("=====================================")
+              //   println("Rule:")
+              //   println(r.prettyFormat)
+                
+              //   val (us, rm, cc) = infer(r)
+              //   println("Unique Sets:")
+              //   println(us.prettyFormat)
+              //   println("Redundancy Maps:")
+              //   println(rm.prettyFormat)
+              //   println("Compressed Computation:")
+              //   println(cc.prettyFormat)
+              //   println("=====================================")
+              // })
+            })
           } else {
             println("Please specify the stur code or the file path")
           }

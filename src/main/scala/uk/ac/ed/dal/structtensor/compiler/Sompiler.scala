@@ -4,6 +4,7 @@ package compiler
 
 object Sompiler {
   import STURHelper._
+  import Optimizer._
 
   var cnt = 0
   def getVar(name: String): String = {
@@ -39,20 +40,20 @@ object Sompiler {
     exp match {
       case Access(_, vars, _) => vars
       case Comparison(_, index, variable) => Seq(variable) ++ getAllVariables(index)
-      case _ => Seq.empty[Variable]
+      case _ => Seq[Variable]()
     }
   }
 
-  def appendDistinctVars(v1: Seq[Variable], v2: Seq[Variable]): Seq[Variable] = v2.foldLeft(v1.distinct)((acc, cur) => if (acc.contains(cur)) acc else acc :+ cur)
+  def appendDistinctVars(v1: Seq[Variable], v2: Seq[Variable]): Seq[Variable] = (v1.distinct ++ v2.distinct).distinct
 
 
   def normalizeSingleProdRule(r: Rule): Seq[Rule] = {
     assert(r.body.prods.length == 1)
     val prod = r.body.prods(0)
+    val nonSizeVariables = getNonDimensionVariables(r).distinct
     if (prod.exps.length < 2) Seq(r)
     else if (prod.exps.length == 2 && r.head.vars.toSet == appendDistinctVars(getAllVariables(prod.exps(0)), getAllVariables(prod.exps(1))).filter(v => nonSizeVariables.contains(v)).toSet) Seq(r)
     else {
-      val nonSizeVariables = getNonDimensionVariables(r)
       val newVariables = appendDistinctVars(getAllVariables(prod.exps(0)), getAllVariables(prod.exps(1))).filter(v => nonSizeVariables.contains(v))
       val newHead = Access(getVar("prodHead"), newVariables, Tensor)
       val newBody = SoP(Seq(Prod(Seq(prod.exps(0), prod.exps(1)))))
@@ -64,7 +65,7 @@ object Sompiler {
   }
 
   def normalizeSingleSumRule(r: Rule): Seq[Rule] = {
-
+    Seq(r)
   }
 
   def normalize(r: Rule): Seq[Rule] = {
@@ -111,24 +112,18 @@ object Sompiler {
   }
 
   def project(lhs: Access, rhs: Access): (Rule, Rule, Rule) = {
-    assert(rhs.vars.toSet.subsetOf(lhs.vars.toSet))
+    assert(lhs.vars.toSet.subsetOf(rhs.vars.toSet))
     if (lhs.vars.toSet == rhs.vars.toSet) {
-      val us: Rule = Rule(lhs.uniqueHead, SoP(Seq(Prod(Seq(rhs.uniqueHead)))))
-      val rm: Rule = Rule(lhs.redundancyHead, SoP(Seq(Prod(Seq(rhs.redundancyHead)))))
-      val c: Rule = Rule(lhs.compressedHead, SoP(Seq(Prod(Seq(rhs.compressedHead)))))
-      return (us, rm, c)
+      val us = Rule(lhs.uniqueHead, SoP(Seq(Prod(Seq(rhs.uniqueHead)))))
+      val rm = Rule(lhs.redundancyHead, SoP(Seq(Prod(Seq(rhs.redundancyHead)))))
+      val c = Rule(lhs.compressedHead, SoP(Seq(Prod(Seq(rhs.compressedHead)))))
+      (us, rm, c)
+    } else {
+      val us = Rule(lhs.uniqueHead, SoP(Seq(Prod(Seq(rhs.uniqueHead)), Prod(Seq(rhs.redundancyHead)))))
+      val rm = Rule(lhs.redundancyHead, emptySoP())
+      val c = Rule(lhs.compressedHead, SoP(Seq(Prod(Seq(rhs.uniqueHead, rhs.compressedHead)), Prod(Seq(rhs.redundancyHead, rhs.compressedHead.vars2RedundancyVars)))))      
+      (us, rm, c)
     }
-
-    val usBody: SoP = SoP(Seq(Prod(Seq(rhs.uniqueHead)), Prod(Seq(rhs.redundancyHead))))
-    val us: Rule = Rule(lhs.uniqueHead, usBody)
-
-    val rmBody: SoP = emptySoP()
-    val rm: Rule = Rule(lhs.redundancyHead, rmBody)
-
-    val cBody: SoP = SoP(Seq(Prod(Seq(rhs.uniqueHead, rhs.compressedHead)), Prod(Seq(rhs.redundancyHead, rhs.compressedHead.vars2RedundancyVars))))
-    val c: Rule = Rule(lhs.compressedHead, cBody)
-
-    return (us, rm, c)
   }
 
   def isIntersectEmpty(inpVars1: Seq[Variable], inpVars2: Seq[Variable]): Boolean = inpVars1.intersect(inpVars2).isEmpty
@@ -138,10 +133,8 @@ object Sompiler {
 
   def binMult(lhs: Access, e1: Exp, e2: Exp): (Rule, Rule, Rule) = {
     (e1, e2) match {
-      case (Access(name1, vars1, Tensor), Access(name2, vars2, Tensor)) => {
-        val acc1: Access = e1.asInstanceOf[Access]
-        val acc2: Access = e2.asInstanceOf[Access]
-        if (name1 == name2 && lhs.vars.toSet == vars1.union(vars2).toSet && isIntersectEmpty(vars1, vars2)) {          
+      case (acc1 @ Access(name1, vars1, Tensor), acc2 @ Access(name2, vars2, Tensor)) => {
+        if (name1 == name2 && lhs.vars.toSet == vars1.union(vars2).toSet && isIntersectEmpty(vars1, vars2)) {
           val usBody: SoP = SoP(Seq(Prod(Seq(acc1.uniqueHead, acc2.uniqueHead) ++ vectorizeComparisonMultiplication("<=", vars1, vars2))))
           val us: Rule = Rule(lhs.uniqueHead, usBody)
 
@@ -265,23 +258,76 @@ object Sompiler {
       } else if (exps.length == 2) {
         return binMult(head, exps(0), exps(1))
       } else {
-
+        throw new Exception("Not implemented yet")
       }
     } else if (prods.length == 2) {
-      
+      throw new Exception("Not implemented yet")
+    } else throw new Exception("Only binary computation must be passed to infer function")
+  }
 
+  def concatSoP(sops: Seq[SoP]): SoP = SoP(sops.flatMap(sop => sop.prods))
+
+  def prodTimesProd(prod1: Prod, prod2: Prod): Prod = {
+    if (prod1.exps.size == 0 || prod2.exps.size == 0) emptyProd()
+    else Prod(prod1.exps ++ prod2.exps)
+  } 
+
+  def prodTimesSoP(prod: Prod, sop: SoP): SoP = {
+    if (prod.exps.size == 0 || sop.prods.size == 0) emptySoP()
+    else SoP(sop.prods.map(cur => prodTimesProd(prod, cur)))
+  }
+
+  def SoPTimesSoP(sop1: SoP, sop2: SoP): SoP = {
+    if (sop1.prods.size == 0 || sop2.prods.size == 0) emptySoP()
+    else SoP(sop1.prods.flatMap(cur => prodTimesSoP(cur, sop2).prods))
+  }
+
+  def multSoP(sops: Seq[SoP]): SoP = {
+    if (sops.size == 0) emptySoP()
+    else sops.slice(1, sops.length).foldLeft(sops(0))((acc, cur) => SoPTimesSoP(acc, cur))
+  } 
+
+  def denormalizeSingle(body: SoP, denormMap: Map[Access, SoP]): SoP = {
+    def filterFN(exp: Exp): Boolean = exp match {
+      case acc @ Access(_, _, _) => denormMap.contains(acc)
+      case _ => false
     }
-    return (r, r, r)
+
+    body.prods.foldLeft(emptySoP())((acc1, prod) => {
+      val (epxsInMap, epxsNotInMap): (Seq[Exp], Seq[Exp]) = prod.exps.partition(filterFN)
+      val denormalizedSoPSeq = epxsInMap.map(exp => denormMap(exp.asInstanceOf[Access]))
+      val singleAllExpSoP = SoP(Seq(Prod(epxsNotInMap)))
+      val allExpSoP = if (epxsNotInMap.length == 0) multSoP(denormalizedSoPSeq) else if (epxsInMap.length == 0) singleAllExpSoP else multSoP(singleAllExpSoP +: denormalizedSoPSeq) 
+      concatSoP(Seq(acc1, allExpSoP))
+    })
   }
 
-  def denormalize(head: Access, ctx: Seq[(Rule, Rule, Rule, Rule)]): Rule = {
-    return ctx(0)._1
+  def denormalize(head: Access, ctx: Seq[(Rule, Rule, Rule, Rule)]): (Rule, Rule) = {
+    val denormMap = ctx.foldLeft(Map[Access, SoP]())((acc, cur) => {
+      val (us, rm, cc, tc) = cur
+      val (usBody, rmBody, ccBody, tcBody) = (denormalizeSingle(us.body, acc), denormalizeSingle(rm.body, acc), denormalizeSingle(cc.body, acc), denormalizeSingle(tc.body, acc))
+      acc + (us.head -> usBody) + (rm.head -> rmBody) + (cc.head -> ccBody) + (tc.head -> tcBody)
+    })
+    
+    // denormMap.foreach{case (k, v) => println(s"**************************\nDenormalized:\n${k.prettyFormat} -> ${v.prettyFormat}\n")}
+    val compressedComputation = Rule(head, denormMap(head.compressedHead))
+    val reconstructionComputation = Rule(head, SoPTimesSoP(SoP(Seq(Prod(Seq(head.vars2RedundancyVars)))), denormMap(head.redundancyHead)))
+
+    (compressedComputation, reconstructionComputation)
   }
 
-  def compile(computation: Rule, inputs: Seq[(Rule, Rule, Rule, Rule)]): Rule = {
-    val norm: Seq[Rule] = normalize(computation)
-    val rules: Seq[(Rule, Rule, Rule, Rule)] = norm.map(infer).zip(norm).map{case((r1, r2, r3), r4) => (r1, r2, r3, r4)}
-    val denorm: Rule = denormalize(computation.head, inputs ++ rules)
-    return denorm
+  def compile(computation: Rule, inputs: Seq[(Rule, Rule, Rule, Rule)]): (Rule, Rule) = {
+    // println(s"------------------\nComputation:\n${computation.prettyFormat}\n")
+    val norm = normalizeSingleProdRule(computation)
+    val us_rm_cc_tc_seq = norm.map(infer).zip(norm).map{case((r1, r2, r3), r4) => (r1, r2, r3, r4)}
+    // us_rm_cc_tc_seq.map{case(r1, r2, r3, r4) => println(s"====================\nUnique:\n${r1.prettyFormat}\nRedundancy:\n${r2.prettyFormat}\nCompressed:\n${r3.prettyFormat}\nComputation:\n${r4.prettyFormat}\n")}
+    val (compressedComputation, reconstructionComputation) = denormalize(computation.head, inputs ++ us_rm_cc_tc_seq)
+    // println(s"------------------\nDenormalized:\n${denorm._1.prettyFormat}\n${denorm._2.prettyFormat}\n")
+
+    // Optimization
+    val (idempotentOptCC, idempotentOptRC) = (setIdempotentOpt(compressedComputation), setIdempotentOpt(reconstructionComputation))
+    println(s"=================================\nOptimized:\n${idempotentOptCC.prettyFormat}\n${idempotentOptRC.prettyFormat}\n")
+
+    (idempotentOptCC, idempotentOptRC)
   }
 }
