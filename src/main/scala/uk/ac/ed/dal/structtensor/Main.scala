@@ -153,6 +153,7 @@ PGLM      = Population Growth Leslie Matrix
             import Compiler.codeGen
             import Shared._
             import Sompiler._
+            import Optimizer._
             val lines = scala.io.Source.fromFile(config.inFilePath).mkString
             val lineSeq: Seq[String] = lines.split("\n").toSeq
             val parsedRules: Seq[Rule] = lineSeq.map(line => {
@@ -176,6 +177,7 @@ PGLM      = Population Growth Leslie Matrix
                 val us = Rule(uniqueSets(e.asInstanceOf[Access]).head.uniqueHead, uniqueSets(e.asInstanceOf[Access]).body)
                 val rm = Rule(redundancyMaps(e.asInstanceOf[Access]).head.redundancyHead, redundancyMaps(e.asInstanceOf[Access]).body)
                 val cc = Rule(uniqueSets(e.asInstanceOf[Access]).head.compressedHead, SoPTimesSoP(SoP(Seq(Prod(Seq(e)))), uniqueSets(e.asInstanceOf[Access]).body))
+                // val cc = Rule(uniqueSets(e.asInstanceOf[Access]).head.compressedHead, SoPTimesSoP(SoP(Seq(Prod(Seq(e)))), SoP(Seq(Prod(Seq(uniqueSets(e.asInstanceOf[Access]).head.uniqueHead))))))
                 val t = Rule(e.asInstanceOf[Access], SoP(Seq(Prod(Seq(e)))))
                 (us, rm, cc, t) 
               }))

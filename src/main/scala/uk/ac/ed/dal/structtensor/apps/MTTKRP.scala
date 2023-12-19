@@ -32,6 +32,11 @@ object MTTKRP {
         val var1ProdsUS: Prod = Prod(Seq(var1ExpUS1))
         multSoP(Seq(dim1.toSoP, SoP(Seq(var1ProdsUS))))
       }
+      case "JIK" => {
+        val var1ExpUS1: Exp = Comparison("<", "i".toVar, "k".toVar)
+        val var1ProdsUS: Prod = Prod(Seq(var1ExpUS1))
+        multSoP(Seq(dim1.toSoP, SoP(Seq(var1ProdsUS))))
+      }
       case _ => dim1.toSoP
     } 
     val var1US: Rule = Rule(var1HeadUS, var1BodyUS)
@@ -42,6 +47,21 @@ object MTTKRP {
 
     val var1DL: Function[Seq[Variable], Seq[Index]] = structure match {
       case "fixed_ij" | "fixed_i" => (x: Seq[Variable]) => Seq(Arithmetic("+", Arithmetic("*", x(1), "P".toVar), x(2)))
+      case "JIK" => (x: Seq[Variable]) => Seq(Arithmetic("+", Arithmetic(
+        "*", Arithmetic(
+          "/", Arithmetic("*", "N".toVar, Arithmetic("-", "N".toVar, ConstantInt(1))), ConstantInt(2)
+        ), Arithmetic(
+          "+", Arithmetic(
+            "*", x(0), "N".toVar
+          ), Arithmetic(
+            "-", x(1), Arithmetic(
+              "/", Arithmetic(
+                "*", Arithmetic("+", x(0), ConstantInt(1)), Arithmetic("+", x(0), ConstantInt(2))
+              ), ConstantInt(2)
+            )
+          )
+        )
+      ), x(2)))
       case _ => (x: Seq[Variable]) => x
     }
 
@@ -55,11 +75,16 @@ object MTTKRP {
 
     val var3HeadUS: Access = Access(var3.name.uniqueName, var3.vars, UniqueSet)
     val var3BodyUS: SoP = structure match {
-      case "fixed_ij" | "fixed_j" => {
+      case "fixed_ij" | "fixed_j" | "JIK" => {
         val var3ExpUS1: Exp = Comparison("=", "j".toVar, "J".toVar)
         val var3ProdsUS: Prod = Prod(Seq(var3ExpUS1))
         multSoP(Seq(dim3.toSoP, SoP(Seq(var3ProdsUS))))
       }      
+      case "JL" => {
+        val var3ExpUS1: Exp = Comparison("=", "j".toVar, "l".toVar)
+        val var3ProdsUS: Prod = Prod(Seq(var3ExpUS1))
+        multSoP(Seq(dim3.toSoP, SoP(Seq(var3ProdsUS))))
+      }
       case _ => dim3.toSoP
     } 
     val var3US: Rule = Rule(var3HeadUS, var3BodyUS)
@@ -69,7 +94,7 @@ object MTTKRP {
     val var3RM: Rule = Rule(var3HeadRM, var3BodyRM)
 
     val var3DL: Function[Seq[Variable], Seq[Index]] = structure match {
-      case "fixed_ij" | "fixed_j" => (x: Seq[Variable]) => Seq(x(0))
+      case "fixed_ij" | "fixed_j" | "JIK" | "JL" => (x: Seq[Variable]) => Seq(x(0))
       case _ => (x: Seq[Variable]) => x
     }
 
@@ -94,10 +119,10 @@ object MTTKRP {
   }
 
   def CPP(structure: String, sparse: Boolean, codeMotion: Boolean = true, sturOpt: Boolean = false) = {
-    val outName1 = if (structure == "fixed_ij") "MTTKRP_IJ" else if (structure == "fixed_i") "MTTKRP_I" else if (structure == "fixed_j") "MTTKRP_J" else "MTTKRP"
+    val outName1 = if (structure == "fixed_ij") "MTTKRP_IJ" else if (structure == "fixed_i") "MTTKRP_I" else if (structure == "fixed_j") "MTTKRP_J" else if (structure == "JL") "MTTKRP_JL" else if (structure == "JIK") "MTTKRP_JIK" else "MTTKRP"
     val outName = if (sparse) s"${outName1}_Sparse" else outName1
     val c1 = CPP_init_code()
-    val argv_names = if (structure == "fixed_ij") Seq("M", "N", "P", "Q", "I", "J") else if (structure == "fixed_i") Seq("M", "N", "P", "Q", "I") else if (structure == "fixed_j") Seq("M", "N", "P", "Q", "J") else Seq("M", "N", "P", "Q")
+    val argv_names = if (structure == "fixed_ij") Seq("M", "N", "P", "Q", "I", "J") else if (structure == "fixed_i") Seq("M", "N", "P", "Q", "I") else if (structure == "fixed_j" || structure == "JIK") Seq("M", "N", "P", "Q", "J") else Seq("M", "N", "P", "Q")
     val c2 = CPP_read_argv(argv_names)
     val dims3 = if ((structure == "fixed_i" || structure == "fixed_ij") && sparse) Seq("N", "P") else Seq("M", "N", "P")
     val cond3 = (x: Seq[String]) => if ((structure == "fixed_i" || structure == "fixed_ij") && !sparse) s"${x(0)} == I" else "1"
