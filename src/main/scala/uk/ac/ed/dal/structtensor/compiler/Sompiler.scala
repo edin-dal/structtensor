@@ -12,18 +12,12 @@ object Sompiler {
     return s"$name$cnt"
   }
 
+  def getNonDimensionVariables(prod: Prod): Seq[Variable] = prod.exps.flatMap {
+      case Access(_, vars, _) => vars
+      case _ => Seq.empty[Variable]
+    }.distinct
 
-  def getNonDimensionVariables(prod: Prod): Seq[Variable] = {
-    prod.exps.foldLeft(Seq[Variable]())((acc, exp) => {
-      val varSeq = exp match {
-        case Access(name, vars, kind) => vars
-        case _ => Seq()
-      }
-      acc ++ varSeq
-    })
-  }
-
-  def getNonDimensionVariables(sop: SoP): Seq[Variable] = sop.prods.foldLeft(Seq[Variable]())((acc, prod) => acc ++ getNonDimensionVariables(prod))
+  def getNonDimensionVariables(sop: SoP): Seq[Variable] = sop.prods.flatMap(getNonDimensionVariables).distinct
 
   def getNonDimensionVariables(rule: Rule): Seq[Variable] = (rule.head.vars ++ getNonDimensionVariables(rule.body)).distinct
 
