@@ -13,8 +13,8 @@ object Sompiler {
   }
 
   def getNonDimensionVariables(prod: Prod): Seq[Variable] = prod.exps.flatMap {
-      case Access(_, vars, _) => vars
-      case _ => Seq.empty[Variable]
+      case Access(_, vars, _) => vars.distinct
+      case _ => Seq()
     }.distinct
 
   def getNonDimensionVariables(sop: SoP): Seq[Variable] = sop.prods.flatMap(getNonDimensionVariables).distinct
@@ -129,54 +129,53 @@ object Sompiler {
     (e1, e2) match {
       case (acc1 @ Access(name1, vars1, Tensor), acc2 @ Access(name2, vars2, Tensor)) => {
         if (name1 == name2 && lhs.vars.toSet == vars1.union(vars2).toSet && isIntersectEmpty(vars1, vars2)) {
-          val usBody: SoP = SoP(Seq(Prod(Seq(acc1.uniqueHead, acc2.uniqueHead) ++ vectorizeComparisonMultiplication("<=", vars1, vars2))))
-          val us: Rule = Rule(lhs.uniqueHead, usBody)
+          val usBody = SoP(Seq(Prod(Seq(acc1.uniqueHead, acc2.uniqueHead) ++ vectorizeComparisonMultiplication("<=", vars1, vars2))))
+          val us = Rule(lhs.uniqueHead, usBody)
 
-          val rmBody: SoP = SoP(Seq(
+          val rmBody = SoP(Seq(
             Prod(Seq(acc1.redundancyHead, acc2.redundancyHead)),
             Prod(Seq(acc1.uniqueHead, acc2.redundancyHead) ++ vectorizeComparisonMultiplication("=", vars1, vars1.redundancyVars)),
             Prod(Seq(acc1.redundancyHead, acc2.uniqueHead) ++ vectorizeComparisonMultiplication("=", vars2, vars2.redundancyVars)),
             Prod(Seq(acc1.uniqueHead, acc2.uniqueHead) ++ vectorizeComparisonMultiplication("=", vars1, vars1.redundancyVars) ++ vectorizeComparisonMultiplication("=", vars2, vars2.redundancyVars) ++ vectorizeComparisonMultiplication(">", vars1, vars2))
           ))
-          val rm: Rule = Rule(lhs.redundancyHead, rmBody)
+          val rm = Rule(lhs.redundancyHead, rmBody)
 
-          val cBody: SoP = SoP(Seq(Prod(Seq(acc1.uniqueHead, acc2.uniqueHead, acc1.compressedHead, acc2.compressedHead) ++ vectorizeComparisonMultiplication("<=", vars1, vars2))))
-          val c: Rule = Rule(lhs.compressedHead, cBody)
+          val cBody = SoP(Seq(Prod(Seq(acc1.compressedHead, acc2.compressedHead) ++ vectorizeComparisonMultiplication("<=", vars1, vars2))))
+          val c = Rule(lhs.compressedHead, cBody)
 
           return (us, rm, c)
         } else if (lhs.vars.toSet == vars1.union(vars2).toSet && isIntersectEmpty(vars1, vars2)) {
-          val usBody: SoP = SoP(Seq(Prod(Seq(acc1.uniqueHead, acc2.uniqueHead))))
-          val us: Rule = Rule(lhs.uniqueHead, usBody)
+          val usBody = SoP(Seq(Prod(Seq(acc1.uniqueHead, acc2.uniqueHead))))
+          val us = Rule(lhs.uniqueHead, usBody)
 
-          val rmBody: SoP = SoP(Seq(
+          val rmBody = SoP(Seq(
             Prod(Seq(acc1.redundancyHead, acc2.redundancyHead)),
             Prod(Seq(acc1.uniqueHead, acc2.redundancyHead) ++ vectorizeComparisonMultiplication("=", vars1, vars1.redundancyVars)),
-            Prod(Seq(acc1.redundancyHead, acc2.uniqueHead) ++ vectorizeComparisonMultiplication("=", vars2, vars2.redundancyVars)),
-            Prod(Seq(acc1.uniqueHead, acc2.uniqueHead) ++ vectorizeComparisonMultiplication("=", vars1, vars1.redundancyVars) ++ vectorizeComparisonMultiplication("=", vars2, vars2.redundancyVars))
+            Prod(Seq(acc1.redundancyHead, acc2.uniqueHead) ++ vectorizeComparisonMultiplication("=", vars2, vars2.redundancyVars))
           ))
-          val rm: Rule = Rule(lhs.redundancyHead, rmBody)
+          val rm = Rule(lhs.redundancyHead, rmBody)
 
-          val cBody: SoP = SoP(Seq(Prod(Seq(acc1.uniqueHead, acc2.uniqueHead, acc1.compressedHead, acc2.compressedHead))))
-          val c: Rule = Rule(lhs.compressedHead, cBody)
+          val cBody = SoP(Seq(Prod(Seq(acc1.compressedHead, acc2.compressedHead))))
+          val c = Rule(lhs.compressedHead, cBody)
 
           return (us, rm, c)
         } else if (lhs.vars.toSet == vars1.union(vars2).toSet) {
-          val usBody: SoP = SoP(Seq(
+          val usBody = SoP(Seq(
             Prod(Seq(acc1.uniqueHead, acc2.uniqueHead)),
             Prod(Seq(acc1.uniqueHead, acc2.redundancyHead)),
             Prod(Seq(acc1.redundancyHead, acc2.uniqueHead))
           ))
-          val us: Rule = Rule(lhs.uniqueHead, usBody)
+          val us = Rule(lhs.uniqueHead, usBody)
 
-          val rmBody: SoP = SoP(Seq(Prod(Seq(acc1.redundancyHead, acc2.redundancyHead))))
+          val rmBody = SoP(Seq(Prod(Seq(acc1.redundancyHead, acc2.redundancyHead))))
           val rm: Rule = Rule(lhs.redundancyHead, rmBody)
 
-          val cBody: SoP = SoP(Seq(
+          val cBody = SoP(Seq(
             Prod(Seq(acc1.compressedHead, acc2.compressedHead)),
-            Prod(Seq(acc1.compressedHead, acc2.redundancyHead, acc2.compressedHead.vars2RedundancyVars)),
-            Prod(Seq(acc1.redundancyHead, acc2.compressedHead, acc1.compressedHead.vars2RedundancyVars)) // now it seems like the compressed head is not needed
+            Prod(Seq(acc1.compressedHead, acc2.redundancyHead, acc2.vars2RedundancyVars)),
+            Prod(Seq(acc1.redundancyHead, acc2.compressedHead, acc1.vars2RedundancyVars))
           ))
-          val c: Rule = Rule(lhs.compressedHead, cBody)
+          val c = Rule(lhs.compressedHead, cBody)
 
           return (us, rm, c)
         }
@@ -264,7 +263,7 @@ object Sompiler {
     val norm = normalizeSingleProdRule(computation)
     
     val us_rm_cc_tc_seq = norm.map(infer).zip(norm).map{case((r1, r2, r3), r4) => (r1, r2, r3, r4)}
-    // us_rm_cc_tc_seq.map{case(r1, r2, r3, r4) => println(s"====================\nUnique:\n${r1.prettyFormat}\nRedundancy:\n${r2.prettyFormat}\nCompressed:\n${r3.prettyFormat}\nComputation:\n${r4.prettyFormat}\n")}
+    us_rm_cc_tc_seq.map{case(r1, r2, r3, r4) => println(s"====================\nUnique:\n${r1.prettyFormat}\nRedundancy:\n${r2.prettyFormat}\nCompressed:\n${r3.prettyFormat}\nComputation:\n${r4.prettyFormat}\n")}
 
     
     
