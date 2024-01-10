@@ -40,6 +40,26 @@ object Sompiler {
 
   def appendDistinctVars(v1: Seq[Variable], v2: Seq[Variable]): Seq[Variable] = (v1.distinct ++ v2.distinct).distinct
 
+  def isPairwiseIntersectEmpty(vars: Seq[Seq[Variable]]): Boolean = vars.zipWithIndex.flatMap { case (seq1, index1) =>
+        vars.zipWithIndex.collect {
+          case (seq2, index2) if index1 < index2 => seq1.intersect(seq2).isEmpty
+        }
+      }.forall(_ == true)
+
+  def groupBySameName(exp: Exp, rest: Seq[Exp]): Seq[Exp] = {
+    exp match {
+      case acc @ Access(name, _, _) => {
+        val sameNameList = rest.collect {
+          case access @ Access(name2, _, _) if name2 == name => access
+        } ++ Seq(acc)
+        if (sameNameList.length == 1) Seq(exp)
+        else if (isPairwiseIntersectEmpty(sameNameList.map(e => e.vars))) sameNameList
+        else Seq(exp)
+      }
+      case _ => Seq(exp)
+    }
+  }
+
 
   def normalizeSingleProdRule(r: Rule): Seq[Rule] = {
     assert(r.body.prods.length == 1)
@@ -48,13 +68,24 @@ object Sompiler {
     if (prod.exps.length < 2) Seq(r)
     else if (prod.exps.length == 2 && r.head.vars.toSet == appendDistinctVars(getAllVariables(prod.exps(0)), getAllVariables(prod.exps(1))).filter(nonSizeVariables.contains).toSet) Seq(r)
     else {
-      val newVariables = appendDistinctVars(getAllVariables(prod.exps(0)), getAllVariables(prod.exps(1))).filter(nonSizeVariables.contains)
-      val newHead = Access(getVar("prodHead"), newVariables, Tensor)
-      val newBody = SoP(Seq(Prod(Seq(prod.exps(0), prod.exps(1)))))
-      val newRule = Rule(newHead, newBody)
+      val sameNameExpsList = groupBySameName(prod.exps(0), prod.exps.slice(1, prod.exps.length))
+      if (sameNameExpsList.length == 1) {
+        val newVariables = appendDistinctVars(getAllVariables(prod.exps(0)), getAllVariables(prod.exps(1))).filter(nonSizeVariables.contains)
+        val newHead = Access(getVar("prodHead"), newVariables, Tensor)
+        val newBody = SoP(Seq(Prod(Seq(prod.exps(0), prod.exps(1)))))
+        val newRule = Rule(newHead, newBody)
 
-      val restBody = SoP(Seq(Prod(Seq(newHead) ++ prod.exps.slice(2, prod.exps.length))))
-      Seq(newRule) ++ normalizeSingleProdRule(Rule(r.head, restBody))
+        val restBody = SoP(Seq(Prod(Seq(newHead) ++ prod.exps.slice(2, prod.exps.length))))
+        Seq(newRule) ++ normalizeSingleProdRule(Rule(r.head, restBody))
+      } else {
+        val newVariables = sameNameExpsList.flatMap{case acc @ Access(_, vars, _) => vars} // This one does not distinct since the intersection of the variables is empty
+        val newHead = Access(getVar("sameNameProdHead"), newVariables, Tensor)
+        val newBody = SoP(Seq(Prod(sameNameExpsList)))
+        val newRule = Rule(newHead, newBody)
+
+        val restBody = SoP(Seq(Prod(Seq(newHead) ++ prod.exps.filter(!sameNameExpsList.contains(_)))))
+        Seq(newRule) ++ normalizeSingleProdRule(Rule(r.head, restBody))
+      }
     }
   }
 
