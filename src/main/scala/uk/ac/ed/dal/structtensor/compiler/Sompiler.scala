@@ -46,9 +46,9 @@ object Sompiler {
     val prod = r.body.prods(0)
     val nonSizeVariables = getNonDimensionVariables(r).distinct
     if (prod.exps.length < 2) Seq(r)
-    else if (prod.exps.length == 2 && r.head.vars.toSet == appendDistinctVars(getAllVariables(prod.exps(0)), getAllVariables(prod.exps(1))).filter(v => nonSizeVariables.contains(v)).toSet) Seq(r)
+    else if (prod.exps.length == 2 && r.head.vars.toSet == appendDistinctVars(getAllVariables(prod.exps(0)), getAllVariables(prod.exps(1))).filter(nonSizeVariables.contains).toSet) Seq(r)
     else {
-      val newVariables = appendDistinctVars(getAllVariables(prod.exps(0)), getAllVariables(prod.exps(1))).filter(v => nonSizeVariables.contains(v))
+      val newVariables = appendDistinctVars(getAllVariables(prod.exps(0)), getAllVariables(prod.exps(1))).filter(nonSizeVariables.contains)
       val newHead = Access(getVar("prodHead"), newVariables, Tensor)
       val newBody = SoP(Seq(Prod(Seq(prod.exps(0), prod.exps(1)))))
       val newRule = Rule(newHead, newBody)
