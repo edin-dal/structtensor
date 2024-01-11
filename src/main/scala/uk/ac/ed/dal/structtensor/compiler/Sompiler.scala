@@ -210,7 +210,7 @@ object Sompiler {
 
           return (us, rm, c)
         }
-      }
+      } // TODO implement the rest of the cases
       case (Access(name1, vars1, Tensor), Comparison(op2, index2, variable2)) => {
         val acc1: Access = e1.asInstanceOf[Access]
         val usBody: SoP = SoP(Seq(Prod(Seq(acc1.uniqueHead, e2))))
@@ -268,6 +268,45 @@ object Sompiler {
     (Rule(lhs.uniqueHead, emptySoP()), Rule(lhs.redundancyHead, emptySoP()), Rule(lhs.compressedHead, emptySoP()))
   }
 
+  def selfOuterProduct(lhs: Access, eSeq: Seq[Exp]): (Rule, Rule, Rule) = {
+    val accSeq = eSeq.collect {
+      case acc: Access => acc
+      case _ => throw new IllegalArgumentException("All elements in the sequence must be of type Access.")
+    }
+
+    // we made sure in the normalization step that all the accesses have the same name and their variable pairwise intersection is empty
+    val bodyUSComparisonSeq = (0 to accSeq.length - 2).flatMap(ind => vectorizeComparisonMultiplication("<=", accSeq(ind).vars, accSeq(ind + 1).vars))
+    val usBody = SoP(Seq(Prod(accSeq.map(acc => acc.uniqueHead) ++ bodyUSComparisonSeq)))
+    val us = Rule(lhs.uniqueHead, usBody)
+
+    val vectorizedMultVarEqualsRedundancyVarSeq = accSeq.map(acc => vectorizeComparisonMultiplication("=", acc.vars, acc.vars.redundancyVars))
+    val bodyRMProdSeq1 = (0 to accSeq.length - 1).flatMap(i => {
+      (0 to accSeq.length - 1).combinations(i).map(indexList => {
+        Prod((accSeq.zipWithIndex).collect{ 
+          case (acc, ind) if indexList.contains(ind) => vectorizedMultVarEqualsRedundancyVarSeq(ind) :+ acc.uniqueHead
+          case (acc, ind) if !indexList.contains(ind) => Seq(acc.redundancyHead)
+        }.flatten.toSeq)
+      })
+    })
+
+    val flattenedVectorizedMultVarEqualsRedundancyVarSeq = vectorizedMultVarEqualsRedundancyVarSeq.flatten
+    val allUSMult = accSeq.map(acc => acc.uniqueHead)
+    val allUSMultTIMESflattenedVectorizedMultVarEqualsRedundancyVarSeq = allUSMult ++ flattenedVectorizedMultVarEqualsRedundancyVarSeq
+    val bodyRMSeq21: Seq[Prod] = (0 to accSeq.length - 1).permutations.map(iters => {
+      val conds = (0 to iters.length - 2).flatMap(i => vectorizeComparisonMultiplication("<=", accSeq(iters(i)).vars, accSeq(iters(i + 1)).vars))
+      Prod(conds ++ allUSMultTIMESflattenedVectorizedMultVarEqualsRedundancyVarSeq)
+    }).toSeq
+    val bodyRMProdSeq2 = bodyRMSeq21.slice(1, bodyRMSeq21.length)
+
+    val rmBody = SoP(bodyRMProdSeq1 ++ bodyRMProdSeq2)
+    val rm = Rule(lhs.redundancyHead, rmBody)
+
+    val cBody = SoP(Seq(Prod(accSeq.map(acc => acc.compressedHead) ++ bodyUSComparisonSeq)))
+    val c = Rule(lhs.compressedHead, cBody)
+
+    (us, rm, c)
+  }
+
   def infer(r: Rule): (Rule, Rule, Rule) = {
     val head: Access = r.head
     val prods: Seq[Prod] = r.body.prods
@@ -280,9 +319,11 @@ object Sompiler {
         assert(exps(0).isInstanceOf[Access])
         return project(head, exps(0).asInstanceOf[Access])
       } else if (exps.length == 2) {
-        return binMult(head, exps(0), exps(1))
+        binMult(head, exps(0), exps(1))
       } else {
-        throw new Exception("Not implemented yet")
+        // We made sure in the normalization step that all the accesses have the same name and their variable pairwise intersection is empty
+        // So if sth ends up here, it must be a self outer product
+        selfOuterProduct(head, exps)
       }
     } else if (prods.length == 2) {
       throw new Exception("Not implemented yet")
