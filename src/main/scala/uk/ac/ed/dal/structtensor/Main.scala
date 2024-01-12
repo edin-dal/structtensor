@@ -174,12 +174,21 @@ PGLM      = Population Growth Leslie Matrix
 
             tensorComputations.foldLeft()((acc, tc) => {
               val inps: Seq[(Rule, Rule, Rule, Rule)] = tc.body.prods.flatMap(prod => prod.exps.map(e => {
-                val us = Rule(uniqueSets(e.asInstanceOf[Access]).head.uniqueHead, uniqueSets(e.asInstanceOf[Access]).body)
-                val rm = Rule(redundancyMaps(e.asInstanceOf[Access]).head.redundancyHead, redundancyMaps(e.asInstanceOf[Access]).body)
-                val cc = Rule(uniqueSets(e.asInstanceOf[Access]).head.compressedHead, SoPTimesSoP(SoP(Seq(Prod(Seq(e)))), uniqueSets(e.asInstanceOf[Access]).body))
-                // val cc = Rule(uniqueSets(e.asInstanceOf[Access]).head.compressedHead, SoPTimesSoP(SoP(Seq(Prod(Seq(e)))), SoP(Seq(Prod(Seq(uniqueSets(e.asInstanceOf[Access]).head.uniqueHead))))))
-                val t = Rule(e.asInstanceOf[Access], SoP(Seq(Prod(Seq(e)))))
-                (us, rm, cc, t) 
+                if (e.isInstanceOf[Access]) {
+                  val us = Rule(uniqueSets(e.asInstanceOf[Access]).head.uniqueHead, uniqueSets(e.asInstanceOf[Access]).body)
+                  val rm = Rule(redundancyMaps(e.asInstanceOf[Access]).head.redundancyHead, redundancyMaps(e.asInstanceOf[Access]).body)
+                  val cc = Rule(uniqueSets(e.asInstanceOf[Access]).head.compressedHead, SoPTimesSoP(SoP(Seq(Prod(Seq(e)))), uniqueSets(e.asInstanceOf[Access]).body))
+                  // val cc = Rule(uniqueSets(e.asInstanceOf[Access]).head.compressedHead, SoPTimesSoP(SoP(Seq(Prod(Seq(e)))), SoP(Seq(Prod(Seq(uniqueSets(e.asInstanceOf[Access]).head.uniqueHead))))))
+                  val t = Rule(e.asInstanceOf[Access], SoP(Seq(Prod(Seq(e)))))
+                  (us, rm, cc, t)
+                } else {
+                  val h = Access("", Seq(), Tensor)
+                  val us = Rule(h.uniqueHead, SoP(Seq(Prod(Seq(e)))))
+                  val rm = Rule(h.redundancyHead, SoP(Seq(Prod(Seq(e)))))
+                  val cc = Rule(h.compressedHead, SoP(Seq(Prod(Seq(e)))))
+                  val t = Rule(h, SoP(Seq(Prod(Seq(e)))))
+                  (us, rm, cc, t)
+                }
               }))
               // println("=====================================")
               // println("inps:")

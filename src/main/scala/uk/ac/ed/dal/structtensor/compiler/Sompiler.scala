@@ -103,52 +103,63 @@ object Sompiler {
   }
 
   def normalize(r: Rule): Seq[Rule] = {
-    val normalizedProdsANDIntermediateHeads: Seq[(Seq[Rule], Access)] = r.body.prods.map(prod => {
-      val intermediateHead = Access(getVar("interHead"), r.head.vars, Tensor)
-      val inputRule = Rule(intermediateHead, SoP(Seq(prod)))
-      (normalizeSingleProdRule(inputRule), intermediateHead)
-    })
-    val normalizedProds = normalizedProdsANDIntermediateHeads.flatMap(_._1)
-    val intermediateHeads = normalizedProdsANDIntermediateHeads.map(_._2)
-    normalizedProds ++ normalizeSumOfAccessSeq(r.head, intermediateHeads)
+    // TODO: This normalization can destroy the shift case cause it transforms it to the following:
+    // A(i) := B(j) * (j = i - 3) -->
+    // prodHead1(j, i) := B(j) * (j = (i - 3))
+    // A(i) := prodHead1(j, i)
+    // So redundancy map and unique set are gonna merge into A's unique set!
+    // TODO: I need to implement an isShift detector (similar to sameName detector) and handle it separately in normalizeSingleProdRule
+    if (r.body.prods.length == 1) normalizeSingleProdRule(r)
+    else {
+      val normalizedProdsANDIntermediateHeads: Seq[(Seq[Rule], Access)] = r.body.prods.map(prod => {
+        val intermediateHead = Access(getVar("interHead"), r.head.vars, Tensor)
+        val inputRule = Rule(intermediateHead, SoP(Seq(prod)))
+        (normalizeSingleProdRule(inputRule), intermediateHead)
+      })
+      val normalizedProds = normalizedProdsANDIntermediateHeads.flatMap(_._1)
+      val intermediateHeads = normalizedProdsANDIntermediateHeads.map(_._2)
+      normalizedProds ++ normalizeSumOfAccessSeq(r.head, intermediateHeads)
+    }
   }
 
-  def isShift(exps: Seq[Exp], outAccess: Access): Boolean = {
-    if (exps.length == 1) return false
-    val e: Exp = exps(0)
-    val flag: Boolean = exps.slice(1, exps.length).foldLeft(e.isInstanceOf[Access])((acc, cur) => acc && cur.isInstanceOf[Comparison])
-    if (flag) {
-      val access: Access = e.asInstanceOf[Access]
-      val rest: Seq[Comparison] = exps.slice(1, exps.length).map(e => e.asInstanceOf[Comparison])
-      val accessVars: Seq[Variable] = access.vars
-      val outVars: Seq[Variable] = outAccess.vars
-      val newFlag: Boolean = rest.foldLeft(true)((acc, comp) => {
-        if (comp.op == "=" && comp.index.isInstanceOf[Arithmetic] && accessVars.contains(comp.variable)) {
-          val arith: Arithmetic = comp.index.asInstanceOf[Arithmetic]
-          val fl: Boolean = arith.op == "-" && arith.index1.isInstanceOf[Variable] && outVars.contains(arith.index1.asInstanceOf[Variable])
-          return (acc && fl)
-        } else false
-      })
-      return newFlag
+  def isShift(lhs: Access, exps: Seq[Exp]): Boolean = {
+    if (exps.length == 1) false
+    else {
+      val areAllExpsComparison = exps.tail.forall(_.isInstanceOf[Comparison])
+      if (areAllExpsComparison) {
+        exps.head match {
+          case Access(_, vars, _) =>
+            exps.tail.forall {
+              case Comparison("=", index: Arithmetic, variable) if vars.contains(variable) => {
+                index match {
+                  case Arithmetic("-", index1: Variable, _) => lhs.vars.contains(index1)
+                  case _ => false
+                }
+              }
+              case _ => false
+            }
+          case _ => false
+        }
+      } else false
     }
-    false
   }
 
   def shift(lhs: Access, rhs: Access, exps: Seq[Exp]): (Rule, Rule, Rule) = {
-    val usBody: SoP = SoP(Seq(Prod(Seq(rhs.uniqueHead) ++ exps)))
-    val us: Rule = Rule(lhs.uniqueHead, usBody)
+    val usBody = SoP(Seq(Prod(Seq(rhs.uniqueHead) ++ exps)))
+    val us = Rule(lhs.uniqueHead, usBody)
 
-    val redExps: Seq[Exp] = exps.map(e => e.asInstanceOf[Comparison]).map(e => 
-                            Comparison("=", Arithmetic("-", e.index.asInstanceOf[Arithmetic].index1.asInstanceOf[Variable].vars2RedundancyVars, 
-                                                            e.index.asInstanceOf[Arithmetic].index2), 
-                                      e.variable.vars2RedundancyVars))
-    val rmBody: SoP = SoP(Seq(Prod(Seq(rhs.redundancyHead) ++ exps ++ redExps)))
-    val rm: Rule = Rule(lhs.redundancyHead, rmBody)
+    val redExps = exps.map {
+      case Comparison("=", Arithmetic("-", index1: Variable, index2), variable) =>
+        Comparison("=", Arithmetic("-", index1.vars2RedundancyVars, index2), variable.vars2RedundancyVars)
+      case exp => exp
+    }
+    val rmBody = SoP(Seq(Prod(Seq(rhs.redundancyHead) ++ exps ++ redExps)))
+    val rm = Rule(lhs.redundancyHead, rmBody)
 
-    val cBody: SoP = SoP(Seq(Prod(Seq(rhs.compressedHead, rhs.uniqueHead) ++ exps)))
-    val c: Rule = Rule(lhs.compressedHead, cBody)
+    val cBody = SoP(Seq(Prod(Seq(rhs.compressedHead) ++ exps)))
+    val c = Rule(lhs.compressedHead, cBody)
 
-    return (us, rm, c)
+    (us, rm, c)
   }
 
   def project(lhs: Access, rhs: Access): (Rule, Rule, Rule) = {
@@ -161,7 +172,7 @@ object Sompiler {
     } else {
       val us = Rule(lhs.uniqueHead, SoP(Seq(Prod(Seq(rhs.uniqueHead)), Prod(Seq(rhs.redundancyHead)))))
       val rm = Rule(lhs.redundancyHead, emptySoP())
-      val c = Rule(lhs.compressedHead, SoP(Seq(Prod(Seq(rhs.compressedHead)), Prod(Seq(rhs.redundancyHead, rhs.compressedHead.vars2RedundancyVars)))))      
+      val c = Rule(lhs.compressedHead, SoP(Seq(Prod(Seq(rhs.compressedHead)), Prod(Seq(rhs.redundancyHead, rhs.vars2RedundancyVars)))))      
       (us, rm, c)
     }
   }
@@ -327,8 +338,8 @@ object Sompiler {
     assert(prods.length <= 2)
     if (prods.length == 1) {
       val exps: Seq[Exp] = prods(0).exps
-      if (isShift(exps, head)) {
-        return shift(head, exps(0).asInstanceOf[Access], exps.slice(1, exps.length))
+      if (isShift(head, exps)) {
+        return shift(head, exps.head.asInstanceOf[Access], exps.tail)
       } else if (exps.length == 1) {
         assert(exps(0).isInstanceOf[Access])
         return project(head, exps(0).asInstanceOf[Access])
