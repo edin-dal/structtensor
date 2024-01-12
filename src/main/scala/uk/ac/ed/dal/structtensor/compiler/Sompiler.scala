@@ -167,7 +167,7 @@ object Sompiler {
             Prod(Seq(acc1.redundancyHead, acc2.redundancyHead)),
             Prod(Seq(acc1.uniqueHead, acc2.redundancyHead) ++ vectorizeComparisonMultiplication("=", vars1, vars1.redundancyVars)),
             Prod(Seq(acc1.redundancyHead, acc2.uniqueHead) ++ vectorizeComparisonMultiplication("=", vars2, vars2.redundancyVars)),
-            Prod(Seq(acc1.uniqueHead, acc2.uniqueHead) ++ vectorizeComparisonMultiplication("=", vars1, vars1.redundancyVars) ++ vectorizeComparisonMultiplication("=", vars2, vars2.redundancyVars) ++ vectorizeComparisonMultiplication(">", vars1, vars2))
+            Prod(Seq(acc1.uniqueHead, acc2.uniqueHead) ++ vectorizeComparisonMultiplication("=", vars1, vars2.redundancyVars) ++ vectorizeComparisonMultiplication("=", vars2, vars1.redundancyVars) ++ vectorizeComparisonMultiplication(">", vars1, vars2))
           ))
           val rm = Rule(lhs.redundancyHead, rmBody)
 
@@ -289,12 +289,11 @@ object Sompiler {
       })
     })
 
-    val flattenedVectorizedMultVarEqualsRedundancyVarSeq = vectorizedMultVarEqualsRedundancyVarSeq.flatten
     val allUSMult = accSeq.map(acc => acc.uniqueHead)
-    val allUSMultTIMESflattenedVectorizedMultVarEqualsRedundancyVarSeq = allUSMult ++ flattenedVectorizedMultVarEqualsRedundancyVarSeq
     val bodyRMSeq21: Seq[Prod] = (0 to accSeq.length - 1).permutations.map(iters => {
       val conds = (0 to iters.length - 2).flatMap(i => vectorizeComparisonMultiplication("<=", accSeq(iters(i)).vars, accSeq(iters(i + 1)).vars))
-      Prod(conds ++ allUSMultTIMESflattenedVectorizedMultVarEqualsRedundancyVarSeq)
+      val swaps = (0 to iters.length - 1).flatMap(i => vectorizeComparisonMultiplication("=", accSeq(i).vars, accSeq(iters(i)).vars.redundancyVars))
+      Prod(conds ++ swaps ++ allUSMult)
     }).toSeq
     val bodyRMProdSeq2 = bodyRMSeq21.slice(1, bodyRMSeq21.length)
 
@@ -335,7 +334,7 @@ object Sompiler {
     val norm = normalizeSingleProdRule(computation)
     
     val us_rm_cc_tc_seq = norm.map(infer).zip(norm).map{case((r1, r2, r3), r4) => (r1, r2, r3, r4)}
-    us_rm_cc_tc_seq.map{case(r1, r2, r3, r4) => println(s"====================\nUnique:\n${r1.prettyFormat}\nRedundancy:\n${r2.prettyFormat}\nCompressed:\n${r3.prettyFormat}\nComputation:\n${r4.prettyFormat}\n")}
+    // us_rm_cc_tc_seq.map{case(r1, r2, r3, r4) => println(s"====================\nUnique:\n${r1.prettyFormat}\nRedundancy:\n${r2.prettyFormat}\nCompressed:\n${r3.prettyFormat}\nComputation:\n${r4.prettyFormat}\n")}
 
     
     
