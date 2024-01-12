@@ -189,7 +189,7 @@ object Sompiler {
           val cBody = SoP(Seq(Prod(Seq(acc1.compressedHead, acc2.compressedHead) ++ vectorizeComparisonMultiplication("<=", vars1, vars2))))
           val c = Rule(lhs.compressedHead, cBody)
 
-          return (us, rm, c)
+          (us, rm, c)
         } else if (lhs.vars.toSet == vars1.union(vars2).toSet && isIntersectEmpty(vars1, vars2)) {
           val usBody = SoP(Seq(Prod(Seq(acc1.uniqueHead, acc2.uniqueHead))))
           val us = Rule(lhs.uniqueHead, usBody)
@@ -204,7 +204,7 @@ object Sompiler {
           val cBody = SoP(Seq(Prod(Seq(acc1.compressedHead, acc2.compressedHead))))
           val c = Rule(lhs.compressedHead, cBody)
 
-          return (us, rm, c)
+          (us, rm, c)
         } else if (lhs.vars.toSet == vars1.union(vars2).toSet) {
           val usBody = SoP(Seq(
             Prod(Seq(acc1.uniqueHead, acc2.uniqueHead)),
@@ -223,64 +223,64 @@ object Sompiler {
           ))
           val c = Rule(lhs.compressedHead, cBody)
 
-          return (us, rm, c)
-        }
-      } // TODO implement the rest of the cases
-      case (Access(name1, vars1, Tensor), Comparison(op2, index2, variable2)) => {
-        val acc1: Access = e1.asInstanceOf[Access]
-        val usBody: SoP = SoP(Seq(Prod(Seq(acc1.uniqueHead, e2))))
-        val us: Rule = Rule(lhs.uniqueHead, usBody)
+          (us, rm, c)
+        } else throw new Exception("This case should never happen in access-access multiplication. Function: binMult")
+      } 
+      case (acc1 @ Access(name1, vars1, Tensor), Comparison(op2, index2, variable2)) => {
+        val usBody = SoP(Seq(Prod(Seq(acc1.uniqueHead, e2))))
+        val us = Rule(lhs.uniqueHead, usBody)
 
-        val rmBody: SoP = SoP(Seq(Prod(Seq(acc1.redundancyHead, e2))))
-        val rm: Rule = Rule(lhs.redundancyHead, rmBody)
+        val rmBody = SoP(Seq(Prod(Seq(acc1.redundancyHead, e2))))
+        val rm = Rule(lhs.redundancyHead, rmBody)
 
-        val cBody: SoP = SoP(Seq(Prod(Seq(acc1.uniqueHead, acc1.compressedHead, e2))))
-        val c: Rule = Rule(lhs.compressedHead, cBody)
+        val cBody = SoP(Seq(Prod(Seq(acc1.compressedHead, e2))))
+        val c = Rule(lhs.compressedHead, cBody)
 
-        return (us, rm, c)
+        (us, rm, c)
       }
       case (Comparison(op1, index1, variable1), Access(name2, vars2, Tensor)) => binMult(lhs, e2, e1)
       case (Comparison(op1, index1, variable1), Comparison(op2, index2, variable2)) => {
-        val flag1: Boolean = op1 == "<=" && op2 == "<" && index2.isInstanceOf[Variable] && variable1 == index2.asInstanceOf[Variable]
-        val flag2: Boolean = op1 == "<=" && op2 == ">" && variable1 == variable2
-        val flag3: Boolean = op1 == ">=" && op2 == "<" && index1.isInstanceOf[Variable] && index2.isInstanceOf[Variable] && index1.asInstanceOf[Variable] == index2.asInstanceOf[Variable]
-        val flag4: Boolean = op1 == ">=" && op2 == ">" && index1.isInstanceOf[Variable] && index1.asInstanceOf[Variable] == variable2
+        // These flags check for a <= x < b case
+        val flag1 = op1 == "<=" && op2 == "<" && index2.isInstanceOf[Variable] && variable1 == index2.asInstanceOf[Variable]
+        val flag2 = op1 == "<=" && op2 == ">" && variable1 == variable2
+        val flag3 = op1 == ">=" && op2 == "<" && index1.isInstanceOf[Variable] && index2.isInstanceOf[Variable] && index1.asInstanceOf[Variable] == index2.asInstanceOf[Variable]
+        val flag4 = op1 == ">=" && op2 == ">" && index1.isInstanceOf[Variable] && index1.asInstanceOf[Variable] == variable2
 
-        val flag5: Boolean = op1 == "<" && op2 == "<=" && index1.isInstanceOf[Variable] && variable2 == index1.asInstanceOf[Variable]
-        val flag6: Boolean = op1 == ">" && op2 == "<=" && variable2 == variable1
-        val flag7: Boolean = op1 == "<" && op2 == ">=" && index2.isInstanceOf[Variable] && index1.isInstanceOf[Variable] && index2.asInstanceOf[Variable] == index1.asInstanceOf[Variable]
-        val flag8: Boolean = op1 == ">" && op2 == ">=" && index2.isInstanceOf[Variable] && index2.asInstanceOf[Variable] == variable1
+        val flag5 = op1 == "<" && op2 == "<=" && index1.isInstanceOf[Variable] && variable2 == index1.asInstanceOf[Variable]
+        val flag6 = op1 == ">" && op2 == "<=" && variable2 == variable1
+        val flag7 = op1 == "<" && op2 == ">=" && index2.isInstanceOf[Variable] && index1.isInstanceOf[Variable] && index2.asInstanceOf[Variable] == index1.asInstanceOf[Variable]
+        val flag8 = op1 == ">" && op2 == ">=" && index2.isInstanceOf[Variable] && index2.asInstanceOf[Variable] == variable1
 
         if (flag1 || flag2 || flag3 || flag4 || flag5 || flag6 || flag7 || flag8) {
-          val variable: Variable = if (flag1 || flag2 || flag8) variable1 else if (flag3 || flag7) index1.asInstanceOf[Variable] else variable2
-          val indEq: Index = if (flag1 || flag2) index1 else if (flag3 || flag4) variable1 else if (flag5 || flag6) index2 else variable2
-          val indGt: Index = if (flag1 || flag3) variable2 else if (flag2 || flag4) index2 else if (flag5 || flag7) variable1 else index1
+          val variable = if (flag1 || flag2 || flag8) variable1 else if (flag3 || flag7) index1.asInstanceOf[Variable] else variable2
+          val indexEq = if (flag1 || flag2) index1 else if (flag3 || flag4) variable1 else if (flag5 || flag6) index2 else variable2
+          val indexGt = if (flag1 || flag3) variable2 else if (flag2 || flag4) index2 else if (flag5 || flag7) variable1 else index1
 
-          val usBody: SoP = SoP(Seq(Prod(Seq(Comparison("=", indEq, variable)))))
-          val us: Rule = Rule(lhs.uniqueHead, usBody)
+          val usBody = SoP(Seq(Prod(Seq(Comparison("=", indexEq, variable)))))
+          val us = Rule(lhs.uniqueHead, usBody)
 
-          val rmBody: SoP = SoP(Seq(Prod(Seq(Comparison("<", indEq, variable), Comparison(">", indGt, variable), Comparison("=", indEq, variable.redundancyVars)))))
-          val rm: Rule = Rule(lhs.redundancyHead, rmBody)
+          val rmBody = SoP(Seq(Prod(Seq(Comparison("<", indexEq, variable), Comparison(">", indexGt, variable), Comparison("=", indexEq, variable.redundancyVars)))))
+          val rm = Rule(lhs.redundancyHead, rmBody)
 
-          val cBody: SoP = SoP(Seq(Prod(Seq(Comparison("=", indEq, variable)))))
-          val c: Rule = Rule(lhs.compressedHead, cBody)
+          val cBody = SoP(Seq(Prod(Seq(Comparison("=", indexEq, variable)))))
+          val c = Rule(lhs.compressedHead, cBody)
 
-          return (us, rm, c)
+          (us, rm, c)
         } else {
-          val usBody: SoP = SoP(Seq(Prod(Seq(e1, e2))))
-          val us: Rule = Rule(lhs.uniqueHead, usBody)
+          val usBody = SoP(Seq(Prod(Seq(e1, e2))))
+          val us = Rule(lhs.uniqueHead, usBody)
 
-          val rmBody: SoP = emptySoP()
-          val rm: Rule = Rule(lhs.redundancyHead, rmBody)
+          val rmBody = emptySoP()
+          val rm = Rule(lhs.redundancyHead, rmBody)
 
-          val cBody: SoP = SoP(Seq(Prod(Seq(e1, e2))))
-          val c: Rule = Rule(lhs.compressedHead, cBody)
+          val cBody = SoP(Seq(Prod(Seq(e1, e2))))
+          val c = Rule(lhs.compressedHead, cBody)
 
-          return (us, rm, c)
+          (us, rm, c)
         }
       }
+      case _ => throw new Exception("Expression is either a comparison or an access. This error should never happen. Function: binMult")
     }
-    (Rule(lhs.uniqueHead, emptySoP()), Rule(lhs.redundancyHead, emptySoP()), Rule(lhs.compressedHead, emptySoP()))
   }
 
   def selfOuterProduct(lhs: Access, eSeq: Seq[Exp]): (Rule, Rule, Rule) = {
@@ -340,6 +340,7 @@ object Sompiler {
         selfOuterProduct(head, exps)
       }
     } else if (prods.length == 2) {
+      // We made sure in the normalization step that all the products that reach here have only 1 expression and they are all accesses
       throw new Exception("Not implemented yet")
     } else throw new Exception("Only binary computations or self-outer product must be passed to infer function")
   }
