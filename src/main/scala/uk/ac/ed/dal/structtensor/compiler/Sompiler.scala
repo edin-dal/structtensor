@@ -89,13 +89,28 @@ object Sompiler {
     }
   }
 
-  def normalizeSingleSumRule(r: Rule): Seq[Rule] = {
-    Seq(r)
+  def normalizeSumOfAccessSeq(head: Access, accSeq: Seq[Access]): Seq[Rule] = {
+    // We made sure in the previous function that all of them have the exact same variables as head
+    if (accSeq.length == 1) Seq(Rule(head, SoP(Seq(Prod(Seq(accSeq(0)))))))
+    else {
+      val newHead = Access(getVar("sumHead"), head.vars, Tensor)
+      val newBody = SoP(Seq(Prod(Seq(accSeq(0))), Prod(Seq(accSeq(1)))))
+      val newRule = Rule(newHead, newBody)
+
+      val restAccessSeq = Seq(newHead) ++ accSeq.slice(2, accSeq.length)
+      Seq(newRule) ++ normalizeSumOfAccessSeq(head, restAccessSeq)
+    }
   }
 
   def normalize(r: Rule): Seq[Rule] = {
-    val seqOfSeqOfRules = r.body.prods.map(prod => normalizeSingleProdRule(Rule(Access(getVar("interHead"), r.head.vars, Tensor), SoP(Seq(prod)))))
-    seqOfSeqOfRules(0)
+    val normalizedProdsANDIntermediateHeads: Seq[(Seq[Rule], Access)] = r.body.prods.map(prod => {
+      val intermediateHead = Access(getVar("interHead"), r.head.vars, Tensor)
+      val inputRule = Rule(intermediateHead, SoP(Seq(prod)))
+      (normalizeSingleProdRule(inputRule), intermediateHead)
+    })
+    val normalizedProds = normalizedProdsANDIntermediateHeads.flatMap(_._1)
+    val intermediateHeads = normalizedProdsANDIntermediateHeads.map(_._2)
+    normalizedProds ++ normalizeSumOfAccessSeq(r.head, intermediateHeads)
   }
 
   def isShift(exps: Seq[Exp], outAccess: Access): Boolean = {
@@ -326,12 +341,13 @@ object Sompiler {
       }
     } else if (prods.length == 2) {
       throw new Exception("Not implemented yet")
-    } else throw new Exception("Only binary computation must be passed to infer function")
+    } else throw new Exception("Only binary computations or self-outer product must be passed to infer function")
   }
 
   def compile(computation: Rule, inputs: Seq[(Rule, Rule, Rule, Rule)]): (Rule, Rule) = {
     // println(s"------------------\nComputation:\n${computation.prettyFormat}\n")
-    val norm = normalizeSingleProdRule(computation)
+    val norm = normalize(computation)
+    println(s"------------------\nNormalized:\n${norm.map(_.prettyFormat).mkString("\n")}\n")
     
     val us_rm_cc_tc_seq = norm.map(infer).zip(norm).map{case((r1, r2, r3), r4) => (r1, r2, r3, r4)}
     // us_rm_cc_tc_seq.map{case(r1, r2, r3, r4) => println(s"====================\nUnique:\n${r1.prettyFormat}\nRedundancy:\n${r2.prettyFormat}\nCompressed:\n${r3.prettyFormat}\nComputation:\n${r4.prettyFormat}\n")}
