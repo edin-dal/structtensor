@@ -70,13 +70,25 @@ object Sompiler {
     else {
       val sameNameExpsList = groupBySameName(prod.exps(0), prod.exps.slice(1, prod.exps.length))
       if (sameNameExpsList.length == 1) {
-        val newVariables = appendDistinctVars(getAllVariables(prod.exps(0)), getAllVariables(prod.exps(1))).filter(nonSizeVariables.contains)
-        val newHead = Access(getVar("prodHead"), newVariables, Tensor)
-        val newBody = SoP(Seq(Prod(Seq(prod.exps(0), prod.exps(1)))))
-        val newRule = Rule(newHead, newBody)
+        prod.exps(0) match {
+          case acc @ Access(_, vars, _) if (prod.exps.length > vars.length && isShift(r.head, prod.exps.slice(0, vars.length + 1))) => {
+            val newHead = Access(getVar("shiftHead"), r.head.vars, Tensor)
+            val newBody = SoP(Seq(Prod(prod.exps.slice(0, vars.length + 1))))
+            val newRule = Rule(newHead, newBody)
 
-        val restBody = SoP(Seq(Prod(Seq(newHead) ++ prod.exps.slice(2, prod.exps.length))))
-        Seq(newRule) ++ normalizeSingleProdRule(Rule(r.head, restBody))
+            val restBody = SoP(Seq(Prod(Seq(newHead) ++ prod.exps.slice(vars.length + 1, prod.exps.length))))
+            Seq(newRule) ++ normalizeSingleProdRule(Rule(r.head, restBody))
+          }
+          case _ => {
+            val newVariables = appendDistinctVars(getAllVariables(prod.exps(0)), getAllVariables(prod.exps(1))).filter(nonSizeVariables.contains)
+            val newHead = Access(getVar("prodHead"), newVariables, Tensor)
+            val newBody = SoP(Seq(Prod(Seq(prod.exps(0), prod.exps(1)))))
+            val newRule = Rule(newHead, newBody)
+
+            val restBody = SoP(Seq(Prod(Seq(newHead) ++ prod.exps.slice(2, prod.exps.length))))
+            Seq(newRule) ++ normalizeSingleProdRule(Rule(r.head, restBody))
+          } 
+        }
       } else {
         val newVariables = sameNameExpsList.flatMap{case acc @ Access(_, vars, _) => vars} // This one does not distinct since the intersection of the variables is empty
         val newHead = Access(getVar("sameNameProdHead"), newVariables, Tensor)
@@ -103,12 +115,6 @@ object Sompiler {
   }
 
   def normalize(r: Rule): Seq[Rule] = {
-    // TODO: This normalization can destroy the shift case cause it transforms it to the following:
-    // A(i) := B(j) * (j = i - 3) -->
-    // prodHead1(j, i) := B(j) * (j = (i - 3))
-    // A(i) := prodHead1(j, i)
-    // So redundancy map and unique set are gonna merge into A's unique set!
-    // TODO: I need to implement an isShift detector (similar to sameName detector) and handle it separately in normalizeSingleProdRule
     if (r.body.prods.length == 1) normalizeSingleProdRule(r)
     else {
       val normalizedProdsANDIntermediateHeads: Seq[(Seq[Rule], Access)] = r.body.prods.map(prod => {
