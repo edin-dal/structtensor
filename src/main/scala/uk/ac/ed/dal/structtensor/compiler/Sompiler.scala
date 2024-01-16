@@ -338,17 +338,151 @@ object Sompiler {
     (us, rm, c)
   }
 
-  def infer(r: Rule): (Rule, Rule, Rule) = {
+  def locallyDenormalizeAndReturnBody(access: Access, ctx: Seq[(Rule, Rule, Rule, Rule)]): SoP = {
+    val requiredCtx = access.kind match {
+      case UniqueSet => ctx.map(_._1)
+      case RedundancyMap => ctx.map(_._2)
+      case _ => throw new Exception("You are not allowed to denormalize a compressed or a tensor access during inference.")
+    }
+    val denormMap = requiredCtx.foldLeft(Map[Access, SoP]())((acc, cur) => {
+      val body = Optimizer.denormalizeSingle(cur.body, acc)
+      acc + (cur.head -> body)
+    })
+    denormMap(access)
+  }
+
+  def isSoPEquals(sop1: SoP, sop2: SoP): Boolean = {
+    val prodsSet1 = sop1.prods.toSet
+    val prodsSet2 = sop2.prods.toSet
+    val prodsSetExpsSet1 = prodsSet1.map(s => s.exps.toSet)
+    val prodsSetExpsSet2 = prodsSet2.map(s => s.exps.toSet)
+    prodsSetExpsSet1 == prodsSetExpsSet2
+  }
+
+  def opEmpty(op: String): Seq[String] = op match {
+    case "<" => Seq(">", ">=", "=")
+    case "<=" => Seq(">")
+    case ">=" => Seq("<")
+    case ">" => Seq("<", "<=", "=")
+    case "=" => Seq("<", ">")
+    case _ => Seq()
+  }
+
+  def opComplement(op: String): String = op match {
+    case "=" => "="
+    case "<" => ">"
+    case "<=" => ">="
+    case ">" => "<"
+    case ">=" => "<="
+    case _ => "???"
+  }
+
+  def isBinaryProductWithConstantBoundsEmpty(op1: String, op2: String, v1: Double, v2: Double): Boolean = (op1, op2) match {
+    case ("<", "=") | ("<", ">=") | ("<", ">") | ("<=", ">") | ("=", ">") => v2 <= v1 
+    case ("<=", "=") | ("<=", ">=") | ("=", ">=") => v2 < v1 
+    case ("=", "<") | (">=", "<") | (">", "<") | (">", "<=") | (">", "=") => v2 >= v1
+    case ("=", "<=") | (">=", "<=") | (">=", "=") => v2 > v1
+    case ("=", "=") => v1 != v2
+    case _ => false
+  }
+
+  def isBinaryProductEmpty(e1: Exp, e2: Exp): Boolean = {
+    if (e1 == e2) false
+    else {
+      (e1, e2) match {
+        case (c1 @ Comparison(op1, index1, variable1), c2 @ Comparison(op2, index2, variable2)) => {
+          (index1, index2) match {
+            case (i1 @ Variable(_), i2 @ Variable(_)) => {
+              if (i1 == i2 && variable1 == variable2) {
+                if (opEmpty(op1).contains(op2)) true
+                else false
+              } else if (i1 == variable2 && i2 == variable1) {
+                if (opEmpty(op1).contains(opComplement(op2))) true
+                else false
+              } else false
+            }
+            case (ConstantInt(v1), ConstantInt(v2)) => isBinaryProductWithConstantBoundsEmpty(op1, op2, v1, v2)
+            case (ConstantInt(v1), ConstantDouble(v2)) => isBinaryProductWithConstantBoundsEmpty(op1, op2, v1, v2)
+            case (ConstantDouble(v1), ConstantInt(v2)) => isBinaryProductWithConstantBoundsEmpty(op1, op2, v1, v2)
+            case (ConstantDouble(v1), ConstantDouble(v2)) => isBinaryProductWithConstantBoundsEmpty(op1, op2, v1, v2)
+            case _ => {
+              if (index1 == index2 && variable1 == variable2) {
+                if (opEmpty(op1).contains(op2)) true
+                else false
+              } else false
+            }
+          }
+        }
+        case _ => false
+      }
+    }
+  }
+
+  def isProductEmpty(prod: Prod): Boolean = prod.exps.combinations(2).exists { case Seq(e1, e2) => isBinaryProductEmpty(e1, e2) }
+
+  def isSoPDisjoint(sop1: SoP, sop2: SoP): Boolean = {
+    val sop = Optimizer.SoPTimesSoP(sop1, sop2)
+    sop.prods.forall(isProductEmpty)
+  }
+
+  def binAdd(lhs: Access, e1: Exp, e2: Exp, ctx: Seq[(Rule, Rule, Rule, Rule)]): (Rule, Rule, Rule) = {
+    (e1, e2) match {
+      case (acc1 @ Access(_, vars1, _), acc2 @ Access(_, vars2, _)) if (vars1.toSet == vars2.toSet) => {
+        val acc1UniqueSetBody = locallyDenormalizeAndReturnBody(acc1.uniqueHead, ctx)
+        val acc2UniqueSetBody = locallyDenormalizeAndReturnBody(acc2.uniqueHead, ctx)
+        val acc1RedundancyMapBody = locallyDenormalizeAndReturnBody(acc1.redundancyHead, ctx)
+        val acc2RedundancyMapBody = locallyDenormalizeAndReturnBody(acc2.redundancyHead, ctx)
+        
+        if (isSoPEquals(acc1UniqueSetBody, acc2UniqueSetBody) && isSoPEquals(acc1RedundancyMapBody, acc2RedundancyMapBody)) {
+          val usBody = SoP(Seq(Prod(Seq(acc1.uniqueHead))))
+          val us = Rule(lhs.uniqueHead, usBody)
+
+          val rmBody = SoP(Seq(Prod(Seq(acc1.redundancyHead))))
+          val rm = Rule(lhs.redundancyHead, rmBody)
+
+          val cBody = SoP(Seq(Prod(Seq(acc1.compressedHead)), Prod(Seq(acc2.compressedHead))))
+          val c = Rule(lhs.compressedHead, cBody)
+
+          (us, rm, c)
+        } else if (isSoPDisjoint(acc1UniqueSetBody, acc2UniqueSetBody) && isSoPDisjoint(acc1RedundancyMapBody, acc2RedundancyMapBody)) {
+          val usBody = SoP(Seq(Prod(Seq(acc1.uniqueHead)), Prod(Seq(acc2.uniqueHead))))
+          val us = Rule(lhs.uniqueHead, usBody)
+
+          val rmBody = SoP(Seq(Prod(Seq(acc1.redundancyHead)), Prod(Seq(acc2.redundancyHead))))
+          val rm = Rule(lhs.redundancyHead, rmBody)
+
+          val cBody = SoP(Seq(Prod(Seq(acc1.compressedHead)), Prod(Seq(acc2.compressedHead))))
+          val c = Rule(lhs.compressedHead, cBody)
+
+          (us, rm, c)
+        } else {
+          val usBody = SoP(Seq(Prod(Seq(acc1.uniqueHead)), Prod(Seq(acc2.uniqueHead)), Prod(Seq(acc1.redundancyHead)), Prod(Seq(acc2.redundancyHead))))
+          val us = Rule(lhs.uniqueHead, usBody)
+
+          val rm = Rule(lhs.redundancyHead, emptySoP())
+
+          val cBody = SoP(Seq(Prod(Seq(acc1.compressedHead)), Prod(Seq(acc2.compressedHead)), 
+                              Prod(Seq(acc1.redundancyHead, acc1.vars2RedundancyVars)), Prod(Seq(acc2.redundancyHead, acc2.vars2RedundancyVars))))
+          val c = Rule(lhs.compressedHead, cBody)
+
+          (us, rm, c)
+        }
+      }
+      case _ => throw new Exception("Input expressions to binary addition must be accesses with equal set of variables.")
+    }
+  }
+
+  def infer(r: Rule, ctx: Seq[(Rule, Rule, Rule, Rule)]): (Rule, Rule, Rule) = {
     val head: Access = r.head
     val prods: Seq[Prod] = r.body.prods
     assert(prods.length <= 2)
     if (prods.length == 1) {
       val exps: Seq[Exp] = prods(0).exps
       if (isShift(head, exps)) {
-        return shift(head, exps.head.asInstanceOf[Access], exps.tail)
+        shift(head, exps.head.asInstanceOf[Access], exps.tail)
       } else if (exps.length == 1) {
         assert(exps(0).isInstanceOf[Access])
-        return project(head, exps(0).asInstanceOf[Access])
+        project(head, exps(0).asInstanceOf[Access])
       } else if (exps.length == 2) {
         binMult(head, exps(0), exps(1))
       } else {
@@ -358,7 +492,8 @@ object Sompiler {
       }
     } else if (prods.length == 2) {
       // We made sure in the normalization step that all the products that reach here have only 1 expression and they are all accesses
-      throw new Exception("Not implemented yet")
+      assert(prods(0).exps.length == 1 && prods(1).exps.length == 1)
+      binAdd(head, prods(0).exps(0), prods(1).exps(0), ctx)
     } else throw new Exception("Only binary computations or self-outer product must be passed to infer function")
   }
 
@@ -366,8 +501,11 @@ object Sompiler {
     // println(s"------------------\nComputation:\n${computation.prettyFormat}\n")
     val norm = normalize(computation)
     println(s"------------------\nNormalized:\n${norm.map(_.prettyFormat).mkString("\n")}\n")
-    
-    val us_rm_cc_tc_seq = norm.map(infer).zip(norm).map{case((r1, r2, r3), r4) => (r1, r2, r3, r4)}
+
+    val us_rm_cc_tc_seq = norm.foldLeft(inputs)((ctx, r) => {
+      val (us, rm, cc) = infer(r, ctx)
+      ctx ++ Seq((us, rm, cc, r))
+    })
     // us_rm_cc_tc_seq.map{case(r1, r2, r3, r4) => println(s"====================\nUnique:\n${r1.prettyFormat}\nRedundancy:\n${r2.prettyFormat}\nCompressed:\n${r3.prettyFormat}\nComputation:\n${r4.prettyFormat}\n")}
 
     

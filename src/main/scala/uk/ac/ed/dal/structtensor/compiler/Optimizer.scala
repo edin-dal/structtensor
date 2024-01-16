@@ -29,7 +29,7 @@ object Optimizer {
 
   def denormalizeSingle(body: SoP, denormMap: Map[Access, SoP]): SoP = {
     def filterFN(exp: Exp): Boolean = exp match {
-      case acc @ Access(_, _, _) => denormMap.contains(acc)
+      case acc: Access => denormMap.contains(acc)
       case _ => false
     }
 
