@@ -172,13 +172,13 @@ PGLM      = Population Growth Leslie Matrix
             // println(end_str)
             write2File(config.outFilePath, init_str + "\n" + code_strs.mkString("\n") + "\n" + end_str)
 
-            tensorComputations.foldLeft()((acc, tc) => {
+            tensorComputations.foldLeft((uniqueSets, redundancyMaps))((acc, tc) => {
               val inps: Seq[(Rule, Rule, Rule, Rule)] = tc.body.prods.flatMap(prod => prod.exps.map(e => {
                 if (e.isInstanceOf[Access]) {
-                  val us = Rule(uniqueSets(e.asInstanceOf[Access]).head.uniqueHead, uniqueSets(e.asInstanceOf[Access]).body)
-                  val rm = Rule(redundancyMaps(e.asInstanceOf[Access]).head.redundancyHead, redundancyMaps(e.asInstanceOf[Access]).body)
-                  val cc = Rule(uniqueSets(e.asInstanceOf[Access]).head.compressedHead, SoPTimesSoP(SoP(Seq(Prod(Seq(e)))), uniqueSets(e.asInstanceOf[Access]).body))
-                  // val cc = Rule(uniqueSets(e.asInstanceOf[Access]).head.compressedHead, SoPTimesSoP(SoP(Seq(Prod(Seq(e)))), SoP(Seq(Prod(Seq(uniqueSets(e.asInstanceOf[Access]).head.uniqueHead))))))
+                  val us = Rule(acc._1(e.asInstanceOf[Access]).head.uniqueHead, acc._1(e.asInstanceOf[Access]).body)
+                  val rm = Rule(acc._2(e.asInstanceOf[Access]).head.redundancyHead, acc._2(e.asInstanceOf[Access]).body)
+                  val cc = Rule(acc._1(e.asInstanceOf[Access]).head.compressedHead, SoPTimesSoP(SoP(Seq(Prod(Seq(e)))), acc._1(e.asInstanceOf[Access]).body))
+                  // val cc = Rule(acc._1(e.asInstanceOf[Access]).head.compressedHead, SoPTimesSoP(SoP(Seq(Prod(Seq(e)))), SoP(Seq(Prod(Seq(acc._1(e.asInstanceOf[Access]).head.uniqueHead))))))
                   val t = Rule(e.asInstanceOf[Access], SoP(Seq(Prod(Seq(e)))))
                   (us, rm, cc, t)
                 } else {
@@ -190,25 +190,8 @@ PGLM      = Population Growth Leslie Matrix
                   (us, rm, cc, t)
                 }
               }))
-              // println("=====================================")
-              // println("inps:")
-              // println(inps)
-              // println("=====================================")
-              compile(tc, inps)
-              // normalizeSingleProdRule(tc).map(r => {
-              //   println("=====================================")
-              //   println("Rule:")
-              //   println(r.prettyFormat)
-                
-              //   val (us, rm, cc) = infer(r)
-              //   println("Unique Sets:")
-              //   println(us.prettyFormat)
-              //   println("Redundancy Maps:")
-              //   println(rm.prettyFormat)
-              //   println("Compressed Computation:")
-              //   println(cc.prettyFormat)
-              //   println("=====================================")
-              // })
+              val (usRule, rmRule, _) = compile(tc, inps)
+              (acc._1 + (usRule.head -> usRule), acc._2 + (rmRule.head -> rmRule))
             })
           } else {
             println("Please specify the stur code or the file path")
@@ -218,11 +201,4 @@ PGLM      = Population Growth Leslie Matrix
     }
     case _ => println("Error parsing arguments")
   }
-  
-  // import Parser._
-  // val p = "A(i, j, k) := C(k, l) * B(i, j, l) * (0 <= l * 2 + 5 % 2) * (Q > l) * (0 <= i) * (M > i) * (N > i) * (0 <= k) * (P > k) * (i = j)"
-  // val Parsed.Success(res, _) = parse(p, parser(_))
-  // println(res(0).prettyFormat)
-  // println(p)
-  // println(res)
 }

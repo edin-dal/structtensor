@@ -436,7 +436,7 @@ object Sompiler {
     } else throw new Exception("Only binary computations or self-outer product must be passed to infer function")
   }
 
-  def compile(computation: Rule, inputs: Seq[(Rule, Rule, Rule, Rule)]): (Rule, Rule) = {
+  def compile(computation: Rule, inputs: Seq[(Rule, Rule, Rule, Rule)]): (Rule, Rule, Rule) = {
     // println(s"------------------\nComputation:\n${computation.prettyFormat}\n")
     val norm = normalize(computation)
     println(s"------------------\nNormalized:\n${norm.map(_.prettyFormat).mkString("\n")}\n")
@@ -453,12 +453,12 @@ object Sompiler {
     val (denormUS, denormRM, denormCC, denormTC) = denormalize(computation.head, inputs ++ us_rm_cc_tc_seq)
     // println(s"------------------\nDenormalized:\n${denormCC.prettyFormat}\n${denormRM.prettyFormat}\n")
     
-    val (idempotentOptCC, idempotentOptRC) = (setIdempotentOpt(denormCC), setIdempotentOpt(denormRM))
-    // println(s"=================================\nIdempotent:\n${idempotentOptCC.prettyFormat}\n${idempotentOptRC.prettyFormat}\n")
+    val (idempotentOptUS, idempotentOptRM, idempotentOptCC) = (setIdempotentOpt(denormUS), setIdempotentOpt(denormRM), setIdempotentOpt(denormCC))
+    // println(s"=================================\nIdempotent:\n${idempotentOptCC.prettyFormat}\n${idempotentOptRM.prettyFormat}\n")
 
-    val (removeEmptyProdOptCC, removeEmptyProdOptRC) = (removeEmptyProductsOpt(idempotentOptCC), removeEmptyProductsOpt(idempotentOptRC))
-    println(s"=================================\nRemoved empty prods:\n${removeEmptyProdOptCC.prettyFormat}\n${removeEmptyProdOptRC.prettyFormat}\n")
+    val (removeEmptyProdOptUS, removeEmptyProdOptRM, removeEmptyProdOptCC) = (removeEmptyProductsOpt(idempotentOptUS), removeEmptyProductsOpt(idempotentOptRM), removeEmptyProductsOpt(idempotentOptCC))
+    println(s"=================================\nRemoved empty prods:\n${removeEmptyProdOptCC.prettyFormat}\n${removeEmptyProdOptRM.prettyFormat}\n")
 
-    (denormCC, denormRM)
+    (removeEmptyProdOptUS, removeEmptyProdOptRM, removeEmptyProdOptCC)
   }
 }
