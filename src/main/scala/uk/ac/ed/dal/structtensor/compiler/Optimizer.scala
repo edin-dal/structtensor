@@ -28,13 +28,13 @@ object Optimizer {
   } 
 
   def denormalizeSingle(body: SoP, denormMap: Map[Access, SoP]): SoP = {
-    def filterFN(exp: Exp): Boolean = exp match {
+    def extractAccessesInDenormalizationMap(exp: Exp): Boolean = exp match {
       case acc: Access => denormMap.contains(acc)
       case _ => false
     }
 
     body.prods.foldLeft(emptySoP())((acc1, prod) => {
-      val (epxsInMap, epxsNotInMap): (Seq[Exp], Seq[Exp]) = prod.exps.partition(filterFN)
+      val (epxsInMap, epxsNotInMap): (Seq[Exp], Seq[Exp]) = prod.exps.partition(extractAccessesInDenormalizationMap)
       val denormalizedSoPSeq = epxsInMap.map(exp => denormMap(exp.asInstanceOf[Access]))
       val singleAllExpSoP = SoP(Seq(Prod(epxsNotInMap)))
       val allExpSoP = if (epxsNotInMap.length == 0) multSoP(denormalizedSoPSeq) else if (epxsInMap.length == 0) singleAllExpSoP else multSoP(singleAllExpSoP +: denormalizedSoPSeq) 
@@ -42,7 +42,7 @@ object Optimizer {
     })
   }
 
-  def denormalize(head: Access, ctx: Seq[(Rule, Rule, Rule, Rule)], idempotent: Boolean = true): (Rule, Rule, Rule, Rule) = {
+  def denormalize(head: Access, ctx: Seq[(Rule, Rule, Rule, Rule)]): (Rule, Rule, Rule, Rule) = {
     val denormMap = ctx.foldLeft(Map[Access, SoP]())((acc, cur) => {
       val (us, rm, cc, tc) = cur
       val (usBody, rmBody, ccBody, tcBody) = (denormalizeSingle(us.body, acc), denormalizeSingle(rm.body, acc), denormalizeSingle(cc.body, acc), denormalizeSingle(tc.body, acc))
@@ -88,4 +88,67 @@ object Optimizer {
     val intersectOpt = setIdempotentIntersectionOpt(r)
     intersectOpt
   }
+
+  def opEmpty(op: String): Seq[String] = op match {
+    case "<" => Seq(">", ">=", "=")
+    case "<=" => Seq(">")
+    case ">=" => Seq("<")
+    case ">" => Seq("<", "<=", "=")
+    case "=" => Seq("<", ">")
+    case _ => Seq()
+  }
+
+  def opComplement(op: String): String = op match {
+    case "=" => "="
+    case "<" => ">"
+    case "<=" => ">="
+    case ">" => "<"
+    case ">=" => "<="
+    case _ => "???"
+  }
+
+  def isBinaryProductWithConstantBoundsEmpty(op1: String, op2: String, v1: Double, v2: Double): Boolean = (op1, op2) match {
+    case ("<", "=") | ("<", ">=") | ("<", ">") | ("<=", ">") | ("=", ">") => v2 <= v1 
+    case ("<=", "=") | ("<=", ">=") | ("=", ">=") => v2 < v1 
+    case ("=", "<") | (">=", "<") | (">", "<") | (">", "<=") | (">", "=") => v2 >= v1
+    case ("=", "<=") | (">=", "<=") | (">=", "=") => v2 > v1
+    case ("=", "=") => v1 != v2
+    case _ => false
+  }
+
+  def isBinaryProductEmpty(e1: Exp, e2: Exp): Boolean = {
+    if (e1 == e2) false
+    else {
+      (e1, e2) match {
+        case (c1 @ Comparison(op1, index1, variable1), c2 @ Comparison(op2, index2, variable2)) => {
+          (index1, index2) match {
+            case (i1 @ Variable(_), i2 @ Variable(_)) => {
+              if (i1 == i2 && variable1 == variable2) {
+                if (opEmpty(op1).contains(op2)) true
+                else false
+              } else if (i1 == variable2 && i2 == variable1) {
+                if (opEmpty(op1).contains(opComplement(op2))) true
+                else false
+              } else false
+            }
+            case (ConstantInt(v1), ConstantInt(v2)) => isBinaryProductWithConstantBoundsEmpty(op1, op2, v1, v2)
+            case (ConstantInt(v1), ConstantDouble(v2)) => isBinaryProductWithConstantBoundsEmpty(op1, op2, v1, v2)
+            case (ConstantDouble(v1), ConstantInt(v2)) => isBinaryProductWithConstantBoundsEmpty(op1, op2, v1, v2)
+            case (ConstantDouble(v1), ConstantDouble(v2)) => isBinaryProductWithConstantBoundsEmpty(op1, op2, v1, v2)
+            case _ => {
+              if (index1 == index2 && variable1 == variable2) {
+                if (opEmpty(op1).contains(op2)) true
+                else false
+              } else false
+            }
+          }
+        }
+        case _ => false
+      }
+    }
+  }
+
+  def isProductEmpty(prod: Prod): Boolean = prod.exps.combinations(2).exists { case Seq(e1, e2) => isBinaryProductEmpty(e1, e2) }
+
+  def removeEmptyProductsOpt(r: Rule): Rule = Rule(r.head, SoP(r.body.prods.filterNot(isProductEmpty)))
 }

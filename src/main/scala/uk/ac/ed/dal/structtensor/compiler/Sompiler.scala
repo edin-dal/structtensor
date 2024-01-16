@@ -359,69 +359,8 @@ object Sompiler {
     prodsSetExpsSet1 == prodsSetExpsSet2
   }
 
-  def opEmpty(op: String): Seq[String] = op match {
-    case "<" => Seq(">", ">=", "=")
-    case "<=" => Seq(">")
-    case ">=" => Seq("<")
-    case ">" => Seq("<", "<=", "=")
-    case "=" => Seq("<", ">")
-    case _ => Seq()
-  }
-
-  def opComplement(op: String): String = op match {
-    case "=" => "="
-    case "<" => ">"
-    case "<=" => ">="
-    case ">" => "<"
-    case ">=" => "<="
-    case _ => "???"
-  }
-
-  def isBinaryProductWithConstantBoundsEmpty(op1: String, op2: String, v1: Double, v2: Double): Boolean = (op1, op2) match {
-    case ("<", "=") | ("<", ">=") | ("<", ">") | ("<=", ">") | ("=", ">") => v2 <= v1 
-    case ("<=", "=") | ("<=", ">=") | ("=", ">=") => v2 < v1 
-    case ("=", "<") | (">=", "<") | (">", "<") | (">", "<=") | (">", "=") => v2 >= v1
-    case ("=", "<=") | (">=", "<=") | (">=", "=") => v2 > v1
-    case ("=", "=") => v1 != v2
-    case _ => false
-  }
-
-  def isBinaryProductEmpty(e1: Exp, e2: Exp): Boolean = {
-    if (e1 == e2) false
-    else {
-      (e1, e2) match {
-        case (c1 @ Comparison(op1, index1, variable1), c2 @ Comparison(op2, index2, variable2)) => {
-          (index1, index2) match {
-            case (i1 @ Variable(_), i2 @ Variable(_)) => {
-              if (i1 == i2 && variable1 == variable2) {
-                if (opEmpty(op1).contains(op2)) true
-                else false
-              } else if (i1 == variable2 && i2 == variable1) {
-                if (opEmpty(op1).contains(opComplement(op2))) true
-                else false
-              } else false
-            }
-            case (ConstantInt(v1), ConstantInt(v2)) => isBinaryProductWithConstantBoundsEmpty(op1, op2, v1, v2)
-            case (ConstantInt(v1), ConstantDouble(v2)) => isBinaryProductWithConstantBoundsEmpty(op1, op2, v1, v2)
-            case (ConstantDouble(v1), ConstantInt(v2)) => isBinaryProductWithConstantBoundsEmpty(op1, op2, v1, v2)
-            case (ConstantDouble(v1), ConstantDouble(v2)) => isBinaryProductWithConstantBoundsEmpty(op1, op2, v1, v2)
-            case _ => {
-              if (index1 == index2 && variable1 == variable2) {
-                if (opEmpty(op1).contains(op2)) true
-                else false
-              } else false
-            }
-          }
-        }
-        case _ => false
-      }
-    }
-  }
-
-  def isProductEmpty(prod: Prod): Boolean = prod.exps.combinations(2).exists { case Seq(e1, e2) => isBinaryProductEmpty(e1, e2) }
-
   def isSoPDisjoint(sop1: SoP, sop2: SoP): Boolean = {
-    val sop = Optimizer.SoPTimesSoP(sop1, sop2)
+    val sop = SoPTimesSoP(sop1, sop2)
     sop.prods.forall(isProductEmpty)
   }
 
@@ -515,7 +454,10 @@ object Sompiler {
     // println(s"------------------\nDenormalized:\n${denormCC.prettyFormat}\n${denormRM.prettyFormat}\n")
     
     val (idempotentOptCC, idempotentOptRC) = (setIdempotentOpt(denormCC), setIdempotentOpt(denormRM))
-    println(s"=================================\nOptimized:\n${idempotentOptCC.prettyFormat}\n${idempotentOptRC.prettyFormat}\n")
+    // println(s"=================================\nIdempotent:\n${idempotentOptCC.prettyFormat}\n${idempotentOptRC.prettyFormat}\n")
+
+    val (removeEmptyProdOptCC, removeEmptyProdOptRC) = (removeEmptyProductsOpt(idempotentOptCC), removeEmptyProductsOpt(idempotentOptRC))
+    println(s"=================================\nRemoved empty prods:\n${removeEmptyProdOptCC.prettyFormat}\n${removeEmptyProdOptRC.prettyFormat}\n")
 
     (denormCC, denormRM)
   }
