@@ -31,11 +31,11 @@ object Interpreter {
     case "!=" => "!="
   }
 
-  def interpretComparison(op: String, i1: Index, i2: Index): Seq[Comparison] = {
-    if (i1.isInstanceOf[Variable] && i2.isInstanceOf[Variable]) Seq(Comparison(op, i1, i2.asInstanceOf[Variable]))
-    else if (i1.isInstanceOf[Variable]) Seq(Comparison(reverseOp(op), i2, i1.asInstanceOf[Variable]))
-    else if (i2.isInstanceOf[Variable]) Seq(Comparison(op, i1, i2.asInstanceOf[Variable]))
-    else {
+  def interpretComparison(op: String, i1: Index, i2: Index): Seq[Comparison] = (i1, i2) match {
+    case (v1: Variable, v2: Variable) => Seq(Comparison(op, v1, v2))
+    case (v1: Variable, ii2: Index) => Seq(Comparison(reverseOp(op), i2, v1))
+    case (ii1: Index, v2: Variable) => Seq(Comparison(op, i1, v2))
+    case _ => {
       val v = getVar("v")
       val c1 = Comparison("=", i2, Variable(v))
       val c2 = Comparison(op, i1, Variable(v))
