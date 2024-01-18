@@ -5,13 +5,15 @@ package parser
 import compiler._
 import apps._
 
+import scala.collection.mutable.LinkedHashMap
+
 object Convertor {
   import Compiler._
   import STURHelper._
   import Bodygen._
 
-  def groupRules(rules: Seq[Rule]): (Map[Access, Rule], Map[Access, Rule], Map[Access, Rule], Map[Access, Rule]) = {
-    rules.foldLeft((Map.empty[Access, Rule], Map.empty[Access, Rule], Map.empty[Access, Rule], Map.empty[Access, Rule]))((acc, r) => {
+  def groupRules(rules: Seq[Rule]): (LinkedHashMap[Access, Rule], Map[Access, Rule], Map[Access, Rule], Map[Access, Rule]) = {
+    rules.foldLeft((LinkedHashMap.empty[Access, Rule], Map.empty[Access, Rule], Map.empty[Access, Rule], Map.empty[Access, Rule]))((acc, r) => {
       val headToTensorMap = acc._1
       val headToUniqueSetMap = acc._2
       val headToRedundancyMapMap = acc._3
@@ -27,7 +29,7 @@ object Convertor {
     })
   }
 
-  def getHeadsThatRequireDim(headToTensorMap: Map[Access, Rule]): Seq[Access] = {
+  def getHeadsThatRequireDim(headToTensorMap: LinkedHashMap[Access, Rule]): Seq[Access] = {
     val lhs: Seq[Access] = headToTensorMap.keySet.toSeq
     val rhs: Seq[Access] = headToTensorMap.values.foldLeft(Seq.empty[Access])((acc, r) => {
       acc ++ r.body.prods.foldLeft(Seq.empty[Access])((acc2, p) => {
@@ -42,7 +44,7 @@ object Convertor {
     rhs.diff(lhs).distinct.toSeq
   }
 
-  def checkDimsAvailable(headToTensorMap: Map[Access, Rule], headToDimensionMap: Map[Access, Rule]): Boolean = {
+  def checkDimsAvailable(headToTensorMap: LinkedHashMap[Access, Rule], headToDimensionMap: Map[Access, Rule]): Boolean = {
     getHeadsThatRequireDim(headToTensorMap).foldLeft(true)((acc, head) => {
       headToDimensionMap.get(head) match {
         case None => false
@@ -140,11 +142,11 @@ object Convertor {
     // redundancyMaps.values.toSeq.map(r => println(r.prettyFormat))
     // println("Dimensions:")
     // println(dimInfo)
-    val all_dimensions: Seq[DimInfo] = tensorComputations.foldLeft(dimInfo)((acc, r) => acc :+ DimInfo(r.head, infer(r, acc, uniqueSets, redundancyMaps)._4.dims))
+    ///// val all_dimensions: Seq[DimInfo] = tensorComputations.foldLeft(dimInfo)((acc, r) => acc :+ DimInfo(r.head, infer(r, acc, uniqueSets, redundancyMaps)._4.dims))
     // println("All Dimensions:")
     // println(all_dimensions)
-    val all_tensors: Seq[Access] = getAllTensors(tensorComputations).distinct
-    val (init, end) = if (!initTensors) ("", "") else Bodygen(codeLang, rules, all_tensors, all_dimensions.toAccessMap, uniqueSets, sturOpt)
-    return (init, tensorComputations, all_dimensions, uniqueSets, redundancyMaps, end)
+    ///// val all_tensors: Seq[Access] = getAllTensors(tensorComputations).distinct
+    val (init, end) = ("", "") ////// if (!initTensors) ("", "") else Bodygen(codeLang, rules, all_tensors, all_dimensions.toAccessMap, uniqueSets, sturOpt)
+    return (init, tensorComputations, Seq[DimInfo](), uniqueSets, redundancyMaps, end)
   }
 }
