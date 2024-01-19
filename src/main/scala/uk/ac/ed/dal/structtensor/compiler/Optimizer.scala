@@ -5,6 +5,12 @@ package compiler
 object Optimizer {
   import STURHelper._
 
+  var cnt = 0
+  def getVar(name: String): String = {
+    cnt += 1
+    return s"$name$cnt"
+  }
+
   def concatSoP(sops: Seq[SoP]): SoP = SoP(sops.flatMap(sop => sop.prods))
 
   def prodTimesProd(prod1: Prod, prod2: Prod): Prod = {
@@ -28,14 +34,14 @@ object Optimizer {
   } 
 
   def denormalizeSingle(body: SoP, denormMap: Map[Access, SoP]): SoP = {
-    def extractAccessesInDenormalizationMap(exp: Exp): Boolean = exp match {
-      case acc: Access => denormMap.contains(acc)
+    def extractAccessesInDenormalizationMapByName(exp: Exp): Boolean = exp match {
+      case acc: Access => containsByName(denormMap, acc)
       case _ => false
     }
 
     body.prods.foldLeft(emptySoP())((acc1, prod) => {
-      val (epxsInMap, epxsNotInMap): (Seq[Exp], Seq[Exp]) = prod.exps.partition(extractAccessesInDenormalizationMap)
-      val denormalizedSoPSeq = epxsInMap.map(exp => denormMap(exp.asInstanceOf[Access]))
+      val (epxsInMap, epxsNotInMap): (Seq[Exp], Seq[Exp]) = prod.exps.partition(extractAccessesInDenormalizationMapByName)
+      val denormalizedSoPSeq = epxsInMap.map(exp => getByNameAndAlphaRename(denormMap, exp.asInstanceOf[Access]).get)
       val singleAllExpSoP = SoP(Seq(Prod(epxsNotInMap)))
       val allExpSoP = if (epxsNotInMap.length == 0) multSoP(denormalizedSoPSeq) else if (epxsInMap.length == 0) singleAllExpSoP else multSoP(singleAllExpSoP +: denormalizedSoPSeq) 
       concatSoP(Seq(acc1, allExpSoP))
@@ -151,4 +157,43 @@ object Optimizer {
   def isProductEmpty(prod: Prod): Boolean = prod.exps.combinations(2).exists { case Seq(e1, e2) => isBinaryProductEmpty(e1, e2) }
 
   def removeEmptyProductsOpt(r: Rule): Rule = Rule(r.head, SoP(r.body.prods.filterNot(isProductEmpty)))
+
+  def getNonDimensionVariables(prod: Prod): Seq[Variable] = prod.exps.flatMap {
+      case Access(_, vars, _) => vars.distinct
+      case _ => Seq()
+    }.distinct
+
+  def getNonDimensionVariables(sop: SoP): Seq[Variable] = sop.prods.flatMap(getNonDimensionVariables).distinct
+
+  def getNonDimensionVariables(rule: Rule): Seq[Variable] = (rule.head.vars ++ getNonDimensionVariables(rule.body)).distinct
+
+  def alphaRename(index: Index, alphaRenameMap: Map[Variable, Variable]): Index = index match {
+    case v: Variable => alphaRenameMap.getOrElse(v, v)
+    case Arithmetic(op, i1, i2) => Arithmetic(op, alphaRename(i1, alphaRenameMap), alphaRename(i2, alphaRenameMap))
+    case _ => index
+  }
+
+  def alphaRename(sop: SoP, alphaRenameMap: Map[Variable, Variable]): SoP = {
+    SoP(sop.prods.map(p => {
+      Prod(p.exps.map {
+        case Access(n, v, k) => Access(n, v.map(v2 => alphaRenameMap.getOrElse(v2, v2)), k)
+        case Comparison(op, i, v) => Comparison(op, alphaRename(i, alphaRenameMap), alphaRenameMap.getOrElse(v, v))
+        case _ => throw new Exception("Unknown expression")
+      })
+    }))
+  }
+
+  def containsByName(m: Map[Access, SoP], access: Access): Boolean = m.exists {
+    case (key, _) if key.name == access.name => true
+    case _ => false
+  }
+
+  def getByNameAndAlphaRename(m: Map[Access, SoP], access: Access): Option[SoP] = m.collectFirst {
+    case (key, value) if key.name == access.name => {
+      val nonDimVarsValue = getNonDimensionVariables(value)
+      val alphaRenameRequiredVars = nonDimVarsValue.diff(key.vars)
+      val alphaRenameMap = (key.vars.zip(access.vars) ++ alphaRenameRequiredVars.map(v => (v -> Variable(getVar("i"))))).toMap
+      alphaRename(value, alphaRenameMap)
+    } 
+  }
 }

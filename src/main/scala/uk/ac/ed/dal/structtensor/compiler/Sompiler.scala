@@ -6,22 +6,6 @@ object Sompiler {
   import STURHelper._
   import Optimizer._
 
-  var cnt = 0
-  def getVar(name: String): String = {
-    cnt += 1
-    return s"$name$cnt"
-  }
-
-  def getNonDimensionVariables(prod: Prod): Seq[Variable] = prod.exps.flatMap {
-      case Access(_, vars, _) => vars.distinct
-      case _ => Seq()
-    }.distinct
-
-  def getNonDimensionVariables(sop: SoP): Seq[Variable] = sop.prods.flatMap(getNonDimensionVariables).distinct
-
-  def getNonDimensionVariables(rule: Rule): Seq[Variable] = (rule.head.vars ++ getNonDimensionVariables(rule.body)).distinct
-
-
   def getAllVariables(index: Index): Seq[Variable] = {
     index match {
       case v @ Variable(name) => Seq(v)

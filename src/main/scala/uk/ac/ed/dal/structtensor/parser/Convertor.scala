@@ -41,7 +41,7 @@ object Convertor {
         })
       })
     })
-    rhs.diff(lhs).distinct.toSeq
+    rhs.distinct.diff(lhs.distinct).toSeq
   }
 
   def checkDimsAvailable(headToTensorMap: LinkedHashMap[Access, Rule], headToDimensionMap: Map[Access, Rule]): Boolean = {
@@ -126,6 +126,10 @@ object Convertor {
 
   def convertRules(rules: Seq[Rule], initTensors: Boolean, enforceDimensions: Boolean, codeLang: String, sturOpt: Boolean): (String, Seq[Rule], Seq[DimInfo], Map[Exp, Rule], Map[Exp, Rule], String) = {
     val (headToTensorMap, headToUniqueSetMap, headToRedundancyMapMap, headToDimensionMap) = groupRules(rules)
+    // headToTensorMap.foreach{case (k, v) => println(s"**************************\nTensor:\n${k.prettyFormat} -> ${v.prettyFormat}\n")}
+    // headToUniqueSetMap.foreach{case (k, v) => println(s"**************************\nUnique Set:\n${k.prettyFormat} -> ${v.prettyFormat}\n")}
+    // headToRedundancyMapMap.foreach{case (k, v) => println(s"**************************\nRedundancy Map:\n${k.prettyFormat} -> ${v.prettyFormat}\n")}
+    // headToDimensionMap.foreach{case (k, v) => println(s"**************************\nDimension:\n${k.prettyFormat} -> ${v.prettyFormat}\n")}
     val dimsAvailable = checkDimsAvailable(headToTensorMap, headToDimensionMap)
     if (!dimsAvailable) throw new Exception("Dimensions not available for all tensors")
     val (dimInfo, dimInfoMap): (Seq[DimInfo], Map[Access, DimInfo]) = extractDims(headToDimensionMap)
