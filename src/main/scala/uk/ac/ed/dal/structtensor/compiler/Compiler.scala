@@ -2039,19 +2039,21 @@ object Compiler {
     else ""
   }
 
-  def codeGen(tensorComputation: Rule, dimInfo: Seq[DimInfo], uniqueSets: Map[Exp, Rule], redundancyMaps: Map[Exp, Rule], codeGenMode: Int = 0, peqMode: Boolean = true, variableReplacementFlag: Boolean = true, codeMotion: Boolean = true, dataLayoutMap: Map[Exp, Function[Seq[Variable], Seq[Index]]] = Map(), varReverse: Boolean = false, codeLang: String = "default", compressionMaps: Map[Exp, Rule] = Map(), sturOpt: Boolean = false, compress: Boolean = false, append_stur_opt_file: Boolean = false, run_stur_opt: Boolean = true): String = {
+  def codeGen(tensorComputation: Rule, dimInfo: Seq[DimInfo], uniqueSets: Map[Exp, Rule], redundancyMaps: Map[Exp, Rule], codeGenMode: Int = 0, peqMode: Boolean = true, variableReplacementFlag: Boolean = true, codeMotion: Boolean = true, dataLayoutMap: Map[Exp, Function[Seq[Variable], Seq[Index]]] = Map(), varReverse: Boolean = false, codeLang: String = "default", compressionMaps: Map[Exp, Rule] = Map(), sturOpt: Boolean = false, compress: Boolean = false, append_stur_opt_file: Boolean = false, run_stur_opt: Boolean = true, compressionMapOptional: Map[Exp, Rule] = Map[Exp, Rule]()): String = {
     val variables: Seq[Variable] = if (varReverse) getVariables(tensorComputation).reverse else getVariables(tensorComputation)
-    val compressionMap1: Map[Exp, Rule] = uniqueSets.foldLeft(Seq.empty[(Exp, Rule)])((acc, kv) => {
-      val (exp, us) = kv
-      val access = exp.asInstanceOf[Access]
-      val compressedHead = Access(access.name.compressedName, access.vars, CompressedTensor)
-      val compressedBody = if (access.vars.length > 0) multSoP(Seq(us.body, SoP(Seq(Prod(Seq(exp)))))) else SoP(Seq(Prod(Seq(exp))))
-      acc :+ (exp -> Rule(compressedHead, compressedBody))
-    }).toMap
-    val compressionMap: Map[Exp, Rule] = mergeMap(Seq(compressionMaps, compressionMap1))((v1, v2) => v1)
+    // val compressionMap1: Map[Exp, Rule] = uniqueSets.foldLeft(Seq.empty[(Exp, Rule)])((acc, kv) => {
+    //   val (exp, us) = kv
+    //   val access = exp.asInstanceOf[Access]
+    //   val compressedHead = Access(access.name.compressedName, access.vars, CompressedTensor)
+    //   val compressedBody = if (access.vars.length > 0) multSoP(Seq(us.body, SoP(Seq(Prod(Seq(exp)))))) else SoP(Seq(Prod(Seq(exp))))
+    //   acc :+ (exp -> Rule(compressedHead, compressedBody))
+    // }).toMap
+    // val compressionMap: Map[Exp, Rule] = mergeMap(Seq(compressionMaps, compressionMap1))((v1, v2) => v1)
+    val compressionMap = compressionMapOptional
     val dataLayoutMapPrime: Map[Exp, Function[Seq[Variable], Seq[Index]]] = dataLayoutMap.map{case (k, v) => (k.asInstanceOf[Access].vars2RedundancyVars, v)}
     val dlMapFinal: Map[Exp, Function[Seq[Variable], Seq[Index]]] = mergeMap(Seq(dataLayoutMapPrime, dataLayoutMap))((v1, v2) => v2)
-    val (outUS, outRM, outC, outDI) = infer(tensorComputation, dimInfo, uniqueSets, redundancyMaps, compressionMap)
+    // val (outUS, outRM, outC, outDI) = infer(tensorComputation, dimInfo, uniqueSets, redundancyMaps, compressionMap)
+    val (outUS, outRM, outC, outDI) = (uniqueSets(tensorComputation.head), redundancyMaps(tensorComputation.head), compressionMap(tensorComputation.head), dimInfo.last)
     val allDimVars: Seq[Variable] = dimInfo.toVarsMap.values.foldLeft(Seq.empty[Dim])((acc, dimSeq) => acc ++ dimSeq).foldLeft(Seq.empty[Variable])((acc, d) => acc ++ getVariables(d))
     
     val (comparisonsC, tensorComputationC): (SoP, SoP) = (getOnlyComparisonSoP(outC.body), getNoComparisonSoP(outC.body))

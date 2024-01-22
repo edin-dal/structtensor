@@ -162,21 +162,12 @@ PGLM      = Population Growth Leslie Matrix
             }).toSeq
             // parsedRules.map(r => println(r.prettyFormat))
             val (init_str, tensorComputations, dimInfo, uniqueSets, redundancyMaps, end_str): (String, Seq[Rule], Seq[DimInfo], Map[Exp, Rule], Map[Exp, Rule], String) = convertRules(parsedRules, config.initTensors, config.enforceDimensions, config.codeLang, config.sturOpt)
-            // println(init_str)
-            // val code_strs = tensorComputations.zipWithIndex.map{case(tc, i) => {
-            //   if (tensorComputations.length == 1) codeGen(tc, dimInfo, uniqueSets, redundancyMaps, codeGenMode=1, codeMotion=config.codeMotion, codeLang=config.codeLang, sturOpt=config.sturOpt, compress=config.compress, append_stur_opt_file=false, run_stur_opt=true)
-            //   else if (i == 0) codeGen(tc, dimInfo, uniqueSets, redundancyMaps, codeGenMode=1, codeMotion=config.codeMotion, codeLang=config.codeLang, sturOpt=config.sturOpt, compress=config.compress, append_stur_opt_file=false, run_stur_opt=false)
-            //   else if (i == tensorComputations.length - 1) codeGen(tc, dimInfo, uniqueSets, redundancyMaps, codeGenMode=1, codeMotion=config.codeMotion, codeLang=config.codeLang, sturOpt=config.sturOpt, compress=config.compress, append_stur_opt_file=true, run_stur_opt=true)
-            //   else codeGen(tc, dimInfo, uniqueSets, redundancyMaps, codeGenMode=1, codeMotion=config.codeMotion, codeLang=config.codeLang, sturOpt=config.sturOpt, compress=config.compress, append_stur_opt_file=true, run_stur_opt=false)
-            // }}
-            // println(end_str)
-            // write2File(config.outFilePath, init_str + "\n" + code_strs.mkString("\n") + "\n" + end_str)
             println("**************************")
             println("Tensor Computations:")
             tensorComputations.map(r => println(r.prettyFormat))
             println("**************************")
 
-            tensorComputations.foldLeft((uniqueSets, redundancyMaps, Map[Exp, Rule]()))((acc, tc) => {
+            val (newUS, newRM, newCC) = tensorComputations.foldLeft((uniqueSets, redundancyMaps, Map[Exp, Rule]()))((acc, tc) => {
               val inps: Seq[(Rule, Rule, Rule, Rule)] = tc.body.prods.flatMap(prod => prod.exps.map(e => {
                 if (e.isInstanceOf[Access]) {
                   val us = Rule(acc._1(e.asInstanceOf[Access]).head.uniqueHead, acc._1(e.asInstanceOf[Access]).body)
@@ -199,6 +190,16 @@ PGLM      = Population Growth Leslie Matrix
               val (usRule, rmRule, ccRule) = compile(tc, inps)
               (acc._1 + (usRule.head -> usRule), acc._2 + (rmRule.head -> rmRule), acc._3 + (ccRule.head -> ccRule))
             })
+
+            println(init_str)
+            val code_strs = tensorComputations.zipWithIndex.map{case(tc, i) => {
+              if (tensorComputations.length == 1) codeGen(tc, dimInfo, newUS, newRM, codeGenMode=1, codeMotion=config.codeMotion, codeLang=config.codeLang, sturOpt=config.sturOpt, compress=config.compress, append_stur_opt_file=false, run_stur_opt=true, compressionMapOptional=newCC)
+              else if (i == 0) codeGen(tc, dimInfo, newUS, newRM, codeGenMode=1, codeMotion=config.codeMotion, codeLang=config.codeLang, sturOpt=config.sturOpt, compress=config.compress, append_stur_opt_file=false, run_stur_opt=false, compressionMapOptional=newCC)
+              else if (i == tensorComputations.length - 1) codeGen(tc, dimInfo, newUS, newRM, codeGenMode=1, codeMotion=config.codeMotion, codeLang=config.codeLang, sturOpt=config.sturOpt, compress=config.compress, append_stur_opt_file=true, run_stur_opt=true, compressionMapOptional=newCC)
+              else codeGen(tc, dimInfo, newUS, newRM, codeGenMode=1, codeMotion=config.codeMotion, codeLang=config.codeLang, sturOpt=config.sturOpt, compress=config.compress, append_stur_opt_file=true, run_stur_opt=false, compressionMapOptional=newCC)
+            }}
+            println(end_str)
+            write2File(config.outFilePath, init_str + "\n" + code_strs.mkString("\n") + "\n" + end_str)
           } else {
             println("Please specify the stur code or the file path")
           }
