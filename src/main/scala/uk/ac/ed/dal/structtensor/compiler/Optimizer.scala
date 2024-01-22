@@ -68,6 +68,14 @@ object Optimizer {
     (denormUS, denormRM, denormCC, denormTC)
   }
 
+  def denormalizeDim(head: Access, ctx: Seq[Rule]): Rule = {
+    val denormMap = ctx.foldLeft(Map[Access, SoP]())((acc, dc) => {
+      val dcBody = denormalizeSingle(dc.body, acc)
+      acc + (dc.head -> dcBody)
+    })
+    Rule(head, denormMap(head))
+  }
+
   def singleProdIdempotence(p: Prod): Prod = {
     def extractBooleanDomainComputation(exp: Exp): Boolean = {
       exp match {
@@ -91,8 +99,14 @@ object Optimizer {
   def setIdempotentIntersectionOpt(r: Rule): Rule = Rule(r.head, SoP(r.body.prods.map(singleProdIdempotence)))
 
   def setIdempotentOpt(r: Rule): Rule = {
-    val intersectOpt = setIdempotentIntersectionOpt(r)
-    intersectOpt
+    val areAllComparison = r.body.prods.forall(p => p.exps.forall(e => e.isInstanceOf[Comparison]))
+    areAllComparison match {
+      case true => {
+        val prodSetOfExpSet = r.body.prods.map(p => p.exps.toSet).toSet
+        Rule(r.head, SoP(prodSetOfExpSet.map(p => Prod(p.toSeq)).toSeq))
+      }
+      case false => setIdempotentIntersectionOpt(r)
+    }
   }
 
   def opEmpty(op: String): Seq[String] = op match {

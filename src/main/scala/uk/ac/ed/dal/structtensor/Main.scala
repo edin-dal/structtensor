@@ -169,7 +169,7 @@ PGLM      = Population Growth Leslie Matrix
             //   else if (i == tensorComputations.length - 1) codeGen(tc, dimInfo, uniqueSets, redundancyMaps, codeGenMode=1, codeMotion=config.codeMotion, codeLang=config.codeLang, sturOpt=config.sturOpt, compress=config.compress, append_stur_opt_file=true, run_stur_opt=true)
             //   else codeGen(tc, dimInfo, uniqueSets, redundancyMaps, codeGenMode=1, codeMotion=config.codeMotion, codeLang=config.codeLang, sturOpt=config.sturOpt, compress=config.compress, append_stur_opt_file=true, run_stur_opt=false)
             // }}
-            // // println(end_str)
+            // println(end_str)
             // write2File(config.outFilePath, init_str + "\n" + code_strs.mkString("\n") + "\n" + end_str)
             println("**************************")
             println("Tensor Computations:")

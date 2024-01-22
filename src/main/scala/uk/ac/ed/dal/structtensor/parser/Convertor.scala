@@ -9,6 +9,8 @@ import scala.collection.mutable.LinkedHashMap
 
 object Convertor {
   import Compiler._
+  import Sompiler._
+  import Optimizer.denormalizeDim, Optimizer.setIdempotentOpt, Optimizer.removeEmptyProductsOpt
   import STURHelper._
   import Bodygen._
 
@@ -54,41 +56,45 @@ object Convertor {
   }
 
   def findUpperBound(v: Variable, sop: SoP): Dim = {
-    val upperBounds: Seq[Dim] = sop.prods.foldLeft(Seq.empty[Dim])((acc, p) => {
-      acc ++ p.exps.foldLeft(Seq.empty[Dim])((acc2, e) => {
-        e match {
-          case Comparison(op, index, variable) => {
-            if (variable == v) {
-              op match {
-                case ">=" => acc2 :+ Arithmetic("-", index, ConstantInt(1))
-                case ">" => acc2 :+ index.asInstanceOf[Dim]
-                case _ => acc2
-              }
+    val upperBounds: Seq[Dim] = sop.prods.foldLeft(Seq[Dim]())((acc, prod) => acc ++ prod.exps.foldLeft(Seq[Dim]())((acc2, exp) => exp match {
+      case Comparison(op, index, variable) => {
+        index match {
+          case ind: Dim if (variable == v) => {
+            op match {
+              case ">=" => acc2 :+ Arithmetic("-", ind, ConstantInt(1))
+              case ">" => acc2 :+ ind
+              case _ => acc2
             }
-            else if (index.isInstanceOf[Variable] && index.asInstanceOf[Variable] == v) {
-              op match {
-                case "<=" => acc2 :+ Arithmetic("+", variable, ConstantInt(1))
-                case "<" => acc2 :+ variable
-                case _ => acc2
-              }
+          }
+          case ind: Variable if (ind == v) => {
+            op match {
+              case "<=" => acc2 :+ Arithmetic("+", variable, ConstantInt(1))
+              case "<" => acc2 :+ variable
+              case _ => acc2
             }
-            else acc2
+          }
+          case arith @ Arithmetic("-", arithVaria1: Variable, arithVaria2: Variable) if (op == "=" && arithVaria1 == v) => {
+            val d = findUpperBound(variable, sop)
+            acc2 :+ Arithmetic("+", d, arithVaria2)
           }
           case _ => acc2
         }
-      })
-    })
+      }
+      case _ => acc2
+    }))
+    // might be better if we have a min function and pass that in case of multiple upper bounds
     upperBounds(0)
   }
 
-  def extractDims(headToDimensionMap: Map[Access, Rule]): (Seq[DimInfo], Map[Access, DimInfo]) = { // and a map to diminfo to mix it with unique set and redundancy map if necessary.
-    headToDimensionMap.foldLeft((Seq.empty[DimInfo], Map.empty[Access, DimInfo]))((acc, headRule) => {
-      val old_head = headRule._1
-      val rule = headRule._2
-      val head = Access(rule.head.name, rule.head.vars, Tensor)
-      val body = rule.body
-      val dimSeq = head.vars.foldLeft(Seq.empty[Dim])((acc2, v) => acc2 :+ findUpperBound(v, body))
-      (acc._1 :+ DimInfo(head, dimSeq), acc._2 ++ Map(old_head -> DimInfo(rule.head, dimSeq)))
+  def extractDims(dimSeqAsRuleSeq: Seq[Rule]): (Seq[DimInfo], Map[Access, DimInfo]) = {
+    dimSeqAsRuleSeq.foldLeft((Seq[DimInfo](), Map[Access, DimInfo]()))((acc, r) => {
+      val old_head = r.head
+      val name = if (r.head.name.contains("_D")) r.head.name.substring(0, r.head.name.length - 2) else r.head.name
+      val head = Access(name, r.head.vars, Tensor)
+      val body = r.body
+
+      val dimSeq = head.vars.map(v => findUpperBound(v, body))
+      (acc._1 :+ DimInfo(head, dimSeq), acc._2 ++ Map(old_head -> DimInfo(r.head, dimSeq)))
     })
   }
 
@@ -124,18 +130,34 @@ object Convertor {
     })
   }
 
+  def getAllOptDims(tensorComputations: Seq[Rule], headToDimensionMap: Map[Access, Rule]): Seq[Rule] = {
+    val norms = tensorComputations.map(normalize)
+    val dimsSeq = norms.map(norm => norm.map(dimensionInfer))
+    val denormDimsSeq = dimsSeq.foldLeft(Seq[Rule]())((acc, dimSeq) => {
+      acc :+ denormalizeDim(dimSeq.last.head, headToDimensionMap.values.toSeq.map(r => Rule(r.head.dimensionHead, r.body)) ++ acc ++ dimSeq)
+    })
+    val idempotentDimsSeq = denormDimsSeq.map(setIdempotentOpt)
+    val removeEmptyProductsDimsSeq = idempotentDimsSeq.map(removeEmptyProductsOpt)
+    removeEmptyProductsDimsSeq
+  }
+
   def convertRules(rules: Seq[Rule], initTensors: Boolean, enforceDimensions: Boolean, codeLang: String, sturOpt: Boolean): (String, Seq[Rule], Seq[DimInfo], Map[Exp, Rule], Map[Exp, Rule], String) = {
     val (headToTensorMap, headToUniqueSetMap, headToRedundancyMapMap, headToDimensionMap) = groupRules(rules)
     // headToTensorMap.foreach{case (k, v) => println(s"**************************\nTensor:\n${k.prettyFormat} -> ${v.prettyFormat}\n")}
     // headToUniqueSetMap.foreach{case (k, v) => println(s"**************************\nUnique Set:\n${k.prettyFormat} -> ${v.prettyFormat}\n")}
     // headToRedundancyMapMap.foreach{case (k, v) => println(s"**************************\nRedundancy Map:\n${k.prettyFormat} -> ${v.prettyFormat}\n")}
     // headToDimensionMap.foreach{case (k, v) => println(s"**************************\nDimension:\n${k.prettyFormat} -> ${v.prettyFormat}\n")}
+    val tensorComputations: Seq[Rule] = headToTensorMap.values.toSeq
+    // TODO: Extract the dimensions needed from the rules (pay attention to shift, min and maxes and stuff)
+
     val dimsAvailable = checkDimsAvailable(headToTensorMap, headToDimensionMap)
     if (!dimsAvailable) throw new Exception("Dimensions not available for all tensors")
-    val (dimInfo, dimInfoMap): (Seq[DimInfo], Map[Access, DimInfo]) = extractDims(headToDimensionMap)
+    
+    val optDimsSeq = getAllOptDims(tensorComputations, headToDimensionMap)
+
+    val (dimInfo, dimInfoMap): (Seq[DimInfo], Map[Access, DimInfo]) = extractDims(headToDimensionMap.values.toSeq ++ optDimsSeq)
     val uniqueSets: Map[Exp, Rule] = if (!enforceDimensions) headToUniqueSetMap.values.map(r => (Access(r.head.name, r.head.vars, Tensor) -> Rule(Access(r.head.name, r.head.vars, UniqueSet), r.body))).toMap else extractSet(headToUniqueSetMap, dimInfoMap, UniqueSet)
     val redundancyMaps: Map[Exp, Rule] = if (!enforceDimensions) headToRedundancyMapMap.values.map(r => (Access(r.head.name, r.head.vars.slice(0, r.head.vars.length / 2), Tensor) -> Rule(Access(r.head.name, r.head.vars, RedundancyMap), r.body))).toMap else extractSet(headToRedundancyMapMap, dimInfoMap, RedundancyMap)
-    val tensorComputations: Seq[Rule] = headToTensorMap.values.toSeq
     // println("Enforce Dimensions:")
     // println(enforceDimensions)
     // println("Tensor Computations:")
@@ -149,8 +171,8 @@ object Convertor {
     ///// val all_dimensions: Seq[DimInfo] = tensorComputations.foldLeft(dimInfo)((acc, r) => acc :+ DimInfo(r.head, infer(r, acc, uniqueSets, redundancyMaps)._4.dims))
     // println("All Dimensions:")
     // println(all_dimensions)
-    ///// val all_tensors: Seq[Access] = getAllTensors(tensorComputations).distinct
-    val (init, end) = ("", "") ////// if (!initTensors) ("", "") else Bodygen(codeLang, rules, all_tensors, all_dimensions.toAccessMap, uniqueSets, sturOpt)
-    return (init, tensorComputations, Seq[DimInfo](), uniqueSets, redundancyMaps, end)
+    val all_tensors: Seq[Access] = getAllTensors(tensorComputations).distinct
+    val (init, end) = if (!initTensors) ("", "") else Bodygen(codeLang, rules, all_tensors, dimInfo.toAccessMap, uniqueSets, sturOpt)
+    return (init, tensorComputations, dimInfo, uniqueSets, redundancyMaps, end)
   }
 }

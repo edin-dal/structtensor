@@ -110,6 +110,7 @@ case class Access(name: String, vars: Seq[Variable], kind: AccessType) extends E
   def uniqueHead(): Access = Access(name.uniqueName, vars, UniqueSet)
   def redundancyHead(): Access = Access(name.redundancyName, vars.redundancyVarsInplace, RedundancyMap)
   def compressedHead(): Access = Access(name.compressedName, vars, CompressedTensor)
+  def dimensionHead(): Access = Access(name.dimensionName, vars, DimensionType)
 }
 
 case class Comparison(op: String, index: Index, variable: Variable) extends Exp {
@@ -258,6 +259,7 @@ object STURHelper {
     def uniqueName = s"${s}_US"
     def redundancyName = s"${s}_RM"
     def compressedName = s"${s}_C"
+    def dimensionName = s"${s}_D"
     def toVar: Variable = Variable(s)
     def redundancyVars: Variable = s.toVar.redundancyVars
   }
