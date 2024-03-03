@@ -481,7 +481,7 @@ $last = "memref.load"(%${access.name}${", %const_val_0" * access.vars.length}) :
     case "C" => C_init_code()
     case "CPP" => CPP_init_code()
     case "MLIR" => MLIR_init_code()
-    case "SNIPPET" => MLIR_init_code()
+    case "SNIPPETS" => MLIR_init_code()
     case _ => throw new Exception("Unknown code language")
   }
 
@@ -489,7 +489,7 @@ $last = "memref.load"(%${access.name}${", %const_val_0" * access.vars.length}) :
     case "C" => C_read_argv(argv_names)
     case "CPP" => CPP_read_argv(argv_names)
     case "MLIR" => MLIR_read_argv(argv_names)
-    case "SNIPPET" => MLIR_read_argv(argv_names)
+    case "SNIPPETS" => MLIR_read_argv(argv_names)
     case _ => throw new Exception("Unknown code language")
   }
 
@@ -497,7 +497,7 @@ $last = "memref.load"(%${access.name}${", %const_val_0" * access.vars.length}) :
     case "C" => C_alloc_and_gen_random_number(head, dims, sopCond)
     case "CPP" => CPP_alloc_and_gen_random_number(head, dims, sopCond)
     case "MLIR" => MLIR_alloc_and_gen_random_number(head, dims, sopCond)
-    case "SNIPPET" => MLIR_alloc_and_gen_random_number(head, dims, sopCond)
+    case "SNIPPETS" => MLIR_alloc_and_gen_random_number(head, dims, sopCond)
     case _ => throw new Exception("Unknown code language")
   }
 
@@ -505,7 +505,7 @@ $last = "memref.load"(%${access.name}${", %const_val_0" * access.vars.length}) :
     case "C" => C_timer_start()
     case "CPP" => CPP_timer_start()
     case "MLIR" => MLIR_start_timer_code()
-    case "SNIPPET" => MLIR_start_timer_code()
+    case "SNIPPETS" => MLIR_start_timer_code()
     case _ => throw new Exception("Unknown code language")
   }
 
@@ -513,7 +513,7 @@ $last = "memref.load"(%${access.name}${", %const_val_0" * access.vars.length}) :
     case "C" => C_timer_end()
     case "CPP" => CPP_timer_end()
     case "MLIR" => MLIR_timer_end()
-    case "SNIPPET" => MLIR_timer_end()
+    case "SNIPPETS" => MLIR_timer_end()
     case _ => throw new Exception("Unknown code language")
   }
 
@@ -521,7 +521,7 @@ $last = "memref.load"(%${access.name}${", %const_val_0" * access.vars.length}) :
     case "C" => C_printerr(head)
     case "CPP" => CPP_printerr(head)
     case "MLIR" => MLIR_printerr(head)
-    case "SNIPPET" => MLIR_printerr(head)
+    case "SNIPPETS" => MLIR_printerr(head)
     case _ => throw new Exception("Unknown code language")
   }
 
@@ -529,7 +529,7 @@ $last = "memref.load"(%${access.name}${", %const_val_0" * access.vars.length}) :
     case "C" => C_free(var_name)
     case "CPP" => CPP_free(var_name, dims)
     case "MLIR" => MLIR_free(var_name, dims)
-    case "SNIPPET" => MLIR_free(var_name, dims)
+    case "SNIPPETS" => MLIR_free(var_name, dims)
     case _ => throw new Exception("Unknown code language")
   }
 
@@ -537,7 +537,7 @@ $last = "memref.load"(%${access.name}${", %const_val_0" * access.vars.length}) :
     case "C" => C_return()
     case "CPP" => CPP_return()
     case "MLIR" => MLIR_return()
-    case "SNIPPET" => MLIR_return()
+    case "SNIPPETS" => MLIR_return()
     case _ => throw new Exception("Unknown code language")
   }
 
