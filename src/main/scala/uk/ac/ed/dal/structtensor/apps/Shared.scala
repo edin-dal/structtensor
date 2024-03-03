@@ -477,56 +477,56 @@ $last = "memref.load"(%${access.name}${", %const_val_0" * access.vars.length}) :
 """
   
   
-  def init_code(lang: String): String = lang match {
+  def init_code(lang: String): String = lang.toUpperCase() match {
     case "C" => C_init_code()
     case "CPP" => CPP_init_code()
     case "MLIR" => MLIR_init_code()
     case _ => throw new Exception("Unknown code language")
   }
 
-  def read_argv(lang: String, argv_names: Seq[String]): String = lang match {
+  def read_argv(lang: String, argv_names: Seq[String]): String = lang.toUpperCase() match {
     case "C" => C_read_argv(argv_names)
     case "CPP" => CPP_read_argv(argv_names)
     case "MLIR" => MLIR_read_argv(argv_names)
     case _ => throw new Exception("Unknown code language")
   }
 
-  def alloc_and_gen_random_number(lang: String, head: Access, dims: Seq[Dim], sopCond: SoP): String = lang match {
+  def alloc_and_gen_random_number(lang: String, head: Access, dims: Seq[Dim], sopCond: SoP): String = lang.toUpperCase() match {
     case "C" => C_alloc_and_gen_random_number(head, dims, sopCond)
     case "CPP" => CPP_alloc_and_gen_random_number(head, dims, sopCond)
     case "MLIR" => MLIR_alloc_and_gen_random_number(head, dims, sopCond)
     case _ => throw new Exception("Unknown code language")
   }
 
-  def init_timer(lang: String): String = lang match {
+  def init_timer(lang: String): String = lang.toUpperCase() match {
     case "C" => C_timer_start()
     case "CPP" => CPP_timer_start()
     case "MLIR" => MLIR_start_timer_code()
     case _ => throw new Exception("Unknown code language")
   }
 
-  def end_timer(lang: String): String = lang match {
+  def end_timer(lang: String): String = lang.toUpperCase() match {
     case "C" => C_timer_end()
     case "CPP" => CPP_timer_end()
     case "MLIR" => MLIR_timer_end()
     case _ => throw new Exception("Unknown code language")
   }
 
-  def printerr(lang: String, head: Access): String = lang match {
+  def printerr(lang: String, head: Access): String = lang.toUpperCase() match {
     case "C" => C_printerr(head)
     case "CPP" => CPP_printerr(head)
     case "MLIR" => MLIR_printerr(head)
     case _ => throw new Exception("Unknown code language")
   }
 
-  def free(lang: String, var_name: String, dims: Seq[Dim]) = lang match {
+  def free(lang: String, var_name: String, dims: Seq[Dim]) = lang.toUpperCase() match {
     case "C" => C_free(var_name)
     case "CPP" => CPP_free(var_name, dims)
     case "MLIR" => MLIR_free(var_name, dims)
     case _ => throw new Exception("Unknown code language")
   }
 
-  def return_code(lang: String): String = lang match {
+  def return_code(lang: String): String = lang.toUpperCase() match {
     case "C" => C_return()
     case "CPP" => CPP_return()
     case "MLIR" => MLIR_return()
