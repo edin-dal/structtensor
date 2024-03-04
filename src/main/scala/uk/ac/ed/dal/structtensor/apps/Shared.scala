@@ -16,7 +16,7 @@ object Shared {
 
   def MLIR_init_code(): String = s"""
 "builtin.module"() ({
-  "func.func"() ({}) {function_type = (!llvm.ptr<i8>) -> i32, sym_name = "atoi", sym_visibility = "private"} : () -> ()
+  "func.func"() ({}) {function_type = (!llvm.ptr) -> i32, sym_name = "atoi", sym_visibility = "private"} : () -> ()
   "func.func"() ({}) {function_type = (i32) -> (), sym_name = "srand", sym_visibility = "private"} : () -> ()
   "func.func"() ({}) {function_type = () -> (i32), sym_name = "rand", sym_visibility = "private"} : () -> ()
   "func.func"() ({}) {function_type = (i32) -> (), sym_name = "print_i32", sym_visibility = "private"} : () -> ()
@@ -26,7 +26,7 @@ object Shared {
   "func.func"() ({}) {function_type = (i64) -> (i64), sym_name = "timer_elapsed", sym_visibility = "private"} : () -> ()
 
   "func.func"() ({
-    ^bb0(%argc : i32, %argv : !llvm.ptr<!llvm.ptr<i8>>):
+    ^bb0(%argc : i32, %argv : !llvm.ptr):
     %const_val_0 = "arith.constant"() {"value" = 0 : index} : () -> index
     %zi32 = "arith.constant"() {"value" = 0 : i32} : () -> i32
     %zerof = "arith.constant"() {"value" = 0.0 : f64} : () -> f64
@@ -43,9 +43,9 @@ object Shared {
       val (name, i) = nameId
       val id = i + 1
       acc + s"""
-    %argvv$id = llvm.getelementptr %argv[$id] : (!llvm.ptr<!llvm.ptr<i8>>) -> !llvm.ptr<!llvm.ptr<i8>>
-    %argv$id = "llvm.load"(%argvv$id) : (!llvm.ptr<!llvm.ptr<i8>>) -> !llvm.ptr<i8>
-    %${name}i32 = "func.call"(%argv$id) {callee = @atoi} : (!llvm.ptr<i8>) -> i32
+    %argvv$id = llvm.getelementptr %argv[$id] : (!llvm.ptr) -> !llvm.ptr, !llvm.ptr
+    %argv$id = "llvm.load"(%argvv$id) : (!llvm.ptr) -> !llvm.ptr
+    %${name}i32 = "func.call"(%argv$id) {callee = @atoi} : (!llvm.ptr) -> i32
     %$name = arith.index_cast %${name}i32 : i32 to index
 """
     })
@@ -106,7 +106,7 @@ object Shared {
     "func.call"(%time) {callee = @print_i64} : (i64) -> ()
     
     "func.return"() : () -> ()
-    })  {function_type = (i32, !llvm.ptr<!llvm.ptr<i8>>) -> (), sym_name = "main", sym_visibility = "private"} : () -> ()
+    })  {function_type = (i32, !llvm.ptr) -> (), sym_name = "main", sym_visibility = "private"} : () -> ()
 }) : () -> ()
 """
   }
@@ -471,7 +471,7 @@ $last = "memref.load"(%${access.name}${", %const_val_0" * access.vars.length}) :
   }
 
   def MLIR_return(): String = """"func.return"() : () -> ()
-    })  {function_type = (i32, !llvm.ptr<!llvm.ptr<i8>>) -> (), sym_name = "main", sym_visibility = "private"} : () -> ()
+    })  {function_type = (i32, !llvm.ptr) -> (), sym_name = "main", sym_visibility = "private"} : () -> ()
 }) : () -> ()
 """
   
