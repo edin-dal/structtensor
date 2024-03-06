@@ -118,10 +118,12 @@ s"""
     double *L1 = new double[W];
     double *L2 = new double[W - 1];
     for(size_t i = 0; i < W; ++i) {
-        L1[i] = (double) (rand() % 1000000) / 1e6;
+        // L1[i] = (double) (rand() % 1000000) / 1e6;
+        L1[i] = (double) 1.0;
     }
     for(size_t i = 0; i < W - 1; ++i) {
-        L2[i] = (double) (rand() % 1000000) / 1e6;
+        // L2[i] = (double) (rand() % 1000000) / 1e6;
+        L2[i] = (double) 1.0;
     }
 """ 
     else {
@@ -134,17 +136,20 @@ s"""
         }
     }
     for(size_t i = 0; i < W; ++i) {
-        L[0][i] = (double) (rand() % 1000000) / 1e6;
+        // L[0][i] = (double) (rand() % 1000000) / 1e6;
+        L[0][i] = (double) 1.0;
     }
     for(size_t i = 1; i < W; ++i) {
-        L[i][i - 1] = (double) (rand() % 1000000) / 1e6;
+        // L[i][i - 1] = (double) (rand() % 1000000) / 1e6;
+        L[i][i - 1] = (double) 1.0;
     }
 """
     }}
 
     double *N = new double[W];
     for(size_t j = 0; j < W; ++j){
-        N[j] = (double) (rand() % 1000000) / 1e6;
+        // N[j] = (double) (rand() % 1000000) / 1e6;
+        N[j] = (double) 1.0;
     }
 
     double *M = new double[W];

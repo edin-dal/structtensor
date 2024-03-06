@@ -116,7 +116,8 @@ s"""
         B[i] = new double[N];
         for(size_t j = 0; j < N; ++j){
             ${if (structure == "diag") "if (i == j){" else if (structure == "ut") "if (i <= j){" else ""}
-                B[i][j] = (double) (rand() % 1000000) / 1e6;
+                // B[i][j] = (double) (rand() % 1000000) / 1e6;
+                B[i][j] = (double) 1.0;
             }
             else{
                 B[i][j] = (double) 0;
@@ -128,7 +129,8 @@ s"""
 
     double  *C = new double[N];
     for(size_t i = 0; i < N; ++i){
-        C[i] = (double) (rand() % 1000000) / 1e6;
+        // C[i] = (double) (rand() % 1000000) / 1e6;
+        C[i] = (double) 1.0;
     }
 
     double  *A = new double[M];

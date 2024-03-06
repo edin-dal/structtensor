@@ -160,7 +160,8 @@ int main(int argc, char **argv){
       val c_sub2 = if (flag && i != dimensions.length - 1) s"$var_name[${iter_seq.slice(0, i + 1).mkString("][")}] = new double" + "*" * (dimensions.length - 2 - i) + s"[${dimensions(i + 1)}];\n" else ""
       acc + c_sub1 + c_sub2
     })
-    val c2 = s"if (${condition(iter_seq)}) {\n" + s"$var_name[${sprase_indexing(iter_seq).mkString("][")}] = (double) (rand() % 1000000) / 1e6;\n" + s"} else {\n" + s"$var_name[${sprase_indexing(iter_seq).mkString("][")}] = 0.0;\n" + s"}\n"
+    // val c2 = s"if (${condition(iter_seq)}) {\n" + s"$var_name[${sprase_indexing(iter_seq).mkString("][")}] = (double) (rand() % 1000000) / 1e6;\n" + s"} else {\n" + s"$var_name[${sprase_indexing(iter_seq).mkString("][")}] = 0.0;\n" + s"}\n"
+    val c2 = s"if (${condition(iter_seq)}) {\n" + s"$var_name[${sprase_indexing(iter_seq).mkString("][")}] = (double) 1.0;\n" + s"} else {\n" + s"$var_name[${sprase_indexing(iter_seq).mkString("][")}] = 0.0;\n" + s"}\n"
     val c3 = dimensions.foldLeft("")((acc, dim) => acc + "}\n")
     s"$c0$c1$c2$c3"
   }
@@ -231,7 +232,8 @@ int main(int argc, char **argv){
       acc + c_sub1
     })
     val iter_seq: Seq[String] = dimensions.zipWithIndex.map(dimId => s"i${dimId._2}")
-    val c2 = s"if (${condition(iter_seq)}) {\n" + s"$var_name[${sprase_indexing(iter_seq).mkString("][")}] = (double) (rand() % 1000000) / 1e6;\n" + s"} else {\n" + s"$var_name[${sprase_indexing(iter_seq).mkString("][")}] = 0.0;\n" + s"}\n"
+    // val c2 = s"if (${condition(iter_seq)}) {\n" + s"$var_name[${sprase_indexing(iter_seq).mkString("][")}] = (double) (rand() % 1000000) / 1e6;\n" + s"} else {\n" + s"$var_name[${sprase_indexing(iter_seq).mkString("][")}] = 0.0;\n" + s"}\n"
+    val c2 = s"if (${condition(iter_seq)}) {\n" + s"$var_name[${sprase_indexing(iter_seq).mkString("][")}] = (double) 1.0;\n" + s"} else {\n" + s"$var_name[${sprase_indexing(iter_seq).mkString("][")}] = 0.0;\n" + s"}\n"
     val c3 = dimensions.foldLeft("")((acc, dim) => acc + "}\n")
     s"$c0$c1$c2$c3"
   }
@@ -297,7 +299,8 @@ fprintf(stderr, "%f\\n", $var_name[${dimensions.map(e => s"$e - 1").mkString("][
       val c_sub1 = s"for (size_t $i = 0; $i < $dim; ++$i) {\n"
       acc + c_sub1
     })
-    val c2 = s"if ($flag) {\n" + s"$var_name[${iter_seq.mkString("][")}] = (double) (rand() % 1000000) / 1e6;\n" + s"} else {\n" + s"$var_name[${iter_seq.mkString("][")}] = 0.0;\n" + s"}\n"
+    // val c2 = s"if ($flag) {\n" + s"$var_name[${iter_seq.mkString("][")}] = (double) (rand() % 1000000) / 1e6;\n" + s"} else {\n" + s"$var_name[${iter_seq.mkString("][")}] = 0.0;\n" + s"}\n"
+    val c2 = s"if ($flag) {\n" + s"$var_name[${iter_seq.mkString("][")}] = (double) 1.0;\n" + s"} else {\n" + s"$var_name[${iter_seq.mkString("][")}] = 0.0;\n" + s"}\n"
     val c3 = dimensions.foldLeft("")((acc, dim) => acc + "}\n")
     s"$c0$c1$c11$c2$c3"
   }
@@ -315,7 +318,8 @@ fprintf(stderr, "%f\\n", $var_name[${dimensions.map(e => s"$e - 1").mkString("][
       val c_sub2 = if (n != dimensions.length - 1) s"$var_name[${iter_seq.slice(0, n + 1).mkString("][")}] = new double" + "*" * (dimensions.length - 2 - n) + s"[${dimensions(n + 1)}];\n" else ""
       acc + c_sub1 + c_sub2
     })
-    val c2 = s"if ($flag) {\n" + s"$var_name[${iter_seq.mkString("][")}] = (double) (rand() % 1000000) / 1e6;\n" + s"} else {\n" + s"$var_name[${iter_seq.mkString("][")}] = 0.0;\n" + s"}\n"
+    // val c2 = s"if ($flag) {\n" + s"$var_name[${iter_seq.mkString("][")}] = (double) (rand() % 1000000) / 1e6;\n" + s"} else {\n" + s"$var_name[${iter_seq.mkString("][")}] = 0.0;\n" + s"}\n"
+    val c2 = s"if ($flag) {\n" + s"$var_name[${iter_seq.mkString("][")}] = (double) 1.0;\n" + s"} else {\n" + s"$var_name[${iter_seq.mkString("][")}] = 0.0;\n" + s"}\n"
     val c3 = dimensions.foldLeft("")((acc, dim) => acc + "}\n")
     s"$c0$c1$c11$c2$c3"
   }

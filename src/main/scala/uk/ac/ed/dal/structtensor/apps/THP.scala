@@ -114,7 +114,8 @@ s"""
     ${if (structure == "diag_p" || structure == "fixed_j") "for (size_t i = 0; i < M; ++i){" else ""}
       ${if (structure == "diag_p" || structure == "fixed_j") "" else "for(size_t j = 0; j < N; ++j){"}
         for(size_t k =0; k< P; ++k){
-          ${if (structure == "diag_p" || structure == "fixed_j") "B[i * P + k]" else "B[j * P + k]"} = (double) (rand() % 1000000) / 1e6;
+        //   ${if (structure == "diag_p" || structure == "fixed_j") "B[i * P + k]" else "B[j * P + k]"} = (double) (rand() % 1000000) / 1e6;
+          ${if (structure == "diag_p" || structure == "fixed_j") "B[i * P + k]" else "B[j * P + k]"} = (double) (1.0);
         }
       }
 """
@@ -127,7 +128,8 @@ s"""
             B[i][j] = new double[P];
             for(size_t k =0; k< P; ++k){
                 ${if (structure == "diag_p") "if (i == j){" else if (structure == "fixed_i") "if (i == I){" else if (structure == "fixed_j") "if (j == J){" else "THP"}
-                    B[i][j][k] = (double) (rand() % 1000000) / 1e6;
+                    // B[i][j][k] = (double) (rand() % 1000000) / 1e6;
+                    B[i][j][k] = (double) 1.0;
                 }
                 else{
                     B[i][j][k] = (double) 0;
@@ -144,7 +146,8 @@ s"""
         for(size_t j = 0; j < N; ++j){
             C[i][j] = new double[P];
             for(size_t k =0; k< P; ++k){
-                C[i][j][k] = (double) (rand() % 1000000) / 1e6;
+                // C[i][j][k] = (double) (rand() % 1000000) / 1e6;
+                C[i][j][k] = (double) 1.0;
             }
         }
     }
