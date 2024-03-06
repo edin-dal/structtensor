@@ -105,7 +105,7 @@ object Convertor {
       val dimInfo = headDimInfo._2
       val head = Access(dimInfo.access.name, dimInfo.access.vars, Tensor)
       val body = dimInfo.toSoP
-      val newBody = if (kind == UniqueSet) headToSetMap.get(old_head) match {
+      val newBody = if (kind == UniqueSet) headToSetMap.get(Access(old_head.name, old_head.vars, Tensor)) match {
         case Some(r) => SoPTimesSoP(body, r.body)
         case None => body
       } else {
