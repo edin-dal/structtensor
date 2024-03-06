@@ -30,6 +30,7 @@ object Shared {
     %const_val_0 = "arith.constant"() {"value" = 0 : index} : () -> index
     %zi32 = "arith.constant"() {"value" = 0 : i32} : () -> i32
     %zerof = "arith.constant"() {"value" = 0.0 : f64} : () -> f64
+    %onef = "arith.constant"() {"value" = 1.0 : f64} : () -> f64
     %const_val_1 = "arith.constant"() {"value" = 1 : index} : () -> index
     %oi1 = "arith.constant"() {"value" = 1 : i1} : () -> i1
     %oi0 = "arith.constant"() {"value" = 0 : i1} : () -> i1
@@ -68,23 +69,32 @@ object Shared {
     val qvars = dimensions.map(e => s"?").mkString("x") + "x"
     val index_vars = dimensions.map(e => s"index").mkString(", ")
 
-    val rval1 = getVar("rval")
-    val rval2 = getVar("rval")
-    val rval3 = getVar("rval")
-    val rval4 = getVar("rval")
+    // val rval1 = getVar("rval")
+    // val rval2 = getVar("rval")
+    // val rval3 = getVar("rval")
+    // val rval4 = getVar("rval")
     val c2 = s"""
     "scf.if"(%${condition._2}) ({
-      %$rval1 = "func.call"() {callee = @rand} : () -> i32
-      %$rval2 = "arith.remui"(%$rval1, %1000000) : (i32, i32) -> i32
-      %$rval3 = "arith.sitofp"(%$rval2) : (i32) -> f64
-      %$rval4 = "arith.divf"(%$rval3, %f1000000) : (f64, f64) -> f64
-      "memref.store"(%$rval4, %$var_name, $ivars): (f64, memref<${qvars}f64>, $index_vars) -> ()
+      "memref.store"(%onef, %$var_name, $ivars): (f64, memref<${qvars}f64>, $index_vars) -> ()
       "scf.yield"() : () -> ()
     }, {
       "memref.store"(%zerof, %$var_name, $ivars): (f64, memref<${qvars}f64>, $index_vars) -> ()
       "scf.yield"() : () -> ()
     }) : (i1) -> ()
 """
+//     val c2 = s"""
+//     "scf.if"(%${condition._2}) ({
+//       %$rval1 = "func.call"() {callee = @rand} : () -> i32
+//       %$rval2 = "arith.remui"(%$rval1, %1000000) : (i32, i32) -> i32
+//       %$rval3 = "arith.sitofp"(%$rval2) : (i32) -> f64
+//       %$rval4 = "arith.divf"(%$rval3, %f1000000) : (f64, f64) -> f64
+//       "memref.store"(%$rval4, %$var_name, $ivars): (f64, memref<${qvars}f64>, $index_vars) -> ()
+//       "scf.yield"() : () -> ()
+//     }, {
+//       "memref.store"(%zerof, %$var_name, $ivars): (f64, memref<${qvars}f64>, $index_vars) -> ()
+//       "scf.yield"() : () -> ()
+//     }) : (i1) -> ()
+// """
     val c3 = dimensions.foldLeft("")((acc, dim) => {
       acc + s"""
     "scf.yield"() : () -> ()
@@ -406,23 +416,32 @@ fprintf(stderr, "%f\\n", $var_name[${dimensions.map(e => s"$e - 1").mkString("][
     val qvars = dimensions.map(e => s"?").mkString("x") + "x"
     val index_vars = dimensions.map(e => s"index").mkString(", ")
 
-    val rval1 = getVar("rval")
-    val rval2 = getVar("rval")
-    val rval3 = getVar("rval")
-    val rval4 = getVar("rval")
-    val c2 = s"""
+    // val rval1 = getVar("rval")
+    // val rval2 = getVar("rval")
+    // val rval3 = getVar("rval")
+    // val rval4 = getVar("rval")
+     val c2 = s"""
     "scf.if"(${flag}) ({
-      %$rval1 = "func.call"() {callee = @rand} : () -> i32
-      %$rval2 = "arith.remui"(%$rval1, %1000000) : (i32, i32) -> i32
-      %$rval3 = "arith.sitofp"(%$rval2) : (i32) -> f64
-      %$rval4 = "arith.divf"(%$rval3, %f1000000) : (f64, f64) -> f64
-      "memref.store"(%$rval4, %$var_name, $ivars): (f64, memref<${qvars}f64>, $index_vars) -> ()
+      "memref.store"(%onef, %$var_name, $ivars): (f64, memref<${qvars}f64>, $index_vars) -> ()
       "scf.yield"() : () -> ()
     }, {
       "memref.store"(%zerof, %$var_name, $ivars): (f64, memref<${qvars}f64>, $index_vars) -> ()
       "scf.yield"() : () -> ()
     }) : (i1) -> ()
 """
+//     val c2 = s"""
+//     "scf.if"(${flag}) ({
+//       %$rval1 = "func.call"() {callee = @rand} : () -> i32
+//       %$rval2 = "arith.remui"(%$rval1, %1000000) : (i32, i32) -> i32
+//       %$rval3 = "arith.sitofp"(%$rval2) : (i32) -> f64
+//       %$rval4 = "arith.divf"(%$rval3, %f1000000) : (f64, f64) -> f64
+//       "memref.store"(%$rval4, %$var_name, $ivars): (f64, memref<${qvars}f64>, $index_vars) -> ()
+//       "scf.yield"() : () -> ()
+//     }, {
+//       "memref.store"(%zerof, %$var_name, $ivars): (f64, memref<${qvars}f64>, $index_vars) -> ()
+//       "scf.yield"() : () -> ()
+//     }) : (i1) -> ()
+// """
     val c3 = dimensions.foldLeft("")((acc, dim) => {
       acc + s"""
     "scf.yield"() : () -> ()
