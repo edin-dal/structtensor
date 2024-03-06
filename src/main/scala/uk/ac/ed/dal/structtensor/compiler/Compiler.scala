@@ -2031,7 +2031,7 @@ object Compiler {
   def sturOptCodeGen(stur: String, codeLang: String, compress: Boolean, append_stur_opt_file: Boolean, run_stur_opt: Boolean, sturOptArgs: Seq[String] = Seq()): String = {
     if (stur.contains("∅")) return ""
     write2File(s"stur_output/ex.stur", stur, append_stur_opt_file)
-    flags = sturOptArgs.mkString(" ")
+    val flags = sturOptArgs.mkString(" ")
     if (run_stur_opt) {
       val newCodeLang = if (codeLang == "default") "C" else if (codeLang == "CPP") "C++" else codeLang
       val compress_flag = if(compress) "--compress" else ""
