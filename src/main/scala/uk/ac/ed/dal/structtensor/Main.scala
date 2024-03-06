@@ -22,6 +22,7 @@ object Main extends App {
     enforceDimensions: Boolean = false,
     outFilePath: String = "",
     compress: Boolean = false,
+    sturOptArgs: Seq[String] = Seq(),
     applicationHelp: String = s"""
 Please specify the experiment name:
 LRC       = Linear Regression - Creation
@@ -108,6 +109,10 @@ PGLM      = Population Growth Leslie Matrix
           opt[Unit]("compress")
             .action((_, c) => c.copy(compress = true))
             .text("generate the compressed code")
+          opt[Seq[String]]("stur-opt-args")
+            .action((x, c) => c.copy(sturOptArgs = x))
+            .text("arguments to be passed to stur-opt")
+            .valueName("<args>")
         )
     )
   }
@@ -193,10 +198,10 @@ PGLM      = Population Growth Leslie Matrix
 
             println(init_str)
             val code_strs = tensorComputations.zipWithIndex.map{case(tc, i) => {
-              if (tensorComputations.length == 1) codeGen(tc, dimInfo, newUS, newRM, codeGenMode=1, codeMotion=config.codeMotion, codeLang=config.codeLang, sturOpt=config.sturOpt, compress=config.compress, append_stur_opt_file=false, run_stur_opt=true, compressionMapOptional=newCC)
-              else if (i == 0) codeGen(tc, dimInfo, newUS, newRM, codeGenMode=1, codeMotion=config.codeMotion, codeLang=config.codeLang, sturOpt=config.sturOpt, compress=config.compress, append_stur_opt_file=false, run_stur_opt=false, compressionMapOptional=newCC)
-              else if (i == tensorComputations.length - 1) codeGen(tc, dimInfo, newUS, newRM, codeGenMode=1, codeMotion=config.codeMotion, codeLang=config.codeLang, sturOpt=config.sturOpt, compress=config.compress, append_stur_opt_file=true, run_stur_opt=true, compressionMapOptional=newCC)
-              else codeGen(tc, dimInfo, newUS, newRM, codeGenMode=1, codeMotion=config.codeMotion, codeLang=config.codeLang, sturOpt=config.sturOpt, compress=config.compress, append_stur_opt_file=true, run_stur_opt=false, compressionMapOptional=newCC)
+              if (tensorComputations.length == 1) codeGen(tc, dimInfo, newUS, newRM, codeGenMode=1, codeMotion=config.codeMotion, codeLang=config.codeLang, sturOpt=config.sturOpt, compress=config.compress, append_stur_opt_file=false, run_stur_opt=true, compressionMapOptional=newCC, sturOptArgs=sturOptArgs)
+              else if (i == 0) codeGen(tc, dimInfo, newUS, newRM, codeGenMode=1, codeMotion=config.codeMotion, codeLang=config.codeLang, sturOpt=config.sturOpt, compress=config.compress, append_stur_opt_file=false, run_stur_opt=false, compressionMapOptional=newCC, sturOptArgs=sturOptArgs)
+              else if (i == tensorComputations.length - 1) codeGen(tc, dimInfo, newUS, newRM, codeGenMode=1, codeMotion=config.codeMotion, codeLang=config.codeLang, sturOpt=config.sturOpt, compress=config.compress, append_stur_opt_file=true, run_stur_opt=true, compressionMapOptional=newCC, sturOptArgs=sturOptArgs)
+              else codeGen(tc, dimInfo, newUS, newRM, codeGenMode=1, codeMotion=config.codeMotion, codeLang=config.codeLang, sturOpt=config.sturOpt, compress=config.compress, append_stur_opt_file=true, run_stur_opt=false, compressionMapOptional=newCC, sturOptArgs=sturOptArgs)
             }}
             println(end_str)
             write2File(config.outFilePath, init_str + "\n" + code_strs.mkString("\n") + "\n" + end_str)
