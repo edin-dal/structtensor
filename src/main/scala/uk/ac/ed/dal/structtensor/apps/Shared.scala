@@ -212,6 +212,25 @@ long timer_end(struct timespec start_time){
   return diffInNanos / 1000;
 }
 
+size_t min2(size_t a, size_t b) {
+  return a < b ? a : b;
+}
+
+size_t min(size_t arr[], size_t size) {
+  if (size == 0) {
+    // Return some sentinel value or handle error
+    return -1;
+  }
+
+  size_t min_val = arr[0];
+  for (size_t i = 1; i < size; i++) {
+    min_val = min2(min_val, arr[i]);
+  }
+
+  return min_val;
+}
+
+
 int main(int argc, char **argv){
   srand(0);
 """
