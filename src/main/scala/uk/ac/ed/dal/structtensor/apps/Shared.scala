@@ -69,32 +69,32 @@ object Shared {
     val qvars = dimensions.map(e => s"?").mkString("x") + "x"
     val index_vars = dimensions.map(e => s"index").mkString(", ")
 
-    // val rval1 = getVar("rval")
-    // val rval2 = getVar("rval")
-    // val rval3 = getVar("rval")
-    // val rval4 = getVar("rval")
-    val c2 = s"""
-    "scf.if"(%${condition._2}) ({
-      "memref.store"(%onef, %$var_name, $ivars): (f64, memref<${qvars}f64>, $index_vars) -> ()
-      "scf.yield"() : () -> ()
-    }, {
-      "memref.store"(%zerof, %$var_name, $ivars): (f64, memref<${qvars}f64>, $index_vars) -> ()
-      "scf.yield"() : () -> ()
-    }) : (i1) -> ()
-"""
+    val rval1 = getVar("rval")
+    val rval2 = getVar("rval")
+    val rval3 = getVar("rval")
+    val rval4 = getVar("rval")
 //     val c2 = s"""
 //     "scf.if"(%${condition._2}) ({
-//       %$rval1 = "func.call"() {callee = @rand} : () -> i32
-//       %$rval2 = "arith.remui"(%$rval1, %1000000) : (i32, i32) -> i32
-//       %$rval3 = "arith.sitofp"(%$rval2) : (i32) -> f64
-//       %$rval4 = "arith.divf"(%$rval3, %f1000000) : (f64, f64) -> f64
-//       "memref.store"(%$rval4, %$var_name, $ivars): (f64, memref<${qvars}f64>, $index_vars) -> ()
+//       "memref.store"(%onef, %$var_name, $ivars): (f64, memref<${qvars}f64>, $index_vars) -> ()
 //       "scf.yield"() : () -> ()
 //     }, {
 //       "memref.store"(%zerof, %$var_name, $ivars): (f64, memref<${qvars}f64>, $index_vars) -> ()
 //       "scf.yield"() : () -> ()
 //     }) : (i1) -> ()
 // """
+    val c2 = s"""
+    "scf.if"(%${condition._2}) ({
+      %$rval1 = "func.call"() {callee = @rand} : () -> i32
+      %$rval2 = "arith.remui"(%$rval1, %1000000) : (i32, i32) -> i32
+      %$rval3 = "arith.sitofp"(%$rval2) : (i32) -> f64
+      %$rval4 = "arith.divf"(%$rval3, %f1000000) : (f64, f64) -> f64
+      "memref.store"(%$rval4, %$var_name, $ivars): (f64, memref<${qvars}f64>, $index_vars) -> ()
+      "scf.yield"() : () -> ()
+    }, {
+      "memref.store"(%zerof, %$var_name, $ivars): (f64, memref<${qvars}f64>, $index_vars) -> ()
+      "scf.yield"() : () -> ()
+    }) : (i1) -> ()
+"""
     val c3 = dimensions.foldLeft("")((acc, dim) => {
       acc + s"""
     "scf.yield"() : () -> ()
@@ -160,8 +160,8 @@ int main(int argc, char **argv){
       val c_sub2 = if (flag && i != dimensions.length - 1) s"$var_name[${iter_seq.slice(0, i + 1).mkString("][")}] = new double" + "*" * (dimensions.length - 2 - i) + s"[${dimensions(i + 1)}];\n" else ""
       acc + c_sub1 + c_sub2
     })
-    // val c2 = s"if (${condition(iter_seq)}) {\n" + s"$var_name[${sprase_indexing(iter_seq).mkString("][")}] = (double) (rand() % 1000000) / 1e6;\n" + s"} else {\n" + s"$var_name[${sprase_indexing(iter_seq).mkString("][")}] = 0.0;\n" + s"}\n"
-    val c2 = s"if (${condition(iter_seq)}) {\n" + s"$var_name[${sprase_indexing(iter_seq).mkString("][")}] = (double) 1.0;\n" + s"} else {\n" + s"$var_name[${sprase_indexing(iter_seq).mkString("][")}] = 0.0;\n" + s"}\n"
+    val c2 = s"if (${condition(iter_seq)}) {\n" + s"$var_name[${sprase_indexing(iter_seq).mkString("][")}] = (double) (rand() % 1000000) / 1e6;\n" + s"} else {\n" + s"$var_name[${sprase_indexing(iter_seq).mkString("][")}] = 0.0;\n" + s"}\n"
+    // val c2 = s"if (${condition(iter_seq)}) {\n" + s"$var_name[${sprase_indexing(iter_seq).mkString("][")}] = (double) 1.0;\n" + s"} else {\n" + s"$var_name[${sprase_indexing(iter_seq).mkString("][")}] = 0.0;\n" + s"}\n"
     val c3 = dimensions.foldLeft("")((acc, dim) => acc + "}\n")
     s"$c0$c1$c2$c3"
   }
@@ -251,8 +251,8 @@ int main(int argc, char **argv){
       acc + c_sub1
     })
     val iter_seq: Seq[String] = dimensions.zipWithIndex.map(dimId => s"i${dimId._2}")
-    // val c2 = s"if (${condition(iter_seq)}) {\n" + s"$var_name[${sprase_indexing(iter_seq).mkString("][")}] = (double) (rand() % 1000000) / 1e6;\n" + s"} else {\n" + s"$var_name[${sprase_indexing(iter_seq).mkString("][")}] = 0.0;\n" + s"}\n"
-    val c2 = s"if (${condition(iter_seq)}) {\n" + s"$var_name[${sprase_indexing(iter_seq).mkString("][")}] = (double) 1.0;\n" + s"} else {\n" + s"$var_name[${sprase_indexing(iter_seq).mkString("][")}] = 0.0;\n" + s"}\n"
+    val c2 = s"if (${condition(iter_seq)}) {\n" + s"$var_name[${sprase_indexing(iter_seq).mkString("][")}] = (double) (rand() % 1000000) / 1e6;\n" + s"} else {\n" + s"$var_name[${sprase_indexing(iter_seq).mkString("][")}] = 0.0;\n" + s"}\n"
+    // val c2 = s"if (${condition(iter_seq)}) {\n" + s"$var_name[${sprase_indexing(iter_seq).mkString("][")}] = (double) 1.0;\n" + s"} else {\n" + s"$var_name[${sprase_indexing(iter_seq).mkString("][")}] = 0.0;\n" + s"}\n"
     val c3 = dimensions.foldLeft("")((acc, dim) => acc + "}\n")
     s"$c0$c1$c2$c3"
   }
@@ -439,32 +439,32 @@ fprintf(stderr, "%f\\n", $var_name[${dimensions.map(e => s"$e - 1").mkString("][
     val qvars = dimensions.map(e => s"?").mkString("x") + "x"
     val index_vars = dimensions.map(e => s"index").mkString(", ")
 
-    // val rval1 = getVar("rval")
-    // val rval2 = getVar("rval")
-    // val rval3 = getVar("rval")
-    // val rval4 = getVar("rval")
-     val c2 = s"""
-    "scf.if"(${flag}) ({
-      "memref.store"(%onef, %$var_name, $ivars): (f64, memref<${qvars}f64>, $index_vars) -> ()
-      "scf.yield"() : () -> ()
-    }, {
-      "memref.store"(%zerof, %$var_name, $ivars): (f64, memref<${qvars}f64>, $index_vars) -> ()
-      "scf.yield"() : () -> ()
-    }) : (i1) -> ()
-"""
-//     val c2 = s"""
+    val rval1 = getVar("rval")
+    val rval2 = getVar("rval")
+    val rval3 = getVar("rval")
+    val rval4 = getVar("rval")
+//      val c2 = s"""
 //     "scf.if"(${flag}) ({
-//       %$rval1 = "func.call"() {callee = @rand} : () -> i32
-//       %$rval2 = "arith.remui"(%$rval1, %1000000) : (i32, i32) -> i32
-//       %$rval3 = "arith.sitofp"(%$rval2) : (i32) -> f64
-//       %$rval4 = "arith.divf"(%$rval3, %f1000000) : (f64, f64) -> f64
-//       "memref.store"(%$rval4, %$var_name, $ivars): (f64, memref<${qvars}f64>, $index_vars) -> ()
+//       "memref.store"(%onef, %$var_name, $ivars): (f64, memref<${qvars}f64>, $index_vars) -> ()
 //       "scf.yield"() : () -> ()
 //     }, {
 //       "memref.store"(%zerof, %$var_name, $ivars): (f64, memref<${qvars}f64>, $index_vars) -> ()
 //       "scf.yield"() : () -> ()
 //     }) : (i1) -> ()
 // """
+    val c2 = s"""
+    "scf.if"(${flag}) ({
+      %$rval1 = "func.call"() {callee = @rand} : () -> i32
+      %$rval2 = "arith.remui"(%$rval1, %1000000) : (i32, i32) -> i32
+      %$rval3 = "arith.sitofp"(%$rval2) : (i32) -> f64
+      %$rval4 = "arith.divf"(%$rval3, %f1000000) : (f64, f64) -> f64
+      "memref.store"(%$rval4, %$var_name, $ivars): (f64, memref<${qvars}f64>, $index_vars) -> ()
+      "scf.yield"() : () -> ()
+    }, {
+      "memref.store"(%zerof, %$var_name, $ivars): (f64, memref<${qvars}f64>, $index_vars) -> ()
+      "scf.yield"() : () -> ()
+    }) : (i1) -> ()
+"""
     val c3 = dimensions.foldLeft("")((acc, dim) => {
       acc + s"""
     "scf.yield"() : () -> ()
