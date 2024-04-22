@@ -10,6 +10,16 @@ import java.io.File
 import scopt.OParser
 
 object Main extends App {
+  def mergeMap[A, B](ms: Seq[Map[A, B]])(f: (B, B) => B): Map[A, B] = ms.flatten.foldLeft(Map[A, B]())((a, kv) => a + (if (a.contains(kv._1)) (kv._1 -> f(a(kv._1), kv._2)) else kv))
+
+  implicit class DimInfoOps(d: DimInfo) {
+    def toAccessMap: Map[Access, Seq[Dim]] = Map[Access, Seq[Dim]](d.access -> d.dims)
+  }
+
+  implicit class SeqDimInfoOps(d: Seq[DimInfo]) {
+    def toAccessMap: Map[Access, Seq[Dim]] = d.foldLeft(Map.empty[Access, Seq[Dim]])((acc, cur) => mergeMap(Seq(acc, cur.toAccessMap))((v1, v2) => v1 ++ v2))
+  }
+
   case class Config(
     sparse: Boolean = false,
     codeLang: String = "CPP",
@@ -166,7 +176,8 @@ PGLM      = Population Growth Leslie Matrix
               res(0)
             }).toSeq
             // parsedRules.map(r => println(r.prettyFormat))
-            val (init_str, tensorComputations, dimInfo, uniqueSets, redundancyMaps, end_str): (String, Seq[Rule], Seq[DimInfo], Map[Exp, Rule], Map[Exp, Rule], String) = convertRules(parsedRules, config.initTensors, config.enforceDimensions, config.codeLang, config.sturOpt)
+            val (all_tensors, tensorComputations, dimInfo, uniqueSets, redundancyMaps): (Seq[Access], Seq[Rule], Seq[DimInfo], Map[Exp, Rule], Map[Exp, Rule]) = convertRules(parsedRules, config.enforceDimensions)
+            val (init_str, end_str): (String, String) = if (!config.initTensors) ("", "") else Bodygen(config.codeLang, parsedRules, all_tensors, dimInfo.toAccessMap, uniqueSets, config.sturOpt)
             println("**************************")
             println("Tensor Computations:")
             tensorComputations.map(r => println(r.prettyFormat))

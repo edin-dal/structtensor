@@ -142,7 +142,7 @@ object Convertor {
     removeEmptyProductsDimsSeq
   }
 
-  def convertRules(rules: Seq[Rule], initTensors: Boolean, enforceDimensions: Boolean, codeLang: String, sturOpt: Boolean): (String, Seq[Rule], Seq[DimInfo], Map[Exp, Rule], Map[Exp, Rule], String) = {
+  def convertRules(rules: Seq[Rule], enforceDimensions: Boolean): (Seq[Access], Seq[Rule], Seq[DimInfo], Map[Exp, Rule], Map[Exp, Rule]) = {
     val (headToTensorMap, headToUniqueSetMap, headToRedundancyMapMap, headToDimensionMap) = groupRules(rules)
     // headToTensorMap.foreach{case (k, v) => println(s"**************************\nTensor:\n${k.prettyFormat} -> ${v.prettyFormat}\n")}
     // headToUniqueSetMap.foreach{case (k, v) => println(s"**************************\nUnique Set:\n${k.prettyFormat} -> ${v.prettyFormat}\n")}
@@ -173,7 +173,6 @@ object Convertor {
     // println("All Dimensions:")
     // println(all_dimensions)
     val all_tensors: Seq[Access] = getAllTensors(tensorComputations).distinct
-    val (init, end) = if (!initTensors) ("", "") else Bodygen(codeLang, rules, all_tensors, dimInfo.toAccessMap, uniqueSets, sturOpt)
-    return (init, tensorComputations, dimInfo, uniqueSets, redundancyMaps, end)
+    return (all_tensors, tensorComputations, dimInfo, uniqueSets, redundancyMaps)
   }
 }
