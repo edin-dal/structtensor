@@ -154,7 +154,8 @@ object Convertor {
     val dimsAvailable = checkDimsAvailable(headToTensorMap, headToDimensionMap)
     if (!dimsAvailable) throw new Exception("Dimensions not available for all tensors")
     
-    val optDimsSeq = getAllOptDims(tensorComputations, headToDimensionMap)
+    // val optDimsSeq = getAllOptDims(tensorComputations, headToDimensionMap)
+    val optDimsSeq = Seq.empty[Rule]
 
     val (dimInfo, dimInfoMap): (Seq[DimInfo], Map[Access, DimInfo]) = extractDims(headToDimensionMap.values.toSeq ++ optDimsSeq)
     val uniqueSets: Map[Exp, Rule] = if (!enforceDimensions) headToUniqueSetMap.values.map(r => (Access(r.head.name, r.head.vars, Tensor) -> Rule(Access(r.head.name, r.head.vars, UniqueSet), r.body))).toMap else extractSet(headToUniqueSetMap, dimInfoMap, UniqueSet)
