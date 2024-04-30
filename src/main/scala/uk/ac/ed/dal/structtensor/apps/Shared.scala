@@ -324,6 +324,23 @@ fprintf(stderr, "%f\\n", $var_name[${dimensions.map(e => s"$e - 1").mkString("][
     s"$c0$c1$c11$c2$c3"
   }
 
+  def C_alloc_and_gen_zero(head: Access, dims: Seq[Dim]): String = {
+    val var_name = head.name
+    val vars = head.vars
+    val iter_seq = vars.map(_.name)
+    val dimensions = dims.map(C_convert_index(_))
+    val c0 = if (dimensions.length == 1) s"double (*$var_name) = malloc(sizeof(double) * ${dimensions.mkString(" * ")});\n" else s"double (*$var_name)[${dimensions.slice(1, dimensions.length).mkString("][")}] = malloc(sizeof(double) * ${dimensions.mkString(" * ")});\n"
+    val c1 = dimensions.zip(iter_seq).foldLeft("")((acc, dimId) => {
+      val (dim, i) = dimId
+      val c_sub1 = s"for (size_t $i = 0; $i < $dim; ++$i) {\n"
+      acc + c_sub1
+    })
+    // val c2 = s"if ($flag) {\n" + s"$var_name[${iter_seq.mkString("][")}] = (double) (rand() % 1000000) / 1e6;\n" + s"} else {\n" + s"$var_name[${iter_seq.mkString("][")}] = 0.0;\n" + s"}\n"
+    val c2 = s"$var_name[${iter_seq.mkString("][")}] = 0.0;\n"
+    val c3 = dimensions.foldLeft("")((acc, dim) => acc + "}\n")
+    s"$c0$c1$c2$c3"
+  }
+
   def CPP_alloc_and_gen_random_number(head: Access, dims: Seq[Dim], sopCond: SoP): String = {
     val var_name = head.name
     val vars = head.vars
@@ -341,6 +358,24 @@ fprintf(stderr, "%f\\n", $var_name[${dimensions.map(e => s"$e - 1").mkString("][
     // val c2 = s"if ($flag) {\n" + s"$var_name[${iter_seq.mkString("][")}] = (double) 1.0;\n" + s"} else {\n" + s"$var_name[${iter_seq.mkString("][")}] = 0.0;\n" + s"}\n"
     val c3 = dimensions.foldLeft("")((acc, dim) => acc + "}\n")
     s"$c0$c1$c11$c2$c3"
+  }
+
+  def CPP_alloc_and_gen_zero(head: Access, dims: Seq[Dim]): String = {
+    val var_name = head.name
+    val vars = head.vars
+    val iter_seq = vars.map(_.name)
+    val dimensions = dims.map(C_convert_index(_)).toSeq
+    val c0 = s"double " + "*" * dimensions.length + s"$var_name = new double" + "*" * (dimensions.length - 1) + s"[${dimensions(0)}];\n"
+    val c1 = dimensions.zip(iter_seq).zipWithIndex.foldLeft("")((acc, dimIdNum) => {
+      val ((dim, i), n) = dimIdNum
+      val c_sub1 = s"for (size_t $i = 0; $i < $dim; ++$i) {\n"
+      val c_sub2 = if (n != dimensions.length - 1) s"$var_name[${iter_seq.slice(0, n + 1).mkString("][")}] = new double" + "*" * (dimensions.length - 2 - n) + s"[${dimensions(n + 1)}];\n" else ""
+      acc + c_sub1 + c_sub2
+    })
+    val c2 = s"$var_name[${iter_seq.mkString("][")}] = 0.0;\n"
+    // val c2 = s"if ($flag) {\n" + s"$var_name[${iter_seq.mkString("][")}] = (double) 1.0;\n" + s"} else {\n" + s"$var_name[${iter_seq.mkString("][")}] = 0.0;\n" + s"}\n"
+    val c3 = dimensions.foldLeft("")((acc, dim) => acc + "}\n")
+    s"$c0$c1$c2$c3"
   }
 
   def MLIR_generate_arith(op: String, i1: String, i2: String, output_var: String, op_type: Int = 0): String = {
@@ -474,6 +509,41 @@ fprintf(stderr, "%f\\n", $var_name[${dimensions.map(e => s"$e - 1").mkString("][
     return s"$dimensions_code\n$c0\n$c1\n$c11\n$c2\n$c3"
   }
 
+
+  def MLIR_alloc_and_gen_zero(head: Access, dims: Seq[Dim]): String = {
+    val var_name = head.name
+    val vars = head.vars
+    val iter_seq = vars.map(_.name)
+    val dimsAndCode: Seq[(String, String)] = dims.map(d => MLIR_convert_index(d, 1))
+    val dimensions = dimsAndCode.map(_._1)
+    val dimensions_code = dimsAndCode.map(_._2).mkString("\n")
+    val c0 = s"%$var_name = memref.alloc(${dimensions.mkString(", ")}) : memref<${"?x" * dimensions.length}f64>"
+
+    
+    val c1 = dimensions.zip(iter_seq).foldLeft("")((acc, dimId) => {
+      val (dim, i) = dimId
+      acc + s"""
+    "scf.for"(%const_val_0, $dim, %const_val_1) ({
+    ^bb0(%$i: index):
+"""
+    })
+    val ivars = iter_seq.map(e => s"%$e").mkString(", ")
+    val qvars = dimensions.map(e => s"?").mkString("x") + "x"
+    val index_vars = dimensions.map(e => s"index").mkString(", ")
+
+     val c2 = s"""
+      "memref.store"(%zerof, %$var_name, $ivars): (f64, memref<${qvars}f64>, $index_vars) -> ()
+"""
+
+    val c3 = dimensions.foldLeft("")((acc, dim) => {
+      acc + s"""
+    "scf.yield"() : () -> ()
+    }) : (index, index, index) -> ()
+"""
+    })
+    return s"$dimensions_code\n$c0\n$c1\n$c2\n$c3"
+  }
+
   def MLIR_timer_end(): String = """
 %time = "func.call"(%stime) {callee = @timer_elapsed} : (i64) -> i64
 "func.call"(%time) {callee = @print_i64} : (i64) -> ()"""
@@ -539,6 +609,14 @@ $last = "memref.load"(%${access.name}${", %const_val_0" * access.vars.length}) :
     case "CPP" => CPP_alloc_and_gen_random_number(head, dims, sopCond)
     case "MLIR" => MLIR_alloc_and_gen_random_number(head, dims, sopCond)
     case "SNIPPETS" => MLIR_alloc_and_gen_random_number(head, dims, sopCond)
+    case _ => throw new Exception("Unknown code language")
+  }
+
+  def alloc_and_gen_zero(lang: String, head: Access, dims: Seq[Dim]): String = lang.toUpperCase() match {
+    case "C" => C_alloc_and_gen_zero(head, dims)
+    case "CPP" => CPP_alloc_and_gen_zero(head, dims)
+    case "MLIR" => MLIR_alloc_and_gen_zero(head, dims)
+    case "SNIPPETS" => MLIR_alloc_and_gen_zero(head, dims)
     case _ => throw new Exception("Unknown code language")
   }
 
