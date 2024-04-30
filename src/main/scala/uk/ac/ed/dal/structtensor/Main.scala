@@ -171,19 +171,37 @@ PGLM      = Population Growth Leslie Matrix
             import Optimizer._
             val lines = scala.io.Source.fromFile(config.inFilePath).mkString
             val lineSeq: Seq[String] = lines.split("\n").toSeq
-            val parsedRules: Seq[Rule] = lineSeq.map(line => {
+            val preprocess_start_index = lineSeq.indexOf("@preprocess_start")
+            val preprocess_end_index = lineSeq.indexOf("@preprocess_end")
+            val preprocess_lines = lineSeq.slice(preprocess_start_index + 1, preprocess_end_index)
+            val computation_lines =  lineSeq.slice(0, preprocess_start_index) ++ lineSeq.slice(preprocess_end_index + 1, lineSeq.length)
+            
+            val parsedPreprocess: Seq[Rule] = preprocess_lines.map(line => {
               val Parsed.Success(res, _) = parse(line, parser(_))
               res(0)
             }).toSeq
+            val parsedComputation: Seq[Rule] = computation_lines.map(line => {
+              val Parsed.Success(res, _) = parse(line, parser(_))
+              res(0)
+            }).toSeq
+            // val parsedRules: Seq[Rule] = lineSeq.map(line => {
+            //   val Parsed.Success(res, _) = parse(line, parser(_))
+            //   res(0)
+            // }).toSeq
             // parsedRules.map(r => println(r.prettyFormat))
-            val (all_tensors, tensorComputations, dimInfo, uniqueSets, redundancyMaps): (Seq[Access], Seq[Rule], Seq[DimInfo], Map[Exp, Rule], Map[Exp, Rule]) = convertRules(parsedRules, config.enforceDimensions)
-            val (init_str, end_str): (String, String) = if (!config.initTensors) ("", "") else Bodygen(config.codeLang, parsedRules, all_tensors, dimInfo.toAccessMap, uniqueSets, config.sturOpt)
+            // val (all_tensors, tensorComputations, dimInfo, uniqueSets, redundancyMaps): (Seq[Access], Seq[Rule], Seq[DimInfo], Map[Exp, Rule], Map[Exp, Rule]) = convertRules(parsedRules, config.enforceDimensions)
+            val (all_tensors_preprocess, tensorComputations_preprocess, dimInfo_preprocess, uniqueSets_preprocess, redundancyMaps_preprocess): (Seq[Access], Seq[Rule], Seq[DimInfo], Map[Exp, Rule], Map[Exp, Rule]) = convertRules(parsedPreprocess, config.enforceDimensions)
+            val (all_tensors_computation, tensorComputations_computation, dimInfo_computation, uniqueSets_computation, redundancyMaps_computation): (Seq[Access], Seq[Rule], Seq[DimInfo], Map[Exp, Rule], Map[Exp, Rule]) = convertRules(parsedComputation, config.enforceDimensions)
+            // val (init_str, end_str): (String, String) = if (!config.initTensors) ("", "") else Bodygen(config.codeLang, parsedRules, all_tensors, dimInfo.toAccessMap, uniqueSets, config.sturOpt)
+            val (init_str, end_str): (String, String) = if (!config.initTensors) ("", "") else Bodygen(config.codeLang, (parsedPreprocess ++ parsedComputation).distinct, (all_tensors_preprocess ++ all_tensors_computation).distinct, (dimInfo_preprocess ++ dimInfo_computation).distinct.toAccessMap, uniqueSets_preprocess ++ uniqueSets_computation, config.sturOpt)
             println("**************************")
-            println("Tensor Computations:")
-            tensorComputations.map(r => println(r.prettyFormat))
+            println("Preprocess Tensor Computations:")
+            tensorComputations_preprocess.map(r => println(r.prettyFormat))
+            println("Computation Tensor Computations:")
+            tensorComputations_computation.map(r => println(r.prettyFormat))
             println("**************************")
 
-            val (newUS, newRM, newCC) = tensorComputations.foldLeft((uniqueSets, redundancyMaps, Map[Exp, Rule]()))((acc, tc) => {
+            val (newUS, newRM, newCC) = tensorComputations_computation.foldLeft((uniqueSets_computation, redundancyMaps_computation, Map[Exp, Rule]()))((acc, tc) => {
               val inps: Seq[(Rule, Rule, Rule, Rule)] = tc.body.prods.flatMap(prod => prod.exps.map(e => {
                 if (e.isInstanceOf[Access]) {
                   val us = Rule(acc._1(e.asInstanceOf[Access]).head.uniqueHead, acc._1(e.asInstanceOf[Access]).body)
@@ -207,15 +225,50 @@ PGLM      = Population Growth Leslie Matrix
               (acc._1 + (usRule.head -> usRule), acc._2 + (rmRule.head -> rmRule), acc._3 + (ccRule.head -> ccRule))
             })
 
-            println(init_str)
-            val code_strs = tensorComputations.zipWithIndex.map{case(tc, i) => {
-              if (tensorComputations.length == 1) codeGen(tc, dimInfo, newUS, newRM, codeGenMode=1, codeMotion=config.codeMotion, codeLang=config.codeLang, sturOpt=config.sturOpt, compress=config.compress, append_stur_opt_file=false, run_stur_opt=true, compressionMapOptional=newCC, sturOptArgs=config.sturOptArgs)
-              else if (i == 0) codeGen(tc, dimInfo, newUS, newRM, codeGenMode=1, codeMotion=config.codeMotion, codeLang=config.codeLang, sturOpt=config.sturOpt, compress=config.compress, append_stur_opt_file=false, run_stur_opt=false, compressionMapOptional=newCC, sturOptArgs=config.sturOptArgs)
-              else if (i == tensorComputations.length - 1) codeGen(tc, dimInfo, newUS, newRM, codeGenMode=1, codeMotion=config.codeMotion, codeLang=config.codeLang, sturOpt=config.sturOpt, compress=config.compress, append_stur_opt_file=true, run_stur_opt=true, compressionMapOptional=newCC, sturOptArgs=config.sturOptArgs)
-              else codeGen(tc, dimInfo, newUS, newRM, codeGenMode=1, codeMotion=config.codeMotion, codeLang=config.codeLang, sturOpt=config.sturOpt, compress=config.compress, append_stur_opt_file=true, run_stur_opt=false, compressionMapOptional=newCC, sturOptArgs=config.sturOptArgs)
+            val (newUS_preprocess, newRM_preprocess, newCC_preprocess) = tensorComputations_preprocess.foldLeft((uniqueSets_preprocess, redundancyMaps_preprocess, Map[Exp, Rule]()))((acc, tc) => {
+              val inps: Seq[(Rule, Rule, Rule, Rule)] = tc.body.prods.flatMap(prod => prod.exps.map(e => {
+                if (e.isInstanceOf[Access]) {
+                  val us = Rule(acc._1(e.asInstanceOf[Access]).head.uniqueHead, acc._1(e.asInstanceOf[Access]).body)
+                  val rm = Rule(acc._2(e.asInstanceOf[Access]).head.redundancyHead, acc._2(e.asInstanceOf[Access]).body)
+                  val cc = if (acc._3.contains(e.asInstanceOf[Access])){
+                    Rule(acc._3(e.asInstanceOf[Access]).head.compressedHead, acc._3(e.asInstanceOf[Access]).body)
+                  } else Rule(acc._1(e.asInstanceOf[Access]).head.compressedHead, SoPTimesSoP(SoP(Seq(Prod(Seq(e)))), acc._1(e.asInstanceOf[Access]).body))
+                  // val cc = Rule(acc._1(e.asInstanceOf[Access]).head.compressedHead, SoPTimesSoP(SoP(Seq(Prod(Seq(e)))), SoP(Seq(Prod(Seq(acc._1(e.asInstanceOf[Access]).head.uniqueHead))))))
+                  val t = Rule(e.asInstanceOf[Access], SoP(Seq(Prod(Seq(e)))))
+                  (us, rm, cc, t)
+                } else {
+                  val h = Access("", Seq(), Tensor)
+                  val us = Rule(h.uniqueHead, SoP(Seq(Prod(Seq(e)))))
+                  val rm = Rule(h.redundancyHead, SoP(Seq(Prod(Seq(e)))))
+                  val cc = Rule(h.compressedHead, SoP(Seq(Prod(Seq(e)))))
+                  val t = Rule(h, SoP(Seq(Prod(Seq(e)))))
+                  (us, rm, cc, t)
+                }
+              }))
+              val (usRule, rmRule, ccRule) = compile(tc, inps)
+              (acc._1 + (usRule.head -> usRule), acc._2 + (rmRule.head -> rmRule), acc._3 + (ccRule.head -> ccRule))
+            })
+
+            // println(init_str)
+            val preprocess_strs1 = tensorComputations_preprocess.zipWithIndex.map{case(tc, i) => {
+              if (tensorComputations_preprocess.length == 1) codeGen(tc, dimInfo_preprocess, newUS_preprocess, newRM_preprocess, codeGenMode=1, codeMotion=config.codeMotion, codeLang=config.codeLang, sturOpt=config.sturOpt, compress=config.compress, append_stur_opt_file=false, run_stur_opt=true, compressionMapOptional=newCC_preprocess, sturOptArgs=config.sturOptArgs)
+              else if (i == 0) codeGen(tc, dimInfo_preprocess, newUS_preprocess, newRM_preprocess, codeGenMode=1, codeMotion=config.codeMotion, codeLang=config.codeLang, sturOpt=config.sturOpt, compress=config.compress, append_stur_opt_file=false, run_stur_opt=false, compressionMapOptional=newCC_preprocess, sturOptArgs=config.sturOptArgs)
+              else if (i == tensorComputations_preprocess.length - 1) codeGen(tc, dimInfo_preprocess, newUS_preprocess, newRM_preprocess, codeGenMode=1, codeMotion=config.codeMotion, codeLang=config.codeLang, sturOpt=config.sturOpt, compress=config.compress, append_stur_opt_file=true, run_stur_opt=true, compressionMapOptional=newCC_preprocess, sturOptArgs=config.sturOptArgs)
+              else codeGen(tc, dimInfo_preprocess, newUS_preprocess, newRM_preprocess, codeGenMode=1, codeMotion=config.codeMotion, codeLang=config.codeLang, sturOpt=config.sturOpt, compress=config.compress, append_stur_opt_file=true, run_stur_opt=false, compressionMapOptional=newCC_preprocess, sturOptArgs=config.sturOptArgs)
             }}
-            println(end_str)
-            write2File(config.outFilePath, init_str + "\n" + code_strs.mkString("\n") + "\n" + end_str)
+
+            val preprocess_strs = if (!preprocess_strs1.isInstanceOf[String]) preprocess_strs1.mkString("\n") else preprocess_strs1
+
+            val code_strs = tensorComputations_computation.zipWithIndex.map{case(tc, i) => {
+              if (tensorComputations_computation.length == 1) codeGen(tc, dimInfo_computation, newUS, newRM, codeGenMode=1, codeMotion=config.codeMotion, codeLang=config.codeLang, sturOpt=config.sturOpt, compress=config.compress, append_stur_opt_file=false, run_stur_opt=true, compressionMapOptional=newCC, sturOptArgs=config.sturOptArgs)
+              else if (i == 0) codeGen(tc, dimInfo_computation, newUS, newRM, codeGenMode=1, codeMotion=config.codeMotion, codeLang=config.codeLang, sturOpt=config.sturOpt, compress=config.compress, append_stur_opt_file=false, run_stur_opt=false, compressionMapOptional=newCC, sturOptArgs=config.sturOptArgs)
+              else if (i == tensorComputations_computation.length - 1) codeGen(tc, dimInfo_computation, newUS, newRM, codeGenMode=1, codeMotion=config.codeMotion, codeLang=config.codeLang, sturOpt=config.sturOpt, compress=config.compress, append_stur_opt_file=true, run_stur_opt=true, compressionMapOptional=newCC, sturOptArgs=config.sturOptArgs)
+              else codeGen(tc, dimInfo_computation, newUS, newRM, codeGenMode=1, codeMotion=config.codeMotion, codeLang=config.codeLang, sturOpt=config.sturOpt, compress=config.compress, append_stur_opt_file=true, run_stur_opt=false, compressionMapOptional=newCC, sturOptArgs=config.sturOptArgs)
+            }}
+
+            val timer_start_index = init_str.indexOf(init_timer(config.codeLang))
+            // println(end_str)
+            write2File(config.outFilePath, init_str.slice(0, timer_start_index) + "\n" + preprocess_strs + "\n" + init_str.slice(timer_start_index, init_str.length) + "\n" + code_strs.mkString("\n") + "\n" + end_str)
           } else {
             println("Please specify the stur code or the file path")
           }
