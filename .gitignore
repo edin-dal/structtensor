@@ -3,3 +3,10 @@
 project/target/
 target/
 *.o
+*.csv
+manual_test/
+outputs/
+outputs_c/
+outputs_mlir/
+prev_outputs/
+stur_output/ex.stur
