@@ -1,0 +1,13 @@
+@preprocess_start
+B1(j) := B(i, j) * (i = 0)
+B2(j) := B(i, j) * (1 <= i) * (W > i) * (j = (i - 1))
+B:D(i, j) := (0 <= i) * (i < W) * (0 <= j) * (j < W)
+B:U(i, j) := (i = 0) * (0 <= j) * (W > j) + (1 <= i) * (W > i) * (j = (i - 1))
+B1:D(j) := (0 <= j) * (j < W)
+B2:D(j) := (0 <= j) * (j < W - 1)
+@preprocess_end
+A(i) := B1(j) * C(j) * (i = 0) + B2(j) * C(j) * (1 <= i) * (W > i) * (j = (i - 1))
+C:D(j) := (0 <= j) * (j < W)
+A:D(i) := (0 <= i) * (i < W)
+B1:D(j) := (0 <= j) * (j < W)
+B2:D(j) := (0 <= j) * (j < W - 1)

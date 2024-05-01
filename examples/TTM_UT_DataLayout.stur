@@ -1,0 +1,10 @@
+@preprocess_start
+B2(s, l) := (i <= j) * (s = (N * i + j) - (i * (i + 1) / 2)) * B(i, j, l)
+B2:D(s, l) := (0 <= s) * (s < M * (N + 1) / 2) * (0 <= l) * (l < Q)
+B:D(i, j, l) := (0 <= i) * (i < M) * (0 <= j) * (j < N) * (0 <= l) * (l < Q)
+B:U(i, j, l) := (i <= j)
+@preprocess_end
+A(i, j, k) := (s = (N * i + j) - (i * (i + 1) / 2)) * B2(s, l) * C(k, l)
+C:D(k, l) := (0 <= k) * (k < P) * (0 <= l) * (l < Q)
+A:D(i, j, k) := (0 <= i) * (i < M) * (0 <= j) * (j < N) * (0 <= k) * (k < P)
+B2:D(s, l) := (0 <= s) * (s < M * (N + 1) / 2) * (0 <= l) * (l < Q)

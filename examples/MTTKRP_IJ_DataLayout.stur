@@ -1,0 +1,15 @@
+@preprocess_start
+D2(l) := D(l, j) * (j = J)
+B2(k, l) := B(i, k, l) * (i = I)
+B:D(i, k, l) := (0 <= i) * (i < M) * (0 <= k) * (k < N) * (0 <= l) * (l < P)
+B:U(i, k, l) := (i = I)
+B2:D(k, l) := (0 <= k) * (k < N) * (0 <= l) * (l < P)
+D:D(l, j) := (0 <= l) * (l < P) * (0 <= j) * (j < Q)
+D:U(l, j) := (j = J)
+D2:D(l) := (0 <= l) * (l < P)
+@preprocess_end
+A(i, j) := B2(k, l) * C(k, j) * D2(l) * (i = I) * (j = J)
+B2:D(k, l) := (0 <= k) * (k < N) * (0 <= l) * (l < P)
+C:D(k, j) := (0 <= k) * (k < N) * (0 <= j) * (j < Q)
+D2:D(l) := (0 <= l) * (l < P)
+A:D(i, j) := (0 <= i) * (i < M) * (0 <= j) * (j < Q)
