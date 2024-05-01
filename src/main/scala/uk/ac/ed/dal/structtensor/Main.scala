@@ -203,22 +203,25 @@ PGLM      = Population Growth Leslie Matrix
 
             val (newUS, newRM, newCC) = tensorComputations_computation.foldLeft((uniqueSets_computation, redundancyMaps_computation, Map[Exp, Rule]()))((acc, tc) => {
               val inps: Seq[(Rule, Rule, Rule, Rule)] = tc.body.prods.flatMap(prod => prod.exps.map(e => {
-                if (e.isInstanceOf[Access]) {
-                  val us = Rule(acc._1(e.asInstanceOf[Access]).head.uniqueHead, acc._1(e.asInstanceOf[Access]).body)
-                  val rm = Rule(acc._2(e.asInstanceOf[Access]).head.redundancyHead, acc._2(e.asInstanceOf[Access]).body)
-                  val cc = if (acc._3.contains(e.asInstanceOf[Access])){
-                    Rule(acc._3(e.asInstanceOf[Access]).head.compressedHead, acc._3(e.asInstanceOf[Access]).body)
-                  } else Rule(acc._1(e.asInstanceOf[Access]).head.compressedHead, SoPTimesSoP(SoP(Seq(Prod(Seq(e)))), acc._1(e.asInstanceOf[Access]).body))
-                  // val cc = Rule(acc._1(e.asInstanceOf[Access]).head.compressedHead, SoPTimesSoP(SoP(Seq(Prod(Seq(e)))), SoP(Seq(Prod(Seq(acc._1(e.asInstanceOf[Access]).head.uniqueHead))))))
-                  val t = Rule(e.asInstanceOf[Access], SoP(Seq(Prod(Seq(e)))))
-                  (us, rm, cc, t)
-                } else {
-                  val h = Access("", Seq(), Tensor)
-                  val us = Rule(h.uniqueHead, SoP(Seq(Prod(Seq(e)))))
-                  val rm = Rule(h.redundancyHead, SoP(Seq(Prod(Seq(e)))))
-                  val cc = Rule(h.compressedHead, SoP(Seq(Prod(Seq(e)))))
-                  val t = Rule(h, SoP(Seq(Prod(Seq(e)))))
-                  (us, rm, cc, t)
+                e match {
+                  case access: Access => {
+                    val us = Rule(acc._1(access).head.uniqueHead, acc._1(access).body)
+                    val rm = Rule(acc._2(access).head.redundancyHead, acc._2(access).body)
+                    val cc = if (acc._3.contains(access)){
+                      Rule(acc._3(access).head.compressedHead, acc._3(access).body)
+                    } else Rule(acc._1(access).head.compressedHead, SoPTimesSoP(SoP(Seq(Prod(Seq(e)))), acc._1(access).body))
+                    // val cc = Rule(acc._1(access).head.compressedHead, SoPTimesSoP(SoP(Seq(Prod(Seq(e)))), SoP(Seq(Prod(Seq(acc._1(access).head.uniqueHead))))))
+                    val t = Rule(access, SoP(Seq(Prod(Seq(e)))))
+                    (us, rm, cc, t)
+                  }
+                  case _ => {
+                    val h = Access("", Seq(), Tensor)
+                    val us = Rule(h.uniqueHead, SoP(Seq(Prod(Seq(e)))))
+                    val rm = Rule(h.redundancyHead, SoP(Seq(Prod(Seq(e)))))
+                    val cc = Rule(h.compressedHead, SoP(Seq(Prod(Seq(e)))))
+                    val t = Rule(h, SoP(Seq(Prod(Seq(e)))))
+                    (us, rm, cc, t)
+                  }
                 }
               }))
               val (usRule, rmRule, ccRule) = compile(tc, inps)
@@ -227,22 +230,25 @@ PGLM      = Population Growth Leslie Matrix
 
             val (newUS_preprocess, newRM_preprocess, newCC_preprocess) = tensorComputations_preprocess.foldLeft((uniqueSets_preprocess, redundancyMaps_preprocess, Map[Exp, Rule]()))((acc, tc) => {
               val inps: Seq[(Rule, Rule, Rule, Rule)] = tc.body.prods.flatMap(prod => prod.exps.map(e => {
-                if (e.isInstanceOf[Access]) {
-                  val us = Rule(acc._1(e.asInstanceOf[Access]).head.uniqueHead, acc._1(e.asInstanceOf[Access]).body)
-                  val rm = Rule(acc._2(e.asInstanceOf[Access]).head.redundancyHead, acc._2(e.asInstanceOf[Access]).body)
-                  val cc = if (acc._3.contains(e.asInstanceOf[Access])){
-                    Rule(acc._3(e.asInstanceOf[Access]).head.compressedHead, acc._3(e.asInstanceOf[Access]).body)
-                  } else Rule(acc._1(e.asInstanceOf[Access]).head.compressedHead, SoPTimesSoP(SoP(Seq(Prod(Seq(e)))), acc._1(e.asInstanceOf[Access]).body))
-                  // val cc = Rule(acc._1(e.asInstanceOf[Access]).head.compressedHead, SoPTimesSoP(SoP(Seq(Prod(Seq(e)))), SoP(Seq(Prod(Seq(acc._1(e.asInstanceOf[Access]).head.uniqueHead))))))
-                  val t = Rule(e.asInstanceOf[Access], SoP(Seq(Prod(Seq(e)))))
-                  (us, rm, cc, t)
-                } else {
-                  val h = Access("", Seq(), Tensor)
-                  val us = Rule(h.uniqueHead, SoP(Seq(Prod(Seq(e)))))
-                  val rm = Rule(h.redundancyHead, SoP(Seq(Prod(Seq(e)))))
-                  val cc = Rule(h.compressedHead, SoP(Seq(Prod(Seq(e)))))
-                  val t = Rule(h, SoP(Seq(Prod(Seq(e)))))
-                  (us, rm, cc, t)
+                e match {
+                  case access: Access => {
+                    val us = Rule(acc._1(access).head.uniqueHead, acc._1(access).body)
+                    val rm = Rule(acc._2(access).head.redundancyHead, acc._2(access).body)
+                    val cc = if (acc._3.contains(access)){
+                      Rule(acc._3(access).head.compressedHead, acc._3(access).body)
+                    } else Rule(acc._1(access).head.compressedHead, SoPTimesSoP(SoP(Seq(Prod(Seq(e)))), acc._1(access).body))
+                    // val cc = Rule(acc._1(access).head.compressedHead, SoPTimesSoP(SoP(Seq(Prod(Seq(e)))), SoP(Seq(Prod(Seq(acc._1(access).head.uniqueHead))))))
+                    val t = Rule(access, SoP(Seq(Prod(Seq(e)))))
+                    (us, rm, cc, t)
+                  }
+                  case _ => {
+                    val h = Access("", Seq(), Tensor)
+                    val us = Rule(h.uniqueHead, SoP(Seq(Prod(Seq(e)))))
+                    val rm = Rule(h.redundancyHead, SoP(Seq(Prod(Seq(e)))))
+                    val cc = Rule(h.compressedHead, SoP(Seq(Prod(Seq(e)))))
+                    val t = Rule(h, SoP(Seq(Prod(Seq(e)))))
+                    (us, rm, cc, t)
+                  }
                 }
               }))
               val (usRule, rmRule, ccRule) = compile(tc, inps)
@@ -250,15 +256,13 @@ PGLM      = Population Growth Leslie Matrix
             })
 
             // println(init_str)
-            val preprocess_strs1 = tensorComputations_preprocess.zipWithIndex.map{case(tc, i) => {
+            val preprocess_strs = tensorComputations_preprocess.zipWithIndex.map{case(tc, i) => {
               if (tensorComputations_preprocess.length == 1) codeGen(tc, dimInfo_preprocess, newUS_preprocess, newRM_preprocess, codeGenMode=1, codeMotion=config.codeMotion, codeLang=config.codeLang, sturOpt=config.sturOpt, compress=config.compress, append_stur_opt_file=false, run_stur_opt=true, compressionMapOptional=newCC_preprocess, sturOptArgs=config.sturOptArgs)
               else if (i == 0) codeGen(tc, dimInfo_preprocess, newUS_preprocess, newRM_preprocess, codeGenMode=1, codeMotion=config.codeMotion, codeLang=config.codeLang, sturOpt=config.sturOpt, compress=config.compress, append_stur_opt_file=false, run_stur_opt=false, compressionMapOptional=newCC_preprocess, sturOptArgs=config.sturOptArgs)
               else if (i == tensorComputations_preprocess.length - 1) codeGen(tc, dimInfo_preprocess, newUS_preprocess, newRM_preprocess, codeGenMode=1, codeMotion=config.codeMotion, codeLang=config.codeLang, sturOpt=config.sturOpt, compress=config.compress, append_stur_opt_file=true, run_stur_opt=true, compressionMapOptional=newCC_preprocess, sturOptArgs=config.sturOptArgs)
               else codeGen(tc, dimInfo_preprocess, newUS_preprocess, newRM_preprocess, codeGenMode=1, codeMotion=config.codeMotion, codeLang=config.codeLang, sturOpt=config.sturOpt, compress=config.compress, append_stur_opt_file=true, run_stur_opt=false, compressionMapOptional=newCC_preprocess, sturOptArgs=config.sturOptArgs)
             }}
-
-            val preprocess_strs = if (!preprocess_strs1.isInstanceOf[String]) preprocess_strs1.mkString("\n") else preprocess_strs1
-
+            
             val code_strs = tensorComputations_computation.zipWithIndex.map{case(tc, i) => {
               if (tensorComputations_computation.length == 1) codeGen(tc, dimInfo_computation, newUS, newRM, codeGenMode=1, codeMotion=config.codeMotion, codeLang=config.codeLang, sturOpt=config.sturOpt, compress=config.compress, append_stur_opt_file=false, run_stur_opt=true, compressionMapOptional=newCC, sturOptArgs=config.sturOptArgs)
               else if (i == 0) codeGen(tc, dimInfo_computation, newUS, newRM, codeGenMode=1, codeMotion=config.codeMotion, codeLang=config.codeLang, sturOpt=config.sturOpt, compress=config.compress, append_stur_opt_file=false, run_stur_opt=false, compressionMapOptional=newCC, sturOptArgs=config.sturOptArgs)
@@ -268,7 +272,7 @@ PGLM      = Population Growth Leslie Matrix
 
             val timer_start_index = init_str.indexOf(init_timer(config.codeLang))
             // println(end_str)
-            write2File(config.outFilePath, init_str.slice(0, timer_start_index) + "\n" + preprocess_strs + "\n" + init_str.slice(timer_start_index, init_str.length) + "\n" + code_strs.mkString("\n") + "\n" + end_str)
+            write2File(config.outFilePath, init_str.slice(0, timer_start_index) + "\n" + preprocess_strs.mkString("\n") + "\n" + init_str.slice(timer_start_index, init_str.length) + "\n" + code_strs.mkString("\n") + "\n" + end_str)
           } else {
             println("Please specify the stur code or the file path")
           }
