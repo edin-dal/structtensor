@@ -41,7 +41,11 @@ object Optimizer {
 
     body.prods.foldLeft(emptySoP())((acc1, prod) => {
       val (epxsInMap, epxsNotInMap): (Seq[Exp], Seq[Exp]) = prod.exps.partition(extractAccessesInDenormalizationMapByName)
-      val denormalizedSoPSeq = epxsInMap.map(exp => getByNameAndAlphaRename(denormMap, exp.asInstanceOf[Access]).get)
+      val denormalizedSoPSeq = epxsInMap.map(exp => exp match {
+        case acc: Access => getByNameAndAlphaRename(denormMap, acc).get
+        case _ => throw new Exception("Unknown expression")
+      })
+      }
       val singleAllExpSoP = SoP(Seq(Prod(epxsNotInMap)))
       val allExpSoP = if (epxsNotInMap.length == 0) multSoP(denormalizedSoPSeq) else if (epxsInMap.length == 0) singleAllExpSoP else multSoP(singleAllExpSoP +: denormalizedSoPSeq) 
       concatSoP(Seq(acc1, allExpSoP))
@@ -99,7 +103,11 @@ object Optimizer {
   def setIdempotentIntersectionOpt(r: Rule): Rule = Rule(r.head, SoP(r.body.prods.map(singleProdIdempotence)))
 
   def setIdempotentOpt(r: Rule): Rule = {
-    val areAllComparison = r.body.prods.forall(p => p.exps.forall(e => e.isInstanceOf[Comparison]))
+    val areAllComparison = r.body.prods.forall(p => p.exps.forall(e => e match {
+      case _: Comparison => true
+      case _ => false
+    }))
+
     areAllComparison match {
       case true => {
         val prodSetOfExpSet = r.body.prods.map(p => p.exps.toSet).toSet

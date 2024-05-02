@@ -123,7 +123,7 @@ object Convertor {
       (acc :+ r.head) ++ r.body.prods.foldLeft(Seq.empty[Access])((acc2, p) => {
         acc2 ++ p.exps.foldLeft(Seq.empty[Access])((acc3, e) => {
           e match {
-            case Access(_, _, _) => acc3 :+ e.asInstanceOf[Access]
+            case access: Access => acc3 :+ access
             case _ => acc3
           }
         })

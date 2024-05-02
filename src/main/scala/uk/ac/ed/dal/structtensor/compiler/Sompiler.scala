@@ -115,7 +115,10 @@ object Sompiler {
   def isShift(lhs: Access, exps: Seq[Exp]): Boolean = {
     if (exps.length == 1) false
     else {
-      val areAllExpsComparison = exps.tail.forall(_.isInstanceOf[Comparison])
+      val areAllExpsComparison = exps.tail.forall {
+        case _: Comparison => true
+        case _ => false
+      }
       if (areAllExpsComparison) {
         exps.head match {
           case Access(_, vars, _) =>
@@ -242,18 +245,45 @@ object Sompiler {
       case (Comparison(op1, index1, variable1), Access(name2, vars2, Tensor)) => binMult(lhs, e2, e1)
       case (Comparison(op1, index1, variable1), Comparison(op2, index2, variable2)) => {
         // These flags check for a <= x < b case
-        val flag1 = op1 == "<=" && op2 == "<" && index2.isInstanceOf[Variable] && variable1 == index2.asInstanceOf[Variable]
+        val flag1 = op1 == "<=" && op2 == "<" && index2 match {
+          case v: Variable if variable1 == v => true
+          case _ => false
+        }
         val flag2 = op1 == "<=" && op2 == ">" && variable1 == variable2
-        val flag3 = op1 == ">=" && op2 == "<" && index1.isInstanceOf[Variable] && index2.isInstanceOf[Variable] && index1.asInstanceOf[Variable] == index2.asInstanceOf[Variable]
-        val flag4 = op1 == ">=" && op2 == ">" && index1.isInstanceOf[Variable] && index1.asInstanceOf[Variable] == variable2
+        val flag3 = op1 == ">=" && op2 == "<" && (index1, index2) match {
+          case (v1: Variable, v2: Variable) if v1 == v2 => true
+          case _ => false
+        }
+        val flag4 = op1 == ">=" && op2 == ">" && index1 match {
+          case v: Variable if variable2 == v => true
+          case _ => false
+        }
 
-        val flag5 = op1 == "<" && op2 == "<=" && index1.isInstanceOf[Variable] && variable2 == index1.asInstanceOf[Variable]
+        val flag5 = op1 == "<" && op2 == "<=" && index1 match {
+          case v: Variable if variable2 == v => true
+          case _ => false
+        } 
         val flag6 = op1 == ">" && op2 == "<=" && variable2 == variable1
-        val flag7 = op1 == "<" && op2 == ">=" && index2.isInstanceOf[Variable] && index1.isInstanceOf[Variable] && index2.asInstanceOf[Variable] == index1.asInstanceOf[Variable]
-        val flag8 = op1 == ">" && op2 == ">=" && index2.isInstanceOf[Variable] && index2.asInstanceOf[Variable] == variable1
+        val flag7 = op1 == "<" && op2 == ">=" && (index1, index2) match {
+          case (v1: Variable, v2: Variable) if v1 == v2 => true
+          case _ => false
+        }
+        val flag8 = op1 == ">" && op2 == ">=" && index2 match {
+          case v: Variable if variable1 == v => true
+          case _ => false
+        }
 
         if (flag1 || flag2 || flag3 || flag4 || flag5 || flag6 || flag7 || flag8) {
-          val variable = if (flag1 || flag2 || flag8) variable1 else if (flag3 || flag7) index1.asInstanceOf[Variable] else variable2
+          val variable = if (flag1 || flag2 || flag8) {
+            variable1
+          } else if (flag3 || flag7) {
+            index1 match {
+              case v: Variable => v
+              case _ => throw new IllegalArgumentException("Expected a Variable")
+            }
+          } else {
+            variable2
+          }
           val indexEq = if (flag1 || flag2) index1 else if (flag3 || flag4) variable1 else if (flag5 || flag6) index2 else variable2
           val indexGt = if (flag1 || flag3) variable2 else if (flag2 || flag4) index2 else if (flag5 || flag7) variable1 else index1
 
@@ -402,10 +432,15 @@ object Sompiler {
     if (prods.length == 1) {
       val exps: Seq[Exp] = prods(0).exps
       if (isShift(head, exps)) {
-        shift(head, exps.head.asInstanceOf[Access], exps.tail)
+        exps.head match {
+          case access: Access => shift(head, access, exps.tail)
+          case _ => throw new IllegalArgumentException("Expected an Access expression")
+        }
       } else if (exps.length == 1) {
-        assert(exps(0).isInstanceOf[Access])
-        project(head, exps(0).asInstanceOf[Access])
+        exps(0) match {
+          case access: Access => project(head, access)
+          case _ => throw new AssertionError("Expected an Access expression")
+        }
       } else if (exps.length == 2) {
         binMult(head, exps(0), exps(1))
       } else {
@@ -460,10 +495,15 @@ object Sompiler {
     if (prods.length == 1) {
       val exps: Seq[Exp] = prods(0).exps
       if (isShift(head, exps)) {
-        shiftDimInfer(head, exps.head.asInstanceOf[Access], exps.tail)
+        exps.head match {
+          case access: Access => shiftDimInfer(head, access, exps.tail)
+          case _ => throw new IllegalArgumentException("Expected an Access expression")
+        }
       } else if (exps.length == 1) {
-        assert(exps(0).isInstanceOf[Access])
-        projectDimInfer(head, exps(0).asInstanceOf[Access])
+        exps(0) match {
+          case access: Access => projectDimInfer(head, access)
+          case _ => throw new AssertionError("Expected an Access expression")
+        }
       } else if (exps.length == 2) {
         binMultDimInfer(head, exps(0), exps(1))
       } else {
