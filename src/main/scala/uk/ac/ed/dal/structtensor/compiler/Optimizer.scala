@@ -45,7 +45,6 @@ object Optimizer {
         case acc: Access => getByNameAndAlphaRename(denormMap, acc).get
         case _ => throw new Exception("Unknown expression")
       })
-      }
       val singleAllExpSoP = SoP(Seq(Prod(epxsNotInMap)))
       val allExpSoP = if (epxsNotInMap.length == 0) multSoP(denormalizedSoPSeq) else if (epxsInMap.length == 0) singleAllExpSoP else multSoP(singleAllExpSoP +: denormalizedSoPSeq) 
       concatSoP(Seq(acc1, allExpSoP))

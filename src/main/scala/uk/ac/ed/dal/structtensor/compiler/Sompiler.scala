@@ -245,33 +245,33 @@ object Sompiler {
       case (Comparison(op1, index1, variable1), Access(name2, vars2, Tensor)) => binMult(lhs, e2, e1)
       case (Comparison(op1, index1, variable1), Comparison(op2, index2, variable2)) => {
         // These flags check for a <= x < b case
-        val flag1 = op1 == "<=" && op2 == "<" && index2 match {
+        val flag1 = op1 == "<=" && op2 == "<" && (index2 match {
           case v: Variable if variable1 == v => true
           case _ => false
-        }
+        })
         val flag2 = op1 == "<=" && op2 == ">" && variable1 == variable2
-        val flag3 = op1 == ">=" && op2 == "<" && (index1, index2) match {
+        val flag3 = op1 == ">=" && op2 == "<" && ((index1, index2) match {
           case (v1: Variable, v2: Variable) if v1 == v2 => true
           case _ => false
-        }
-        val flag4 = op1 == ">=" && op2 == ">" && index1 match {
+        })
+        val flag4 = op1 == ">=" && op2 == ">" && (index1 match {
           case v: Variable if variable2 == v => true
           case _ => false
-        }
+        })
 
-        val flag5 = op1 == "<" && op2 == "<=" && index1 match {
+        val flag5 = op1 == "<" && op2 == "<=" && (index1 match {
           case v: Variable if variable2 == v => true
           case _ => false
-        } 
+        })
         val flag6 = op1 == ">" && op2 == "<=" && variable2 == variable1
-        val flag7 = op1 == "<" && op2 == ">=" && (index1, index2) match {
+        val flag7 = op1 == "<" && op2 == ">=" && ((index1, index2) match {
           case (v1: Variable, v2: Variable) if v1 == v2 => true
           case _ => false
-        }
-        val flag8 = op1 == ">" && op2 == ">=" && index2 match {
+        })
+        val flag8 = op1 == ">" && op2 == ">=" && (index2 match {
           case v: Variable if variable1 == v => true
           case _ => false
-        }
+        })
 
         if (flag1 || flag2 || flag3 || flag4 || flag5 || flag6 || flag7 || flag8) {
           val variable = if (flag1 || flag2 || flag8) {
