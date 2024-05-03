@@ -170,17 +170,17 @@ PGLM      = Population Growth Leslie Matrix
             import Sompiler._
             import Optimizer._
             val lines = scala.io.Source.fromFile(config.inFilePath).mkString
-            val lineSeq: Seq[String] = lines.split("\n").toSeq
+            val lineSeq = lines.split("\n").toSeq
             val preprocess_start_index = lineSeq.indexOf("@preprocess_start")
             val preprocess_end_index = lineSeq.indexOf("@preprocess_end")
             val preprocess_lines = lineSeq.slice(preprocess_start_index + 1, preprocess_end_index)
             val computation_lines =  lineSeq.slice(0, preprocess_start_index) ++ lineSeq.slice(preprocess_end_index + 1, lineSeq.length)
             
-            val parsedPreprocess: Seq[Rule] = preprocess_lines.map(line => {
+            val parsedPreprocess = preprocess_lines.map(line => {
               val Parsed.Success(res, _) = parse(line, parser(_))
               res(0)
             }).toSeq
-            val parsedComputation: Seq[Rule] = computation_lines.map(line => {
+            val parsedComputation = computation_lines.map(line => {
               val Parsed.Success(res, _) = parse(line, parser(_))
               res(0)
             }).toSeq

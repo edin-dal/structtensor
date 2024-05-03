@@ -12,7 +12,7 @@ object Interpreter {
   }
 
   def interpretAccess(n: String, v: Seq[Variable]): Access = {
-    if (n.length < 3 && !n.contains(":")) return Access(n, v, Tensor)
+    if (n.length < 3 && !n.contains(":")) Access(n, v, Tensor)
     else n.substring(n.length-2, n.length) match {
       case ":U" => Access(n.substring(0, n.length-2), v, UniqueSet)
       case ":D" => Access(n.substring(0, n.length-2), v, DimensionType)
