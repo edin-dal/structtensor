@@ -14,13 +14,8 @@ object Bodygen {
 
   def generateInit(codeLang: String, rules: Seq[Rule], all_tensors: Seq[Access], all_dimensions: Map[Access, Seq[Dim]], uniqueSets: Map[Exp, Rule], sturOpt: Boolean): String = {
     val c1 = init_code(codeLang)
-    val dim_names = all_dimensions.foldLeft(Set.empty[String])((acc, d) => {
-      acc ++ d._2.foldLeft(Set.empty[String])((acc2, e) => {
-        e match {
-          case Variable(name) => acc2 ++ Set(name)
-          case _ => acc2
-        }
-      })
+    val dim_names: Seq[String] = all_dimensions.values.flatMap(_.collect {
+      case Variable(name) => name
     }).toSeq
     val argv_names = dim_names ++ unboundVariables(rules).toSeq.diff(dim_names)
     // println("argv_names: ", argv_names)
@@ -53,20 +48,21 @@ object Bodygen {
   }
 
   def allVariables(rules: Seq[Rule]): Set[String] = {
-    rules.foldLeft(Set.empty[String])((acc, r) => {
-      acc ++ r.head.vars.map(_.name).toSet ++ r.body.prods.foldLeft(Set.empty[String])((acc2, p) => acc2 ++ p.exps.foldLeft(Set.empty[String])((acc3, e) => e match {
-        case Access(_, vars, _) => acc3 ++ vars.map(_.name).toSet
-        case Comparison(_, index, variable) => acc3 ++ allVariables(index) ++ Set(variable.name)
-      }))
-    })
+    rules.flatMap { r =>
+      r.head.vars.map(_.name).toSet ++ 
+      r.body.prods.flatMap(_.exps.collect {
+        case Access(_, vars, _) => vars.map(_.name).toSet
+        case Comparison(_, index, variable) => allVariables(index) + variable.name
+      }).flatten.toSet
+    }.toSet
   }
 
   def boundVariables(rules: Seq[Rule]): Set[String] = {
-    rules.foldLeft(Set.empty[String])((acc, r) => {
-      acc ++ r.head.vars.map(_.name).toSet ++ r.body.prods.foldLeft(Set.empty[String])((acc2, p) => acc2 ++ p.exps.foldLeft(Set.empty[String])((acc3, e) => e match {
-        case Access(_, vars, _) => acc3 ++ vars.map(_.name).toSet
-        case _ => acc3
-      }))
-    })
+    rules.flatMap { r =>
+      r.head.vars.map(_.name).toSet ++
+      r.body.prods.flatMap(_.exps.collect {
+        case Access(_, vars, _) => vars.map(_.name).toSet
+      }).flatten
+    }.toSet
   }
 }
