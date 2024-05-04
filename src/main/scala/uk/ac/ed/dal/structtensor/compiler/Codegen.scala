@@ -74,9 +74,10 @@ object Codegen {
   }
 
   def codeGenSingleProd(computationHead: Access, conditions: Seq[Comparison], accesses: Seq[Access]): String = {
-    val variables = accesses.flatMap(_.vars).distinct
+    val variables = (computationHead.vars ++ accesses.flatMap(_.vars)).distinct
     val (loopNests, restOfConditions, numberOfBrackets1) = variables.reverse.foldLeft(Seq[String](), conditions, 0)((acc, v) => {
       val (begin, end, rest) = getConditionsOnVariable(v, acc._2)
+      println(s"v: $v, begin: $begin, end: $end, rest: $rest")
       (begin.length, end.length) match {
         case (0, 0) => (acc._1, rest, acc._3)
         case (0, 1) => (acc._1 :+ s"if (${CPPFormat(v)} < ${end.mkString}) {", rest, acc._3 + 1)

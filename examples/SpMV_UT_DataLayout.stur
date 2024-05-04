@@ -4,7 +4,7 @@ B:D(i, j) := (0 <= i) * (i < M) * (0 <= j) * (j < N)
 B:U(i, j) := (i <= j)
 B2:D(s) := (0 <= s) * (s < M * (N + 1) / 2)
 @preprocess_end
-A(i) := B2(s) * C(j) * (i <= j) * (s = (N * i + j) - (i * (i + 1) / 2))
+A(i) := B2(s) * C(j) * (i <= j) * (s = (N * i + j) - (i * (i + 1) / 2)) * (0 <= i) * (i < M)
 C:D(j) := (0 <= j) * (j < N)
 A:D(i) := (0 <= i) * (i < M)
 B2:D(s) := (0 <= s) * (s < M * (N + 1) / 2)
