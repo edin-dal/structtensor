@@ -659,4 +659,33 @@ $last = "memref.load"(%${access.name}${", %const_val_0" * access.vars.length}) :
     case _ => throw new Exception("Unknown code language")
   }
 
+  def unboundVariables(rules: Seq[Rule]): Set[String] = allVariables(rules).diff(boundVariables(rules))
+
+  def allVariables(index: Index): Set[String] = {
+    index match {
+      case Variable(name) => Set(name)
+      case Arithmetic(_, i1, i2) => allVariables(i1) ++ allVariables(i2)
+      case _ => Set.empty[String]
+    }
+  }
+
+  def allVariables(rules: Seq[Rule]): Set[String] = {
+    rules.flatMap { r =>
+      r.head.vars.map(_.name).toSet ++ 
+      r.body.prods.flatMap(_.exps.collect {
+        case Access(_, vars, _) => vars.map(_.name).toSet
+        case Comparison(_, index, variable) => allVariables(index) + variable.name
+      }).flatten.toSet
+    }.toSet
+  }
+
+  def boundVariables(rules: Seq[Rule]): Set[String] = {
+    rules.flatMap { r =>
+      r.head.vars.map(_.name).toSet ++
+      r.body.prods.flatMap(_.exps.collect {
+        case Access(_, vars, _) => vars.map(_.name).toSet
+      }).flatten
+    }.toSet
+  }
+
 }

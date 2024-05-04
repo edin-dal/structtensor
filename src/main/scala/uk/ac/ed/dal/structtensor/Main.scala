@@ -169,6 +169,7 @@ PGLM      = Population Growth Leslie Matrix
             import Shared._
             import Sompiler._
             import Optimizer._
+            import Codegen._
             val lines = scala.io.Source.fromFile(config.inFilePath).mkString
             val lineSeq = lines.split("\n").toSeq
             val preprocess_start_index = lineSeq.indexOf("@preprocess_start")
@@ -225,6 +226,10 @@ PGLM      = Population Growth Leslie Matrix
                 }
               }))
               val (usRule, rmRule, ccRule) = compile(tc, inps)
+              println("**************************")
+              println(ccRule.prettyFormat)
+              println(Codegen(ccRule))
+              println("**************************")
               (acc._1 + (usRule.head -> usRule), acc._2 + (rmRule.head -> rmRule), acc._3 + (ccRule.head -> ccRule))
             })
 
