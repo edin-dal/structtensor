@@ -42,7 +42,7 @@ object Codegen {
     }
   }
 
-  def getConditionsOnVariable(v: Variable, conditions: Seq[Comparison]): (Seq[String], Seq[String], Seq[String], Seq[Comparison]) = {
+  def getConditionsOnVariable(v: Variable, conditions: Seq[Comparison]): (Seq[String], Seq[String], Seq[Any], Seq[Comparison]) = {
     // This function finds all the conditions on the given variable `v` in the conditions list
     // It returns begin, end, and the rest of the conditions
     val (begin_end_equals_usedIndices) = conditions.zipWithIndex.flatMap {
@@ -52,7 +52,7 @@ object Codegen {
           case "<" => Some((s"(${CPPFormat(cond.index)}) + 1", "", "", ind))
           case ">" => Some(("", s"${CPPFormat(cond.index)}", "", ind))
           case ">=" => Some(("", s"(${CPPFormat(cond.index)}) + 1", "", ind))
-          case "=" => Some(("", "", CPPFormat(cond.index), ind))
+          case "=" => Some(("", "", cond.index, ind))
         }
       }
       case (cond: Comparison, ind: Int) => cond.index match {
@@ -62,7 +62,7 @@ object Codegen {
             case ">" => Some((s"(${CPPFormat(cond.variable)}) + 1", "", "", ind))
             case "<" => Some(("", s"${CPPFormat(cond.variable)}", "", ind))
             case "<=" => Some(("", s"(${CPPFormat(cond.variable)}) + 1", "", ind))
-            case "=" => Some(("", "", CPPFormat(cond.variable), ind))
+            case "=" => Some(("", "", cond.variable, ind))
           }
         }
         case _ => None
@@ -73,13 +73,50 @@ object Codegen {
     (begin.distinct.filterNot(_ == ""), end.distinct.filterNot(_ == ""), equals.distinct.filterNot(_ == ""), conditions.zipWithIndex.filterNot{case (_, ind) => usedIndices.contains(ind)}.map(_._1))
   }
 
-  def codeGenSingleProd(computationHead: Access, conditions: Seq[Comparison], accesses: Seq[Access]): String = {
-    val variables = (computationHead.vars ++ accesses.flatMap(_.vars)).distinct
+  def getVariablesInIndex(i: Index): Seq[Variable] = i match {
+    case v: Variable => Seq(v)
+    case a @ Arithmetic(_, i1, i2) => (getVariablesInIndex(i1) ++ getVariablesInIndex(i2)).distinct
+    case _ => Seq()
+  }
+
+  def reorder(variables: Seq[Variable], conditions: Seq[Comparison]): Seq[Variable] = {
+    // afterMap is a <key, value> pair where key is the variable, and value is a list of variables that key depends on
+    val afterMap = conditions.map {
+      case Comparison(_, i, v: Variable) => {
+        if (variables.contains(v)) {
+          i match {
+            case va: Variable if (variables.contains(va)) => if (variables.indexOf(va) < variables.indexOf(v)) v -> Seq(va) else va -> Seq(v)
+            case _ => v -> getVariablesInIndex(i).filter(variables.contains)
+          }
+        } else None
+      }
+    }.filterNot(_ == None).groupBy { case (k: Variable, _) => k }.mapValues(_.flatMap {case (_: Variable, vars: Seq[Variable]) => vars }).toMap //.foreach { case (k, v) => println(s"$k -> ${v}") }
+
+    // indexMap is to sort the variables based on the variables that depend on them
+    val indexMap = variables.zipWithIndex.toMap
+    @scala.annotation.tailrec
+    def reorderRec(afterMap: Map[Variable, Seq[Variable]], indexMap: Map[Variable, Int]): Seq[Variable] = {
+      val newIndexMap = afterMap.map { case (k, v) => if (!v.isEmpty) k -> (v.map(indexMap).max + 1) else k -> indexMap(k)}
+      if (newIndexMap == indexMap) indexMap.toSeq.sortBy(_._2).map(_._1)
+      else reorderRec(afterMap, newIndexMap)
+    }
+    reorderRec(afterMap, indexMap)
+  }
+
+  def codeGenSingleProd(computationHead: Access, conditions: Seq[Comparison], accesses: Seq[Access], orderedVariables: Seq[Variable] = Seq()): String = {
+    val variablesInit = (computationHead.vars ++ accesses.flatMap(_.vars)).distinct
+    val variables = if (orderedVariables.isEmpty) reorder(variablesInit, conditions) else orderedVariables
     val (loopNests, restOfConditions, numberOfBrackets1) = variables.reverse.foldLeft(Seq[String](), conditions, 0)((acc, v) => {
       val (begin, end, equalsFullList, rest) = getConditionsOnVariable(v, acc._2)
-      val equals = equalsFullList.filter(e => variables.map(_.name).contains(e))
+      val equals = equalsFullList.filter {
+        case va: Variable => variables.map(_.name).contains(va.name)
+        case _ => true
+      }
       // println(s"v: $v, begin: $begin, end: $end, equals: $equals, rest: $rest")
-      val eqCode = equals.map(e => if (!begin.isEmpty || !end.isEmpty) s"int ${e} = ${CPPFormat(v)};" else s"int ${CPPFormat(v)} = ${e};").mkString("\n")
+      val eqCode = equals.map(e => e match {
+        case va: Variable => if (!begin.isEmpty || !end.isEmpty) s"int ${CPPFormat(va)} = ${CPPFormat(v)};" else s"int ${CPPFormat(v)} = ${CPPFormat(va)};"
+        case _ => s"int ${CPPFormat(v)} = ${CPPFormat(e)};"
+      }).mkString("\n")
       (begin.length, end.length) match {
         case (0, 0) => (acc._1 :+ eqCode, rest, acc._3)
         case (0, 1) => (acc._1 ++ Seq(s"if (${CPPFormat(v)} < ${end.mkString}) {\n$eqCode"), rest, acc._3 + 1)
