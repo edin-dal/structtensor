@@ -88,7 +88,7 @@ object Optimizer {
       }
     }
     
-    val (boolDomainExps, realDomainExps) = p.exps.partition(extractBooleanDomainComputation)
+    val (boolDomainExps, realDomainExps) = removeEquivalentComparisonsOpt(p).exps.partition(extractBooleanDomainComputation)
     val distinctBoolDomainExps = boolDomainExps.distinct
 
     // println("^^^^^^^^^^^^^^^^^^")
@@ -101,6 +101,28 @@ object Optimizer {
 
   def setIdempotentIntersectionOpt(r: Rule): Rule = Rule(r.head, SoP(r.body.prods.map(singleProdIdempotence)))
 
+  def isComparisonEquivalent(c1: Comparison, c2: Comparison): Boolean = {
+    (c1, c2) match {
+      case (Comparison(op1, i1, v1), Comparison(op2, i2, v2)) => {
+        if (op1 == op2 && i1 == i2 && v1 == v2) true
+        else if (op1 == "<" && op2 == ">" && i1 == v2 && i2 == v1) true
+        else if (op1 == ">" && op2 == "<" && i1 == v2 && i2 == v1) true
+        else if (op1 == "<=" && op2 == ">=" && i1 == v2 && i2 == v1) true
+        else if (op1 == ">=" && op2 == "<=" && i1 == v2 && i2 == v1) true
+        else if (op1 == "=" && op2 == "=" && i1 == v2 && i2 == v1) true
+        else false
+      }
+      case _ => false
+    }
+  }
+
+  def removeEquivalentComparisonsOpt(prod: Prod): Prod = {
+    Prod(prod.exps.zipWithIndex.filterNot{ case(e1, i) => prod.exps.slice(i, prod.exps.length).exists(e2 => e1 != e2 && ((e1, e2) match {
+      case (c1: Comparison, c2: Comparison) => isComparisonEquivalent(c1, c2)
+      case _ => false
+    }))}.map(_._1))
+  }
+  
   def setIdempotentOpt(r: Rule): Rule = {
     val areAllComparison = r.body.prods.forall(p => p.exps.forall(e => e match {
       case _: Comparison => true
@@ -109,7 +131,7 @@ object Optimizer {
 
     areAllComparison match {
       case true => {
-        val prodSetOfExpSet = r.body.prods.map(p => p.exps.toSet).toSet
+        val prodSetOfExpSet = r.body.prods.map(p => removeEquivalentComparisonsOpt(p).exps.toSet).toSet
         Rule(r.head, SoP(prodSetOfExpSet.map(p => Prod(p.toSeq)).toSeq))
       }
       case false => setIdempotentIntersectionOpt(r)

@@ -544,7 +544,7 @@ object Sompiler {
     val (denormUS, denormRM, denormCC, denormTC) = denormalize(computation.head, inputs ++ us_rm_cc_tc_seq)
     // println(s"------------------\nDenormalized:\n${denormCC.prettyFormat}\n${denormRM.prettyFormat}\n")
     
-    val (idempotentOptUS, idempotentOptRM, idempotentOptCC) = (setIdempotentOpt(denormUS), setIdempotentOpt(denormRM), setIdempotentOpt(denormCC)) // fix IdempotentOpt by fixing (i = k) == (k = i)
+    val (idempotentOptUS, idempotentOptRM, idempotentOptCC) = (setIdempotentOpt(denormUS), setIdempotentOpt(denormRM), setIdempotentOpt(denormCC))
     // println(s"=================================\nIdempotent:\n${idempotentOptCC.prettyFormat}\n${idempotentOptRM.prettyFormat}\n")
 
     val (removeEmptyProdOptUS, removeEmptyProdOptRM, removeEmptyProdOptCC) = (removeEmptyProductsOpt(idempotentOptUS), removeEmptyProductsOpt(idempotentOptRM), removeEmptyProductsOpt(idempotentOptCC))
@@ -554,6 +554,7 @@ object Sompiler {
     // println(s"=================================\nReplaced equal variables:\n${replacedEqualVariablesOptCC.prettyFormat}\n${replacedEqualVariablesOptRM.prettyFormat}\n")
 
     val (fixedUS, fixedRM, fixedCC) = fixedPointOpt(replacedEqualVariablesOptUS, replacedEqualVariablesOptRM, replacedEqualVariablesOptCC)
+    // println(s"=================================\nFixed point:\n${fixedCC.prettyFormat}\n${fixedRM.prettyFormat}\n")
     
     (fixedUS, fixedRM, fixedCC)
   }
