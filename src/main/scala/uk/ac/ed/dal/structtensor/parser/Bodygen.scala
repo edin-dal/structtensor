@@ -17,7 +17,7 @@ object Bodygen {
     val dim_names: Seq[String] = all_dimensions.values.flatMap(_.collect {
       case Variable(name) => name
     }).toSeq
-    val argv_names = dim_names ++ unboundVariables(rules).toSeq.diff(dim_names)
+    val argv_names = (dim_names ++ unboundVariables(rules).toSeq.diff(dim_names)).distinct
     // println("argv_names: ", argv_names)
     val only_lhs_heads = rules.map(_.head).distinctBy(_.name).filter(_.kind == Tensor)
     val all_vars = allVariables(rules).toSeq
