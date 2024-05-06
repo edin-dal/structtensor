@@ -5,6 +5,7 @@ package compiler
 object Sompiler {
   import STURHelper._
   import Optimizer._
+  import scala.annotation.tailrec
 
   def getAllVariables(index: Index): Seq[Variable] = {
     index match {
@@ -515,6 +516,18 @@ object Sompiler {
     } else throw new Exception("Only binary computations or self-outer product must be passed to infer function")
   } 
 
+  @scala.annotation.tailrec
+  def fixedPointOpt(us: Rule, rm: Rule, cc: Rule): (Rule, Rule, Rule) = {
+    val (idempotentOptUS, idempotentOptRM, idempotentOptCC) = (setIdempotentOpt(us), setIdempotentOpt(rm), setIdempotentOpt(cc))
+    // println(s"=================================\nIdempotent:\n${idempotentOptCC.prettyFormat}\n${idempotentOptRM.prettyFormat}\n")
+    val (removeEmptyProdOptUS, removeEmptyProdOptRM, removeEmptyProdOptCC) = (removeEmptyProductsOpt(idempotentOptUS), removeEmptyProductsOpt(idempotentOptRM), removeEmptyProductsOpt(idempotentOptCC))
+    // println(s"=================================\nRemoved empty prods:\n${removeEmptyProdOptCC.prettyFormat}\n${removeEmptyProdOptRM.prettyFormat}\n")
+    val (replacedEqualVariablesOptUS, replacedEqualVariablesOptRM, replacedEqualVariablesOptCC) = (replaceEqualVariables(removeEmptyProdOptUS), replaceEqualVariables(removeEmptyProdOptRM), replaceEqualVariables(removeEmptyProdOptCC))
+    // println(s"=================================\nReplaced equal variables:\n${replacedEqualVariablesOptCC.prettyFormat}\n${replacedEqualVariablesOptRM.prettyFormat}\n")
+    if (replacedEqualVariablesOptUS == us && replacedEqualVariablesOptRM == rm && replacedEqualVariablesOptCC == cc) (replacedEqualVariablesOptUS, replacedEqualVariablesOptRM, replacedEqualVariablesOptCC) // fix == with conversion to Seq[Set[Set]]
+    else fixedPointOpt(replacedEqualVariablesOptUS, replacedEqualVariablesOptRM, replacedEqualVariablesOptCC) 
+  }
+
   def compile(computation: Rule, inputs: Seq[(Rule, Rule, Rule, Rule)]): (Rule, Rule, Rule) = {
     // println(s"------------------\nComputation:\n${computation.prettyFormat}\n")
     val norm = normalize(computation)
@@ -531,12 +544,17 @@ object Sompiler {
     val (denormUS, denormRM, denormCC, denormTC) = denormalize(computation.head, inputs ++ us_rm_cc_tc_seq)
     // println(s"------------------\nDenormalized:\n${denormCC.prettyFormat}\n${denormRM.prettyFormat}\n")
     
-    val (idempotentOptUS, idempotentOptRM, idempotentOptCC) = (setIdempotentOpt(denormUS), setIdempotentOpt(denormRM), setIdempotentOpt(denormCC))
+    val (idempotentOptUS, idempotentOptRM, idempotentOptCC) = (setIdempotentOpt(denormUS), setIdempotentOpt(denormRM), setIdempotentOpt(denormCC)) // fix IdempotentOpt by fixing (i = k) == (k = i)
     // println(s"=================================\nIdempotent:\n${idempotentOptCC.prettyFormat}\n${idempotentOptRM.prettyFormat}\n")
 
     val (removeEmptyProdOptUS, removeEmptyProdOptRM, removeEmptyProdOptCC) = (removeEmptyProductsOpt(idempotentOptUS), removeEmptyProductsOpt(idempotentOptRM), removeEmptyProductsOpt(idempotentOptCC))
-    println(s"=================================\nRemoved empty prods:\n${removeEmptyProdOptCC.prettyFormat}\n${removeEmptyProdOptRM.prettyFormat}\n")
+    // println(s"=================================\nRemoved empty prods:\n${removeEmptyProdOptCC.prettyFormat}\n${removeEmptyProdOptRM.prettyFormat}\n")
 
-    (removeEmptyProdOptUS, removeEmptyProdOptRM, removeEmptyProdOptCC)
+    val (replacedEqualVariablesOptUS, replacedEqualVariablesOptRM, replacedEqualVariablesOptCC) = (replaceEqualVariables(removeEmptyProdOptUS), replaceEqualVariables(removeEmptyProdOptRM), replaceEqualVariables(removeEmptyProdOptCC))
+    // println(s"=================================\nReplaced equal variables:\n${replacedEqualVariablesOptCC.prettyFormat}\n${replacedEqualVariablesOptRM.prettyFormat}\n")
+
+    val (fixedUS, fixedRM, fixedCC) = fixedPointOpt(replacedEqualVariablesOptUS, replacedEqualVariablesOptRM, replacedEqualVariablesOptCC)
+    
+    (fixedUS, fixedRM, fixedCC)
   }
 }

@@ -217,4 +217,93 @@ object Optimizer {
       alphaRename(value, alphaRenameMap)
     } 
   }
+
+  def getEqualVariables(rule: Rule): Seq[Seq[Seq[Variable]]] = {
+    val binaryEqualSets = rule.body.prods.map(p => {
+      p.exps.flatMap {
+        case Comparison("=", i1, i2) => {
+          (i1, i2) match {
+            case (v1: Variable, v2: Variable) => Set(Set(v1, v2))
+            case _ => Set()
+          }
+        }
+        case _ => Set()
+      }.toSet
+    }).distinct
+
+    // Merge equal binary sets:
+    val mergedSets = binaryEqualSets.map(setOfSets => setOfSets.foldLeft(Set[Set[Variable]]()) { (merged, current) =>
+      val (toMerge, rest) = merged.partition(_.intersect(current).nonEmpty)
+      val mergedSet = toMerge.flatten ++ current
+      rest + mergedSet
+    })
+
+    // Transform the set of sets to seq of seq of variables
+    mergedSets.map(_.map(_.toSeq).toSeq)
+  }
+
+  def replaceEqualVariableInIndex(index: Index, equalVariablesSet: Seq[Seq[Variable]]): Index = index match {
+    case v: Variable => {
+      val equalSet = equalVariablesSet.find(_.contains(v))
+      equalSet match {
+        case Some(set) => set.head
+        case None => v
+      }
+    }
+    case a @ Arithmetic(op, i1, i2) => Arithmetic(op, replaceEqualVariableInIndex(i1, equalVariablesSet), replaceEqualVariableInIndex(i2, equalVariablesSet))
+    case _ => index
+  }
+
+  def replaceEqualVariablesInExp(exp: Exp, equalVariablesSet: Seq[Seq[Variable]]): Seq[Exp] = exp match {
+    case Access(n, v, k) => Seq(Access(n, v.map(v2 => {
+      val equalSet = equalVariablesSet.find(_.contains(v2))
+      equalSet match {
+        case Some(set) => set.head
+        case None => v2
+      }
+    }), k))
+    case c @ Comparison(op, i, v) => op match {
+      // In case it is equality and one of the variables is head of the set, 
+      // don't replace it since the variables in head are not being replace to keep the number the rules one
+      case "=" => (i, v) match {
+        case (v1: Variable, v2: Variable) => {
+          val equalSet1 = equalVariablesSet.find(_.contains(v1))
+          val equalSet2 = equalVariablesSet.find(_.contains(v2))
+          (equalSet1, equalSet2) match {
+            case (Some(set1), _) if set1.head == v1 => Seq(c)
+            case (_, Some(set2)) if set2.head == v2 => Seq(c)
+            case (Some(set1), None) => Seq(Comparison("=", set1.head, v2))
+            case (None, Some(set2)) => Seq(Comparison("=", v1, set2.head))
+            case (Some(set1), Some(set2)) if set1.head == set2.head => Seq(Comparison("=", set1.head, v2), Comparison("=", v1, set2.head))
+            case (Some(set1), Some(set2)) => Seq(Comparison("=", set1.head, set2.head))
+            case (None, None) => Seq(c)
+          }
+        }
+        case _ => Seq(Comparison(op, replaceEqualVariableInIndex(i, equalVariablesSet), {
+          val equalSet = equalVariablesSet.find(_.contains(v))
+          equalSet match {
+            case Some(set) => set.head
+            case None => v
+          }
+        }))
+      }
+      case _ => Seq(Comparison(op, replaceEqualVariableInIndex(i, equalVariablesSet), {
+        val equalSet = equalVariablesSet.find(_.contains(v))
+        equalSet match {
+          case Some(set) => set.head
+          case None => v
+        }
+      }))
+    }
+    case _ => throw new Exception("Unknown expression")
+  }
+
+  def replaceEqualVariables(rule: Rule): Rule = {
+    val equalVariablesSet = getEqualVariables(rule)
+    val newBody = SoP(rule.body.prods.zip(equalVariablesSet).map{ case (p, eSet) => {
+      Prod(p.exps.map(exp => replaceEqualVariablesInExp(exp, eSet)).flatten)
+    }})
+    
+    Rule(rule.head, newBody)
+  }
 }
