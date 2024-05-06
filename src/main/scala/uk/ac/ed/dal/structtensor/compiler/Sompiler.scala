@@ -524,7 +524,7 @@ object Sompiler {
     // println(s"=================================\nRemoved empty prods:\n${removeEmptyProdOptCC.prettyFormat}\n${removeEmptyProdOptRM.prettyFormat}\n")
     val (replacedEqualVariablesOptUS, replacedEqualVariablesOptRM, replacedEqualVariablesOptCC) = (replaceEqualVariables(removeEmptyProdOptUS), replaceEqualVariables(removeEmptyProdOptRM), replaceEqualVariables(removeEmptyProdOptCC))
     // println(s"=================================\nReplaced equal variables:\n${replacedEqualVariablesOptCC.prettyFormat}\n${replacedEqualVariablesOptRM.prettyFormat}\n")
-    if (replacedEqualVariablesOptUS == us && replacedEqualVariablesOptRM == rm && replacedEqualVariablesOptCC == cc) (replacedEqualVariablesOptUS, replacedEqualVariablesOptRM, replacedEqualVariablesOptCC) // fix == with conversion to Seq[Set[Set]]
+    if (isSoPEquals(replacedEqualVariablesOptUS.body, us.body) && isSoPEquals(replacedEqualVariablesOptRM.body, rm.body) && isSoPEquals(replacedEqualVariablesOptCC.body, cc.body)) (replacedEqualVariablesOptUS, replacedEqualVariablesOptRM, replacedEqualVariablesOptCC)
     else fixedPointOpt(replacedEqualVariablesOptUS, replacedEqualVariablesOptRM, replacedEqualVariablesOptCC) 
   }
 
