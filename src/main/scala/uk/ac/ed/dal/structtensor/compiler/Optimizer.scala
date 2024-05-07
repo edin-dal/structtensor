@@ -251,7 +251,7 @@ object Optimizer {
         }
         case _ => Set()
       }.toSet
-    }).distinct
+    })
 
     // Merge equal binary sets:
     val mergedSets = binaryEqualSets.map(setOfSets => setOfSets.foldLeft(Set[Set[Variable]]()) { (merged, current) =>

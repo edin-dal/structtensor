@@ -99,7 +99,7 @@ object Codegen {
 
     // indexMap is to sort the variables based on the variables that depend on them
     val indexMap = variables.zipWithIndex.toMap
-    println(s"afterMap: $afterMap")
+
     @scala.annotation.tailrec
     def reorderRec(afterMap: Map[Variable, Seq[Variable]], indexMap: Map[Variable, Int]): Seq[Variable] = {
       val newIndexMap = afterMap.map { case (k, v) => if (!v.filter(variables.contains).isEmpty) k -> (v.filter(variables.contains).map(indexMap).max + 1) else k -> indexMap(k)}
@@ -161,7 +161,6 @@ object Codegen {
 
   def apply(rule: Rule, symbols: Seq[Variable]): String = {
     val computationHead = rule.head
-    println("RULE: ", rule.prettyFormat)
     rule.body.prods.map(prod => {
       val conditions = prod.exps.collect { case condition: Comparison => condition }
       val accesses = prod.exps.collect { case access: Access => access }

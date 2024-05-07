@@ -228,16 +228,6 @@ PGLM      = Population Growth Leslie Matrix
                 }
               }))
               val (usRule, rmRule, ccRule) = compile(tc, inps)
-              println("**************************")
-              println("US:")
-              println(usRule.prettyFormat)
-              println("RM:")
-              println(rmRule.prettyFormat)
-              println("CC:")
-              println(ccRule.prettyFormat)
-              println("CODE:")
-              println(Codegen(ccRule, symbols))
-              println("**************************")
               (acc._1 + (usRule.head -> usRule), acc._2 + (rmRule.head -> rmRule), acc._3 + (ccRule.head -> ccRule), s"${acc._4}\n${Codegen(ccRule, symbols)}")
             })
 
