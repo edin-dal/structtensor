@@ -103,9 +103,9 @@ object Codegen {
     @scala.annotation.tailrec
     def reorderRec(afterMap: Map[Variable, Seq[Variable]], indexMap: Map[Variable, Int]): Seq[Variable] = {
       val newIndexMap = afterMap.map { case (k, v) => if (!v.filter(variables.contains).isEmpty) k -> (v.filter(variables.contains).map(indexMap).max + 1) else k -> indexMap(k)}
-      println(s"newIndexMap: $newIndexMap")
-      if (newIndexMap == indexMap) indexMap.toSeq.sortBy(_._2).map(_._1)
-      else reorderRec(afterMap, newIndexMap)
+      val sortedNewIndexMap = newIndexMap.toSeq.sortBy(_._2).map(_._1).zipWithIndex.toMap
+      if (sortedNewIndexMap == indexMap) indexMap.toSeq.sortBy(_._2).map(_._1)
+      else reorderRec(afterMap, sortedNewIndexMap)
     }
     reorderRec(afterMap, indexMap)
   }
@@ -119,8 +119,7 @@ object Codegen {
         case va: Variable => variables.contains(va) || symbols.contains(va)
         case _ => true
       }
-      println(s"variables: $variables")
-      println(s"v: $v, begin: $begin, end: $end, equals: $equals, rest: $rest")
+      // println(s"v: $v, begin: $begin, end: $end, equals: $equals, rest: $rest")
       val eqCode = equals.map(e => e match {
         case va: Variable => if ((!begin.isEmpty || !end.isEmpty) && !variables.contains(va) && !symbols.contains(va)) s"int ${CPPFormat(va)} = ${CPPFormat(v)};" else s"int ${CPPFormat(v)} = ${CPPFormat(va)};"
         case _ => s"int ${CPPFormat(v)} = ${CPPFormat(e)};"
