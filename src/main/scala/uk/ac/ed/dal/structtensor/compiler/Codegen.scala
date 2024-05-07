@@ -79,7 +79,7 @@ object Codegen {
     case _ => Seq()
   }
 
-  def reorder(variables: Seq[Variable], conditions: Seq[Comparison]): Seq[Variable] = {
+  def reorder(variables: Seq[Variable], conditions: Seq[Comparison], symbols: Seq[Variable]): Seq[Variable] = {
     // afterMap is a <key, value> pair where key is the variable, and value is a list of variables that key depends on
     val afterMap = conditions.map {
       case Comparison(_, i, v: Variable) => {
@@ -88,33 +88,41 @@ object Codegen {
             case va: Variable if (variables.contains(va)) => if (variables.indexOf(va) < variables.indexOf(v)) v -> Seq(va) else va -> Seq(v)
             case _ => v -> getVariablesInIndex(i).filter(variables.contains)
           }
-        } else None
+        } else if (symbols.contains(v)) {
+          i match {
+            case va: Variable if (variables.contains(va)) => va -> Seq(v)
+            case _ => None
+          }
+        } else None 
       }
     }.filterNot(_ == None).groupBy { case (k: Variable, _) => k }.mapValues(_.flatMap {case (_: Variable, vars: Seq[Variable]) => vars }).toMap //.foreach { case (k, v) => println(s"$k -> ${v}") }
 
     // indexMap is to sort the variables based on the variables that depend on them
     val indexMap = variables.zipWithIndex.toMap
+    println(s"afterMap: $afterMap")
     @scala.annotation.tailrec
     def reorderRec(afterMap: Map[Variable, Seq[Variable]], indexMap: Map[Variable, Int]): Seq[Variable] = {
-      val newIndexMap = afterMap.map { case (k, v) => if (!v.isEmpty) k -> (v.map(indexMap).max + 1) else k -> indexMap(k)}
+      val newIndexMap = afterMap.map { case (k, v) => if (!v.filter(variables.contains).isEmpty) k -> (v.filter(variables.contains).map(indexMap).max + 1) else k -> indexMap(k)}
+      println(s"newIndexMap: $newIndexMap")
       if (newIndexMap == indexMap) indexMap.toSeq.sortBy(_._2).map(_._1)
       else reorderRec(afterMap, newIndexMap)
     }
     reorderRec(afterMap, indexMap)
   }
 
-  def codeGenSingleProd(computationHead: Access, conditions: Seq[Comparison], accesses: Seq[Access], orderedVariables: Seq[Variable] = Seq()): String = {
+  def codeGenSingleProd(computationHead: Access, conditions: Seq[Comparison], accesses: Seq[Access], symbols: Seq[Variable], orderedVariables: Seq[Variable] = Seq()): String = {
     val variablesInit = (computationHead.vars ++ accesses.flatMap(_.vars)).distinct
-    val variables = if (orderedVariables.isEmpty) reorder(variablesInit, conditions) else orderedVariables
+    val variables = if (orderedVariables.isEmpty) reorder(variablesInit, conditions, symbols) else orderedVariables
     val (loopNests, restOfConditions, numberOfBrackets1) = variables.reverse.foldLeft(Seq[String](), conditions, 0)((acc, v) => {
       val (begin, end, equalsFullList, rest) = getConditionsOnVariable(v, acc._2)
       val equals = equalsFullList.filter {
-        case va: Variable => variables.map(_.name).contains(va.name)
+        case va: Variable => variables.contains(va) || symbols.contains(va)
         case _ => true
       }
-      // println(s"v: $v, begin: $begin, end: $end, equals: $equals, rest: $rest")
+      println(s"variables: $variables")
+      println(s"v: $v, begin: $begin, end: $end, equals: $equals, rest: $rest")
       val eqCode = equals.map(e => e match {
-        case va: Variable => if (!begin.isEmpty || !end.isEmpty) s"int ${CPPFormat(va)} = ${CPPFormat(v)};" else s"int ${CPPFormat(v)} = ${CPPFormat(va)};"
+        case va: Variable => if ((!begin.isEmpty || !end.isEmpty) && !variables.contains(va) && !symbols.contains(va)) s"int ${CPPFormat(va)} = ${CPPFormat(v)};" else s"int ${CPPFormat(v)} = ${CPPFormat(va)};"
         case _ => s"int ${CPPFormat(v)} = ${CPPFormat(e)};"
       }).mkString("\n")
       (begin.length, end.length, eqCode.contains(s"int ${CPPFormat(v)} = ")) match {
@@ -151,12 +159,13 @@ object Codegen {
     s"$loopNestsString\n${CPPFormat(computationHead)} += $computationBody;\n$brackets"
   }
 
-  def apply(rule: Rule): String = {
+  def apply(rule: Rule, symbols: Seq[Variable]): String = {
     val computationHead = rule.head
+    println("RULE: ", rule.prettyFormat)
     rule.body.prods.map(prod => {
       val conditions = prod.exps.collect { case condition: Comparison => condition }
       val accesses = prod.exps.collect { case access: Access => access }
-      codeGenSingleProd(computationHead, conditions, accesses)
+      codeGenSingleProd(computationHead, conditions, accesses, symbols)
     }).mkString("\n")
   }
 }

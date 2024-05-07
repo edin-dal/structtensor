@@ -1,3 +1,4 @@
+symbols: N
 A(i, j) := f(i) * f(j)
 B(i, j) := g(i) * g(j)
 C(i, j) := A(i, j) + B(i, j)

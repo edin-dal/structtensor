@@ -1,3 +1,4 @@
+symbols: W
 @preprocess_start
 B1(j) := B(i, j) * (i = 0)
 B2(j) := B(i, j) * (1 <= i) * (W > i) * (j = (i - 1))

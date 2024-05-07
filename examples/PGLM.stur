@@ -1,3 +1,4 @@
+symbols: W
 A(i) := B(i, j) * C(j)
 B:D(i, j) := (0 <= i) * (i < W) * (0 <= j) * (j < W)
 C:D(j) := (0 <= j) * (j < W)

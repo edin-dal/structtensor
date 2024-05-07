@@ -1,3 +1,4 @@
+symbols: M, N, P, Q, J
 @preprocess_start
 D2(l) := D(l, j) * (j = J)
 D:D(l, j) := (0 <= l) * (l < P) * (0 <= j) * (j < Q)
