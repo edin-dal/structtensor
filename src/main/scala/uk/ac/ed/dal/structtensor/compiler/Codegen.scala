@@ -81,21 +81,29 @@ object Codegen {
 
   def reorder(variables: Seq[Variable], conditions: Seq[Comparison], symbols: Seq[Variable]): Seq[Variable] = {
     // afterMap is a <key, value> pair where key is the variable, and value is a list of variables that key depends on
-    val afterMap = conditions.map {
+    val afterMap_removeIfExist = conditions.map {
       case Comparison(_, i, v: Variable) => {
         if (variables.contains(v)) {
           i match {
-            case va: Variable if (variables.contains(va)) => if (variables.indexOf(va) < variables.indexOf(v)) v -> Seq(va) else va -> Seq(v)
-            case _ => v -> getVariablesInIndex(i).filter(variables.contains)
+            case va: Variable if (variables.contains(va)) => if (variables.indexOf(va) < variables.indexOf(v)) (v -> Seq(va), None) else (va -> Seq(v), None)
+            case _ => (v -> getVariablesInIndex(i).filter(variables.contains), getVariablesInIndex(i).filter(variables.contains).map(_ -> Seq(v)).toMap)
           }
         } else if (symbols.contains(v)) {
           i match {
-            case va: Variable if (variables.contains(va)) => va -> Seq(v)
-            case _ => None
+            case va: Variable if (variables.contains(va)) => (va -> Seq(v), None)
+            case _ => (None, None)
           }
-        } else None 
+        } else (None, None)
       }
-    }.filterNot(_ == None).groupBy { case (k: Variable, _) => k }.mapValues(_.flatMap {case (_: Variable, vars: Seq[Variable]) => vars }).toMap //.foreach { case (k, v) => println(s"$k -> ${v}") }
+    }
+    val (afterMapInit, removeIfExsitInit) = afterMap_removeIfExist.unzip
+    val afterMap1 = afterMapInit.filterNot(_ == None).groupBy { case (k: Variable, _) => k }.mapValues(_.flatMap {case (_: Variable, vars: Seq[Variable]) => vars }).map {case (k, v) => k -> v.distinct}.toMap //.foreach { case (k, v) => println(s"$k -> ${v}") }
+    val removeIfExsit = removeIfExsitInit.filterNot(_ == None).filterNot(_ == Map()).toSeq.flatten.groupBy { case (k: Variable, _) => k }.mapValues(_.flatMap {case (_: Variable, vars: Seq[Variable]) => vars }).map {case (k, v) => k -> v.distinct}.toMap
+    val afterMap = afterMap1.map { case (k, v) => {
+      val removeIfExsitVars = removeIfExsit.getOrElse(k, Seq())
+      k -> v.filterNot(removeIfExsitVars.contains)
+    }}
+    
 
     // indexMap is to sort the variables based on the variables that depend on them
     val indexMap = variables.zipWithIndex.toMap

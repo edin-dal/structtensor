@@ -204,6 +204,11 @@ PGLM      = Population Growth Leslie Matrix
             tensorComputations_computation.map(r => println(r.prettyFormat))
             println("**************************")
 
+            // println("US")
+            // uniqueSets_computation.map{case (k, v) => println(s"${k.prettyFormat} -> ${v.prettyFormat}")}
+            // println("RM")
+            // redundancyMaps_computation.map{case (k, v) => println(s"${k.prettyFormat} -> ${v.prettyFormat}")}
+
             val (newUS, newRM, newCC, newComputationCode) = tensorComputations_computation.foldLeft((uniqueSets_computation, redundancyMaps_computation, Map[Exp, Rule](), ""))((acc, tc) => {
               val inps: Seq[(Rule, Rule, Rule, Rule)] = tc.body.prods.flatMap(prod => prod.exps.map(e => {
                 e match {
@@ -228,6 +233,9 @@ PGLM      = Population Growth Leslie Matrix
                 }
               }))
               val (usRule, rmRule, ccRule) = compile(tc, inps)
+              println(s"usRule: ${usRule.prettyFormat}")
+              println(s"rmRule: ${rmRule.prettyFormat}")
+              println(s"ccRule: ${ccRule.prettyFormat}")
               (acc._1 + (usRule.head -> usRule), acc._2 + (rmRule.head -> rmRule), acc._3 + (ccRule.head -> ccRule), s"${acc._4}\n${Codegen(ccRule, symbols)}")
             })
 

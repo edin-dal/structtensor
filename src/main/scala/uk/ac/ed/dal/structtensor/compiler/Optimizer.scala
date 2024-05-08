@@ -180,10 +180,10 @@ object Optimizer {
                 else false
               } else false
             }
-            case (ConstantInt(v1), ConstantInt(v2)) => isBinaryProductWithConstantBoundsEmpty(op1, op2, v1, v2)
-            case (ConstantInt(v1), ConstantDouble(v2)) => isBinaryProductWithConstantBoundsEmpty(op1, op2, v1, v2)
-            case (ConstantDouble(v1), ConstantInt(v2)) => isBinaryProductWithConstantBoundsEmpty(op1, op2, v1, v2)
-            case (ConstantDouble(v1), ConstantDouble(v2)) => isBinaryProductWithConstantBoundsEmpty(op1, op2, v1, v2)
+            case (ConstantInt(v1), ConstantInt(v2)) if variable1 == variable2 => isBinaryProductWithConstantBoundsEmpty(op1, op2, v1, v2)
+            case (ConstantInt(v1), ConstantDouble(v2)) if variable1 == variable2 => isBinaryProductWithConstantBoundsEmpty(op1, op2, v1, v2)
+            case (ConstantDouble(v1), ConstantInt(v2)) if variable1 == variable2 => isBinaryProductWithConstantBoundsEmpty(op1, op2, v1, v2)
+            case (ConstantDouble(v1), ConstantDouble(v2)) if variable1 == variable2 => isBinaryProductWithConstantBoundsEmpty(op1, op2, v1, v2)
             case _ => {
               if (index1 == index2 && variable1 == variable2) {
                 if (opEmpty(op1).contains(op2)) true
