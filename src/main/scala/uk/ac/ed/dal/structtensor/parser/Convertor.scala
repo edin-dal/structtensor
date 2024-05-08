@@ -3,7 +3,6 @@ package structtensor
 package parser
 
 import compiler._
-import apps.Shared
 
 import scala.collection.mutable.LinkedHashMap
 

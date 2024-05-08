@@ -1,9 +1,6 @@
 package uk.ac.ed.dal
 package structtensor
-package parser
-
-import compiler._
-import apps.Shared
+package compiler
 
 object Bodygen {
   import Shared._

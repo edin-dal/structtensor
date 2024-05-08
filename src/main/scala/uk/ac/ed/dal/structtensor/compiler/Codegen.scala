@@ -5,7 +5,6 @@ package compiler
 import scala.collection.mutable.ArraySeq
 import scala.sys.process._
 import scala.io.Source
-import apps.Shared
 
 object Codegen {
   import Shared._

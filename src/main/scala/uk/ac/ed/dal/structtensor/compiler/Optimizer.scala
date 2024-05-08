@@ -2,8 +2,6 @@ package uk.ac.ed.dal
 package structtensor
 package compiler
 
-import apps.Shared
-
 object Optimizer {
   import Shared._
 

@@ -2,8 +2,6 @@ package uk.ac.ed.dal
 package structtensor
 package compiler
 
-import apps.Shared
-
 sealed trait Exp {
   def prettyFormat(): String
   def cFormat(): String
