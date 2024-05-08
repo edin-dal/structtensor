@@ -2,36 +2,10 @@ package uk.ac.ed.dal
 package structtensor
 package compiler
 
+import apps.Shared
+
 object Optimizer {
-  import STURHelper._
-
-  var cnt = 0
-  def getVar(name: String): String = {
-    cnt += 1
-    return s"$name$cnt"
-  }
-
-  def concatSoP(sops: Seq[SoP]): SoP = SoP(sops.flatMap(sop => sop.prods))
-
-  def prodTimesProd(prod1: Prod, prod2: Prod): Prod = {
-    if (prod1.exps.size == 0 || prod2.exps.size == 0) emptyProd()
-    else Prod(prod1.exps ++ prod2.exps)
-  } 
-
-  def prodTimesSoP(prod: Prod, sop: SoP): SoP = {
-    if (prod.exps.size == 0 || sop.prods.size == 0) emptySoP()
-    else SoP(sop.prods.map(cur => prodTimesProd(prod, cur)))
-  }
-
-  def SoPTimesSoP(sop1: SoP, sop2: SoP): SoP = {
-    if (sop1.prods.size == 0 || sop2.prods.size == 0) emptySoP()
-    else SoP(sop1.prods.flatMap(cur => prodTimesSoP(cur, sop2).prods))
-  }
-
-  def multSoP(sops: Seq[SoP]): SoP = {
-    if (sops.size == 0) emptySoP()
-    else sops.slice(1, sops.length).foldLeft(sops(0))((acc, cur) => SoPTimesSoP(acc, cur))
-  } 
+  import Shared._
 
   def denormalizeSingle(body: SoP, denormMap: Map[Access, SoP]): SoP = {
     def extractAccessesInDenormalizationMapByName(exp: Exp): Boolean = exp match {

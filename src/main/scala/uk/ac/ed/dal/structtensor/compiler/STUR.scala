@@ -2,6 +2,8 @@ package uk.ac.ed.dal
 package structtensor
 package compiler
 
+import apps.Shared
+
 sealed trait Exp {
   def prettyFormat(): String
   def cFormat(): String
@@ -87,7 +89,7 @@ case class Arithmetic(op: String, index1: Index, index2: Index) extends Index wi
 }
 
 case class Access(name: String, vars: Seq[Variable], kind: AccessType) extends Exp {
-  import STURHelper._
+  import Shared._
   def prettyFormat(): String = {
     val pr = vars.foldLeft("")((acc, cur) => s"$acc, ${cur.prettyFormat}")
     if (pr == "") name else s"${name}(${pr.substring(2, pr.length)})"

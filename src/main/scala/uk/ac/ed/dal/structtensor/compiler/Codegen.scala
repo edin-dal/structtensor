@@ -8,7 +8,6 @@ import scala.io.Source
 import apps.Shared
 
 object Codegen {
-  import STURHelper._
   import Shared._
 
   def CPPFormat(a: Any): String = {
@@ -81,6 +80,8 @@ object Codegen {
 
   def reorder(variables: Seq[Variable], conditions: Seq[Comparison], symbols: Seq[Variable]): Seq[Variable] = {
     // afterMap is a <key, value> pair where key is the variable, and value is a list of variables that key depends on
+    // If 2 variables depend on each other, they might get removed completely and cause an issue (e.g., a < b + 5 and b > a - 5.)
+    // User must make sure that the conditions are not cyclic
     val afterMap_removeIfExist = conditions.map {
       case Comparison(_, i, v: Variable) => {
         if (variables.contains(v)) {

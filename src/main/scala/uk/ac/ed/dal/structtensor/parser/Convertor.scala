@@ -3,16 +3,15 @@ package structtensor
 package parser
 
 import compiler._
-import apps._
+import apps.Shared
 
 import scala.collection.mutable.LinkedHashMap
 
 object Convertor {
   import Compiler._
-  import Sompiler._
   import Optimizer.denormalizeDim, Optimizer.setIdempotentOpt, Optimizer.removeEmptyProductsOpt
-  import STURHelper._
   import Bodygen._
+  import Shared._
 
   def groupRules(rules: Seq[Rule]): (LinkedHashMap[Access, Rule], Map[Access, Rule], Map[Access, Rule], Map[Access, Rule]) = {
     rules.foldLeft((LinkedHashMap.empty[Access, Rule], Map.empty[Access, Rule], Map.empty[Access, Rule], Map.empty[Access, Rule]))((acc, r) => {
@@ -83,7 +82,7 @@ object Convertor {
     })
   }
 
-  def extractSet(headToSetMap: Map[Access, Rule], dimInfoMap: Map[Access, DimInfo], kind: AccessType): Map[Exp, Rule] = {
+  def extractSet(headToSetMap: Map[Access, Rule], dimInfoMap: Map[Access, DimInfo], kind: AccessType): Map[Access, Rule] = {
     dimInfoMap.map { case (old_head, dimInfo) =>
       val head = Access(dimInfo.access.name, dimInfo.access.vars, Tensor)
       val body = dimInfo.toSoP
@@ -114,7 +113,7 @@ object Convertor {
   //   removeEmptyProductsDimsSeq
   // }
 
-  def convertRules(rules: Seq[Rule], enforceDimensions: Boolean): (Seq[Access], Seq[Rule], Seq[DimInfo], Map[Exp, Rule], Map[Exp, Rule]) = {
+  def convertRules(rules: Seq[Rule], enforceDimensions: Boolean): (Seq[Access], Seq[Rule], Seq[DimInfo], Map[Access, Rule], Map[Access, Rule]) = {
     val (headToTensorMap, headToUniqueSetMap, headToRedundancyMapMap, headToDimensionMap) = groupRules(rules)
     // headToTensorMap.foreach{case (k, v) => println(s"**************************\nTensor:\n${k.prettyFormat} -> ${v.prettyFormat}\n")}
     // headToUniqueSetMap.foreach{case (k, v) => println(s"**************************\nUnique Set:\n${k.prettyFormat} -> ${v.prettyFormat}\n")}
@@ -130,8 +129,8 @@ object Convertor {
 
     // val (dimInfo, dimInfoMap): (Seq[DimInfo], Map[Access, DimInfo]) = extractDims(headToDimensionMap.values.toSeq ++ optDimsSeq)
     val (dimInfo, dimInfoMap): (Seq[DimInfo], Map[Access, DimInfo]) = extractDims(headToDimensionMap.values.toSeq)
-    val uniqueSets: Map[Exp, Rule] = if (!enforceDimensions) headToUniqueSetMap.values.map(r => (Access(r.head.name, r.head.vars, Tensor) -> Rule(Access(r.head.name, r.head.vars, UniqueSet), r.body))).toMap else extractSet(headToUniqueSetMap, dimInfoMap, UniqueSet)
-    val redundancyMaps: Map[Exp, Rule] = if (!enforceDimensions) headToRedundancyMapMap.values.map(r => (Access(r.head.name, r.head.vars.slice(0, r.head.vars.length / 2), Tensor) -> Rule(Access(r.head.name, r.head.vars, RedundancyMap), r.body))).toMap else extractSet(headToRedundancyMapMap, dimInfoMap, RedundancyMap)
+    val uniqueSets: Map[Access, Rule] = if (!enforceDimensions) headToUniqueSetMap.values.map(r => (Access(r.head.name, r.head.vars, Tensor) -> Rule(Access(r.head.name, r.head.vars, UniqueSet), r.body))).toMap else extractSet(headToUniqueSetMap, dimInfoMap, UniqueSet)
+    val redundancyMaps: Map[Access, Rule] = if (!enforceDimensions) headToRedundancyMapMap.values.map(r => (Access(r.head.name, r.head.vars.slice(0, r.head.vars.length / 2), Tensor) -> Rule(Access(r.head.name, r.head.vars, RedundancyMap), r.body))).toMap else extractSet(headToRedundancyMapMap, dimInfoMap, RedundancyMap)
     // println("Enforce Dimensions:")
     // println(enforceDimensions)
     // println("Tensor Computations:")

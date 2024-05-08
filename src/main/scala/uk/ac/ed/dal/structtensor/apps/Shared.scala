@@ -13,6 +13,102 @@ object Shared {
     bw.close()
   }
 
+  var cnt = 0
+  def getVar(name: String): String = {
+    cnt += 1
+    return s"$name$cnt"
+  }
+
+  def emptyProd(): Prod = Prod(Seq[Exp]())
+
+  def emptySoP(): SoP = SoP(Seq[Prod]())
+
+  def emptyAccess(): Access = Access("", Seq[Variable](), Tensor)
+
+  def emptyRule(): Rule = Rule(emptyAccess(), emptySoP())
+
+  def emptyDimInfo(): DimInfo = DimInfo(emptyAccess(), Seq.empty[Dim])
+
+  def trueComparison(): Comparison = Comparison("<=", "0".toVar, "0".toVar)
+
+  def prodTimesProd(prod1: Prod, prod2: Prod): Prod = {
+    if (prod1.exps.size == 0 || prod2.exps.size == 0) emptyProd()
+    else Prod(prod1.exps ++ prod2.exps)
+  } 
+
+  def prodMult(prods: Seq[Prod]): Prod = {
+    if (prods.size == 0) emptyProd()
+    else prods.slice(1, prods.size).foldLeft(prods(0))((acc, cur) => prodTimesProd(acc, cur))
+  }
+
+  def prodTimesSoP(prod: Prod, sop: SoP): SoP = {
+    if (prod.exps.size == 0 || sop.prods.size == 0) emptySoP()
+    else {
+      val prods: Seq[Prod] = sop.prods.foldLeft(Seq[Prod]())((acc, cur) => acc :+ prodTimesProd(prod, cur))
+      SoP(prods)
+    }
+  }
+
+  def SoPTimesSoP(sop1: SoP, sop2: SoP): SoP = {
+    if (sop1.prods.size == 0 || sop2.prods.size == 0) emptySoP()
+    else {
+      val prods: Seq[Prod] = sop1.prods.foldLeft(Seq[Prod]())((acc, cur) => acc ++ prodTimesSoP(cur, sop2).prods)
+      SoP(prods)
+    }
+  }
+
+  def multSoP(sops: Seq[SoP]): SoP = {
+    if (sops.size == 0) emptySoP()
+    else sops.slice(1, sops.length).foldLeft(sops(0))((acc, cur) => SoPTimesSoP(acc, cur))
+  } 
+
+  def mergeMap[A, B](ms: Seq[Map[A, B]])(f: (B, B) => B): Map[A, B] = ms.flatten.foldLeft(Map[A, B]())((a, kv) => a + (if (a.contains(kv._1)) (kv._1 -> f(a(kv._1), kv._2)) else kv))
+
+  implicit class DimInfoOps(d: DimInfo) {
+    def toAccessMap: Map[Access, Seq[Dim]] = Map[Access, Seq[Dim]](d.access -> d.dims)
+    def toVarsMap: Map[Variable, Seq[Dim]] = (d.access.vars zip d.dims).foldLeft(Map.empty[Variable, Seq[Dim]])((acc, cur) => acc + (cur._1 -> Seq(cur._2)))
+    def toComparisonVariableProdMap: Map[Variable, Prod] = (d.access.vars zip d.dims).foldLeft(Map.empty[Variable, Prod])((acc, cur) => 
+    mergeMap(Seq(acc, Map(cur._1 -> Prod(Seq(Comparison("<=", ConstantInt(0), cur._1), Comparison(">", cur._2, cur._1))))))((v1, v2) => prodTimesProd(v1, v2)))
+    def toComparisonAccessProdMap: Map[Access, Prod] = (d.access.vars zip d.dims).foldLeft(Map.empty[Access, Prod])((acc, cur) => 
+    mergeMap(Seq(acc, Map(d.access -> Prod(Seq(Comparison("<=", ConstantInt(0), cur._1), Comparison(">", cur._2, cur._1))))))((v1, v2) => prodTimesProd(v1, v2)))
+    def toComparisonProd: Prod = Prod((d.access.vars zip d.dims).foldLeft(Seq[Exp]())((acc, cur) => 
+    acc ++ Seq(Comparison("<=", ConstantInt(0), cur._1), Comparison(">", cur._2, cur._1))))
+    def toSoP: SoP = SoP(Seq(Prod((d.access.vars zip d.dims).foldLeft(Seq.empty[Exp])((acc, varDim) => acc ++ Seq(Comparison("<=", ConstantInt(0), varDim._1), Comparison(">", varDim._2, varDim._1))))))
+  }
+
+  implicit class SeqDimInfoOps(d: Seq[DimInfo]) {
+    def toAccessMap: Map[Access, Seq[Dim]] = d.foldLeft(Map.empty[Access, Seq[Dim]])((acc, cur) => mergeMap(Seq(acc, cur.toAccessMap))((v1, v2) => v1 ++ v2))
+    def toVarsMap: Map[Variable, Seq[Dim]] = d.foldLeft(Map.empty[Variable, Seq[Dim]])((acc, cur) => mergeMap(Seq(acc, cur.toVarsMap))((v1, v2) => v1 ++ v2))
+    def toComparisonVariableProdMap: Map[Variable, Prod] = d.foldLeft(Map.empty[Variable, Prod])((acc, cur) => mergeMap(Seq(acc, cur.toComparisonVariableProdMap))((v1, v2) => prodTimesProd(v1, v2)))
+    def toComparisonAccessProdMap: Map[Access, Prod] = d.foldLeft(Map.empty[Access, Prod])((acc, cur) => mergeMap(Seq(acc, cur.toComparisonAccessProdMap))((v1, v2) => prodTimesProd(v1, v2)))
+    def toComparisonProd: Prod = prodMult(d.foldLeft(Seq[Prod]())((acc, cur) => acc :+ cur.toComparisonProd))
+  }
+
+  implicit class StringOps(s: String) {
+    def uniqueName = s"${s}_US"
+    def redundancyName = s"${s}_RM"
+    def compressedName = s"${s}_C"
+    def dimensionName = s"${s}_D"
+    def toVar: Variable = Variable(s)
+    def redundancyVars: Variable = s.toVar.redundancyVars
+  }
+
+  implicit class VariableOps(v: Variable) {
+    def redundancyVars = Variable(s"${v.name}p")
+    def toAccess(kind: AccessType): Access = Access("", Seq(v), kind)
+  }
+
+  implicit class SeqVariableOps(v: Seq[Variable]) {
+    def redundancyVars = v.foldLeft(Seq[Variable]())((acc, cur) => acc :+ cur.redundancyVars)
+    def redundancyVarsInplace = v ++ v.redundancyVars
+    def toAccess(kind: AccessType): Access = Access("", v, kind)
+  }
+
+  def concatSoP(sops: Seq[SoP]): SoP = {
+    val prods: Seq[Prod] = sops.foldLeft(Seq[Prod]())((acc, cur) => acc ++ cur.prods)
+    SoP(prods)
+  }
+
   def MLIR_init_code(): String = s"""
 "builtin.module"() ({
   "func.func"() ({}) {function_type = (!llvm.ptr) -> i32, sym_name = "atoi", sym_visibility = "private"} : () -> ()

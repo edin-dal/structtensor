@@ -1,23 +1,41 @@
 package uk.ac.ed.dal
 package structtensor
 
-import apps._
 import parser._
 import fastparse._
 import compiler._
+import apps.Shared
 
 import java.io.File
 import scopt.OParser
 
 object Main extends App {
-  def mergeMap[A, B](ms: Seq[Map[A, B]])(f: (B, B) => B): Map[A, B] = ms.flatten.foldLeft(Map[A, B]())((a, kv) => a + (if (a.contains(kv._1)) (kv._1 -> f(a(kv._1), kv._2)) else kv))
+  import Optimizer._
+  import Shared._
 
-  implicit class DimInfoOps(d: DimInfo) {
-    def toAccessMap: Map[Access, Seq[Dim]] = Map[Access, Seq[Dim]](d.access -> d.dims)
-  }
-
-  implicit class SeqDimInfoOps(d: Seq[DimInfo]) {
-    def toAccessMap: Map[Access, Seq[Dim]] = d.foldLeft(Map.empty[Access, Seq[Dim]])((acc, cur) => mergeMap(Seq(acc, cur.toAccessMap))((v1, v2) => v1 ++ v2))
+  def getInps(tc: Rule, usMap: Map[Access, Rule], rmMap: Map[Access, Rule], ccMap: Map[Access, Rule]): Seq[(Rule, Rule, Rule, Rule)] = {
+    tc.body.prods.flatMap(prod => prod.exps.map(e => {
+      e match {
+        case access: Access => {
+          val us = Rule(usMap(access).head.uniqueHead, usMap(access).body)
+          val rm = Rule(rmMap(access).head.redundancyHead, rmMap(access).body)
+          val cc = if (ccMap.contains(access)) {
+            Rule(ccMap(access).head.compressedHead, ccMap(access).body)
+          } else Rule(usMap(access).head.compressedHead, SoPTimesSoP(SoP(Seq(Prod(Seq(e)))), usMap(access).body))
+          // val cc = Rule(usMap(access).head.compressedHead, SoPTimesSoP(SoP(Seq(Prod(Seq(e)))), SoP(Seq(Prod(Seq(usMap(access).head.uniqueHead))))))
+          val t = Rule(access, SoP(Seq(Prod(Seq(e)))))
+          (us, rm, cc, t)
+        }
+        case _ => {
+          val h = Access("", Seq(), Tensor)
+          val us = Rule(h.uniqueHead, SoP(Seq(Prod(Seq(e)))))
+          val rm = Rule(h.redundancyHead, SoP(Seq(Prod(Seq(e)))))
+          val cc = Rule(h.compressedHead, SoP(Seq(Prod(Seq(e)))))
+          val t = Rule(h, SoP(Seq(Prod(Seq(e)))))
+          (us, rm, cc, t)
+        }
+      }
+    }))
   }
 
   case class Config(
@@ -131,42 +149,12 @@ PGLM      = Population Growth Leslie Matrix
   OParser.parse(parser1, args, Config()) match {
     case Some(config) => {
       config.tool match {
-        case "app" => {
-          config.applicationName match {
-            case "LRC" => LRC(codeMotion=config.codeMotion, codeLang=config.codeLang, sparse=config.sparse, sturOpt=config.sturOpt)
-            case "PR2C" => PR2C(codeMotion=config.codeMotion, codeLang=config.codeLang, sparse=config.sparse, sturOpt=config.sturOpt)
-            case "PR3C" => PR3C(codeMotion=config.codeMotion, codeLang=config.codeLang, sparse=config.sparse, sturOpt=config.sturOpt)
-            case "LRA" => LRA(codeMotion=config.codeMotion, codeLang=config.codeLang, sparse=config.sparse, sturOpt=config.sturOpt)
-            case "PR2A" => PR2A(codeMotion=config.codeMotion, codeLang=config.codeLang, sparse=config.sparse, sturOpt=config.sturOpt)
-            case "PR3A" => PR3A(codeMotion=config.codeMotion, codeLang=config.codeLang, sparse=config.sparse, sturOpt=config.sturOpt)
-            case "TTM_DP" => TTM(structure="diag_p", codeMotion=config.codeMotion, codeLang=config.codeLang, sparse=config.sparse, sturOpt=config.sturOpt)
-            case "TTM_J" => TTM(structure="fixed_j", codeMotion=config.codeMotion, codeLang=config.codeLang, sparse=config.sparse, sturOpt=config.sturOpt)
-            case "TTM_UT" => TTM(structure="uhc", codeMotion=config.codeMotion, codeLang=config.codeLang, sparse=config.sparse, sturOpt=config.sturOpt)
-            case "THP_DP" => THP(structure="diag_p", codeMotion=config.codeMotion, codeLang=config.codeLang, sparse=config.sparse, sturOpt=config.sturOpt)
-            case "THP_I" => THP(structure="fixed_i", codeMotion=config.codeMotion, codeLang=config.codeLang, sparse=config.sparse, sturOpt=config.sturOpt)
-            case "THP_J" => THP(structure="fixed_j", codeMotion=config.codeMotion, codeLang=config.codeLang, sparse=config.sparse, sturOpt=config.sturOpt)
-            case "MTTKRP_IJ" => MTTKRP(structure="fixed_ij", codeMotion=config.codeMotion, codeLang=config.codeLang, sparse=config.sparse, sturOpt=config.sturOpt)
-            case "MTTKRP_I" => MTTKRP(structure="fixed_i", codeMotion=config.codeMotion, codeLang=config.codeLang, sparse=config.sparse, sturOpt=config.sturOpt)
-            case "MTTKRP_J" => MTTKRP(structure="fixed_j", codeMotion=config.codeMotion, codeLang=config.codeLang, sparse=config.sparse, sturOpt=config.sturOpt)
-            case "E2E_LR" => E2E_PRK(1, codeMotion=config.codeMotion, codeLang=config.codeLang, sparse=config.sparse, sturOpt=config.sturOpt)
-            case "E2E_PR2" => E2E_PRK(2, codeMotion=config.codeMotion, codeLang=config.codeLang, sparse=config.sparse, sturOpt=config.sturOpt)
-            case "ODC" => ODC(codeMotion=config.codeMotion, codeLang=config.codeLang, sparse=config.sparse, sturOpt=config.sturOpt)
-            case "ODCC" => ODCC(codeMotion=config.codeMotion, codeLang=config.codeLang, sparse=config.sparse, sturOpt=config.sturOpt)
-            case "PGLM" => PGLM(codeMotion=config.codeMotion, codeLang=config.codeLang, sparse=config.sparse, sturOpt=config.sturOpt)
-            case "SpMV_UT" => SpMV(structure="ut", codeMotion=config.codeMotion, codeLang=config.codeLang, sparse=config.sparse, sturOpt=config.sturOpt)
-            case "SpMV_D" => SpMV(structure="diag", codeMotion=config.codeMotion, codeLang=config.codeLang, sparse=config.sparse, sturOpt=config.sturOpt)
-            case _ => println(config.applicationHelp)
-          }
-        }
-        case "coalesce" => {
-
-        }
         case "input" => {
           if (config.inFilePath != "") {
             import Parser._
             import Convertor._
             import Shared._
-            import Sompiler._
+            import Compiler._
             import Optimizer._
             import Codegen._
             val lines = scala.io.Source.fromFile(config.inFilePath).mkString
@@ -187,81 +175,32 @@ PGLM      = Population Growth Leslie Matrix
               val Parsed.Success(res, _) = parse(line, parser(_))
               res(0)
             }).toSeq
-            // val parsedRules: Seq[Rule] = lineSeq.map(line => {
-            //   val Parsed.Success(res, _) = parse(line, parser(_))
-            //   res(0)
-            // }).toSeq
-            // parsedRules.map(r => println(r.prettyFormat))
-            // val (all_tensors, tensorComputations, dimInfo, uniqueSets, redundancyMaps): (Seq[Access], Seq[Rule], Seq[DimInfo], Map[Exp, Rule], Map[Exp, Rule]) = convertRules(parsedRules, config.enforceDimensions)
-            val (all_tensors_preprocess, tensorComputations_preprocess, dimInfo_preprocess, uniqueSets_preprocess, redundancyMaps_preprocess): (Seq[Access], Seq[Rule], Seq[DimInfo], Map[Exp, Rule], Map[Exp, Rule]) = convertRules(parsedPreprocess, config.enforceDimensions)
-            val (all_tensors_computation, tensorComputations_computation, dimInfo_computation, uniqueSets_computation, redundancyMaps_computation): (Seq[Access], Seq[Rule], Seq[DimInfo], Map[Exp, Rule], Map[Exp, Rule]) = convertRules(parsedComputation, config.enforceDimensions)
-            // val (init_str, end_str): (String, String) = if (!config.initTensors) ("", "") else Bodygen(config.codeLang, parsedRules, all_tensors, dimInfo.toAccessMap, uniqueSets, config.sturOpt)
+            val (all_tensors_preprocess, tensorComputations_preprocess, dimInfo_preprocess, uniqueSets_preprocess, redundancyMaps_preprocess): (Seq[Access], Seq[Rule], Seq[DimInfo], Map[Access, Rule], Map[Access, Rule]) = convertRules(parsedPreprocess, config.enforceDimensions)
+            val (all_tensors_computation, tensorComputations_computation, dimInfo_computation, uniqueSets_computation, redundancyMaps_computation): (Seq[Access], Seq[Rule], Seq[DimInfo], Map[Access, Rule], Map[Access, Rule]) = convertRules(parsedComputation, config.enforceDimensions)
             val (init_str, end_str): (String, String) = if (!config.initTensors) ("", "") else Bodygen(config.codeLang, (parsedPreprocess ++ parsedComputation).distinct, (all_tensors_preprocess ++ all_tensors_computation).distinct, (dimInfo_preprocess ++ dimInfo_computation).distinct.toAccessMap, uniqueSets_preprocess ++ uniqueSets_computation, config.sturOpt)
-            println("**************************")
-            println("Preprocess Tensor Computations:")
-            tensorComputations_preprocess.map(r => println(r.prettyFormat))
-            println("Computation Tensor Computations:")
-            tensorComputations_computation.map(r => println(r.prettyFormat))
-            println("**************************")
+            // println("**************************")
+            // println("Preprocess Tensor Computations:")
+            // tensorComputations_preprocess.map(r => println(r.prettyFormat))
+            // println("Computation Tensor Computations:")
+            // tensorComputations_computation.map(r => println(r.prettyFormat))
+            // println("**************************")
 
             // println("US")
             // uniqueSets_computation.map{case (k, v) => println(s"${k.prettyFormat} -> ${v.prettyFormat}")}
             // println("RM")
             // redundancyMaps_computation.map{case (k, v) => println(s"${k.prettyFormat} -> ${v.prettyFormat}")}
 
-            val (newUS, newRM, newCC, newComputationCode) = tensorComputations_computation.foldLeft((uniqueSets_computation, redundancyMaps_computation, Map[Exp, Rule](), ""))((acc, tc) => {
-              val inps: Seq[(Rule, Rule, Rule, Rule)] = tc.body.prods.flatMap(prod => prod.exps.map(e => {
-                e match {
-                  case access: Access => {
-                    val us = Rule(acc._1(access).head.uniqueHead, acc._1(access).body)
-                    val rm = Rule(acc._2(access).head.redundancyHead, acc._2(access).body)
-                    val cc = if (acc._3.contains(access)){
-                      Rule(acc._3(access).head.compressedHead, acc._3(access).body)
-                    } else Rule(acc._1(access).head.compressedHead, SoPTimesSoP(SoP(Seq(Prod(Seq(e)))), acc._1(access).body))
-                    // val cc = Rule(acc._1(access).head.compressedHead, SoPTimesSoP(SoP(Seq(Prod(Seq(e)))), SoP(Seq(Prod(Seq(acc._1(access).head.uniqueHead))))))
-                    val t = Rule(access, SoP(Seq(Prod(Seq(e)))))
-                    (us, rm, cc, t)
-                  }
-                  case _ => {
-                    val h = Access("", Seq(), Tensor)
-                    val us = Rule(h.uniqueHead, SoP(Seq(Prod(Seq(e)))))
-                    val rm = Rule(h.redundancyHead, SoP(Seq(Prod(Seq(e)))))
-                    val cc = Rule(h.compressedHead, SoP(Seq(Prod(Seq(e)))))
-                    val t = Rule(h, SoP(Seq(Prod(Seq(e)))))
-                    (us, rm, cc, t)
-                  }
-                }
-              }))
+            val (newUS, newRM, newCC, newComputationCode) = tensorComputations_computation.foldLeft((uniqueSets_computation, redundancyMaps_computation, Map[Access, Rule](), ""))((acc, tc) => {
+              val inps: Seq[(Rule, Rule, Rule, Rule)] = getInps(tc, acc._1, acc._2, acc._3)
               val (usRule, rmRule, ccRule) = compile(tc, inps)
-              println(s"usRule: ${usRule.prettyFormat}")
-              println(s"rmRule: ${rmRule.prettyFormat}")
-              println(s"ccRule: ${ccRule.prettyFormat}")
+              // println(s"usRule: ${usRule.prettyFormat}")
+              // println(s"rmRule: ${rmRule.prettyFormat}")
+              // println(s"ccRule: ${ccRule.prettyFormat}")
               (acc._1 + (usRule.head -> usRule), acc._2 + (rmRule.head -> rmRule), acc._3 + (ccRule.head -> ccRule), s"${acc._4}\n${Codegen(ccRule, symbols)}")
             })
 
-            val (newUS_preprocess, newRM_preprocess, newCC_preprocess, newPreprocessCode) = tensorComputations_preprocess.foldLeft((uniqueSets_preprocess, redundancyMaps_preprocess, Map[Exp, Rule](), ""))((acc, tc) => {
-              val inps: Seq[(Rule, Rule, Rule, Rule)] = tc.body.prods.flatMap(prod => prod.exps.map(e => {
-                e match {
-                  case access: Access => {
-                    val us = Rule(acc._1(access).head.uniqueHead, acc._1(access).body)
-                    val rm = Rule(acc._2(access).head.redundancyHead, acc._2(access).body)
-                    val cc = if (acc._3.contains(access)){
-                      Rule(acc._3(access).head.compressedHead, acc._3(access).body)
-                    } else Rule(acc._1(access).head.compressedHead, SoPTimesSoP(SoP(Seq(Prod(Seq(e)))), acc._1(access).body))
-                    // val cc = Rule(acc._1(access).head.compressedHead, SoPTimesSoP(SoP(Seq(Prod(Seq(e)))), SoP(Seq(Prod(Seq(acc._1(access).head.uniqueHead))))))
-                    val t = Rule(access, SoP(Seq(Prod(Seq(e)))))
-                    (us, rm, cc, t)
-                  }
-                  case _ => {
-                    val h = Access("", Seq(), Tensor)
-                    val us = Rule(h.uniqueHead, SoP(Seq(Prod(Seq(e)))))
-                    val rm = Rule(h.redundancyHead, SoP(Seq(Prod(Seq(e)))))
-                    val cc = Rule(h.compressedHead, SoP(Seq(Prod(Seq(e)))))
-                    val t = Rule(h, SoP(Seq(Prod(Seq(e)))))
-                    (us, rm, cc, t)
-                  }
-                }
-              }))
+            val (newUS_preprocess, newRM_preprocess, newCC_preprocess, newPreprocessCode) = tensorComputations_preprocess.foldLeft((uniqueSets_preprocess, redundancyMaps_preprocess, Map[Access, Rule](), ""))((acc, tc) => {
+              val inps: Seq[(Rule, Rule, Rule, Rule)] = getInps(tc, acc._1, acc._2, acc._3)
               val (usRule, rmRule, ccRule) = compile(tc, inps)
               (acc._1 + (usRule.head -> usRule), acc._2 + (rmRule.head -> rmRule), acc._3 + (ccRule.head -> ccRule), s"${acc._4}\n${Codegen(ccRule, symbols)}")
             })

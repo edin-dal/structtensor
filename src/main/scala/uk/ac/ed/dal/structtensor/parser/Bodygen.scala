@@ -3,16 +3,15 @@ package structtensor
 package parser
 
 import compiler._
-import apps._
+import apps.Shared
 
 object Bodygen {
   import Shared._
-  import STURHelper.emptyRule
-  def apply(codeLang: String, rules: Seq[Rule], all_tensors: Seq[Access], all_dimensions: Map[Access, Seq[Dim]], uniqueSets: Map[Exp, Rule], sturOpt: Boolean): (String, String) = {
+  def apply(codeLang: String, rules: Seq[Rule], all_tensors: Seq[Access], all_dimensions: Map[Access, Seq[Dim]], uniqueSets: Map[Access, Rule], sturOpt: Boolean): (String, String) = {
     (generateInit(codeLang, rules, all_tensors, all_dimensions, uniqueSets, sturOpt), generateEnd(codeLang, rules, all_tensors, all_dimensions, sturOpt))
   }
 
-  def generateInit(codeLang: String, rules: Seq[Rule], all_tensors: Seq[Access], all_dimensions: Map[Access, Seq[Dim]], uniqueSets: Map[Exp, Rule], sturOpt: Boolean): String = {
+  def generateInit(codeLang: String, rules: Seq[Rule], all_tensors: Seq[Access], all_dimensions: Map[Access, Seq[Dim]], uniqueSets: Map[Access, Rule], sturOpt: Boolean): String = {
     val c1 = init_code(codeLang)
     val dim_names: Seq[String] = all_dimensions.values.flatMap(_.collect {
       case Variable(name) => name

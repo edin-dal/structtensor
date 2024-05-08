@@ -2,8 +2,10 @@ package uk.ac.ed.dal
 package structtensor
 package compiler
 
+import apps.Shared
+
 object Matrix {
-  import STURHelper._
+  import Shared._
 
   def varSeq(): Seq[Variable] = Seq("i".toVar, "j".toVar)
 
