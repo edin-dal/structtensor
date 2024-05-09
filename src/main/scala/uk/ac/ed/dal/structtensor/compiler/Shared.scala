@@ -118,47 +118,6 @@ object Shared {
     }}.mkString("\n")
   }
 
-  def MLIR_gen_random_number(var_name: String, dimensions: Seq[String], condition: (Int, String, Any, Int)): String = {
-    val ivars_nostr = dimensions.map(e => getVar("%i"))
-    val cond3 = if (condition._3.isInstanceOf[Int]) ivars_nostr(condition._3.asInstanceOf[Int]) else s"%${condition._3.asInstanceOf[String]}"
-    val c0 = if (condition._1 == -1) "" else s"""
-    %${condition._2} = "arith.cmpi"(${ivars_nostr(condition._1)}, ${cond3}) {predicate = ${condition._4} : i64} : (index, index) -> i1   
-"""
-    val c1 = dimensions.zipWithIndex.map {case (dim, i) => {
-      s"""
-    "scf.for"(%const_val_0, %$dim, %const_val_1) ({
-    ^bb0(${ivars_nostr(i)}: index):
-"""
-    }}.mkString("\n")
-    val ivars = ivars_nostr.mkString(", ")
-    val qvars = dimensions.map(e => s"?").mkString("x") + "x"
-    val index_vars = dimensions.map(e => s"index").mkString(", ")
-
-    val rval1 = getVar("rval")
-    val rval2 = getVar("rval")
-    val rval3 = getVar("rval")
-    val rval4 = getVar("rval")
-    val c2 = s"""
-    "scf.if"(%${condition._2}) ({
-      %$rval1 = "func.call"() {callee = @rand} : () -> i32
-      %$rval2 = "arith.remui"(%$rval1, %1000000) : (i32, i32) -> i32
-      %$rval3 = "arith.sitofp"(%$rval2) : (i32) -> f64
-      %$rval4 = "arith.divf"(%$rval3, %f1000000) : (f64, f64) -> f64
-      "memref.store"(%$rval4, %$var_name, $ivars): (f64, memref<${qvars}f64>, $index_vars) -> ()
-      "scf.yield"() : () -> ()
-    }, {
-      "memref.store"(%zerof, %$var_name, $ivars): (f64, memref<${qvars}f64>, $index_vars) -> ()
-      "scf.yield"() : () -> ()
-    }) : (i1) -> ()
-"""
-    val c3 = dimensions.map(dim => {
-      s"""
-    "scf.yield"() : () -> ()
-    }) : (index, index, index) -> ()
-"""
-    }).mkString("\n")
-    c1 + c0 + c2 + c3
-  }
 
   def MLIR_start_timer_code(postfix: String = ""): String = s"""
     %stime$postfix = "func.call"() {callee = @timer} : () -> i64

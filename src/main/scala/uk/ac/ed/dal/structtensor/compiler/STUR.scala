@@ -74,7 +74,10 @@ case class Access(name: String, vars: Seq[Variable], kind: AccessType) extends E
 }
 
 case class Comparison(op: String, index: Index, variable: Variable) extends Exp {
-  def prettyFormat(): String = if (!(!index.isInstanceOf[Variable] && op == "=")) s"(${index.prettyFormat} $op ${variable.prettyFormat})" else s"(${variable.prettyFormat} $op ${index.prettyFormat})"
+  def prettyFormat(): String = index match {
+    case _: Variable | _ if op != "=" => s"(${index.prettyFormat} $op ${variable.prettyFormat})"
+    case _ => s"(${variable.prettyFormat} $op ${index.prettyFormat})"
+  }
   def vars2RedundancyVars(): Comparison = Comparison(op, index.vars2RedundancyVars, variable.vars2RedundancyVars)
 }
 
