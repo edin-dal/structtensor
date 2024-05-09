@@ -96,12 +96,12 @@ object Codegen {
         } else (None, None)
       }
     }
-    val (afterMapInit, removeIfExsitInit) = afterMap_removeIfExist.unzip
+    val (afterMapInit, removeIfExistInit) = afterMap_removeIfExist.unzip
     val afterMap1 = afterMapInit.filterNot(_ == None).groupBy { case (k: Variable, _) => k }.mapValues(_.flatMap {case (_: Variable, vars: Seq[Variable]) => vars }).map {case (k, v) => k -> v.distinct}.toMap //.foreach { case (k, v) => println(s"$k -> ${v}") }
-    val removeIfExsit = removeIfExsitInit.filterNot(_ == None).filterNot(_ == Map()).toSeq.flatten.groupBy { case (k: Variable, _) => k }.mapValues(_.flatMap {case (_: Variable, vars: Seq[Variable]) => vars }).map {case (k, v) => k -> v.distinct}.toMap
+    val removeIfExist = removeIfExistInit.filterNot(_ == None).filterNot(_ == Map()).toSeq.flatten.groupBy { case (k: Variable, _) => k }.mapValues(_.flatMap {case (_: Variable, vars: Seq[Variable]) => vars }).map {case (k, v) => k -> v.distinct}.toMap
     val afterMap = afterMap1.map { case (k, v) => {
-      val removeIfExsitVars = removeIfExsit.getOrElse(k, Seq())
-      k -> v.filterNot(removeIfExsitVars.contains)
+      val removeIfExistVars = removeIfExist.getOrElse(k, Seq())
+      k -> v.filterNot(removeIfExistVars.contains)
     }}
     
 
@@ -110,7 +110,7 @@ object Codegen {
 
     @scala.annotation.tailrec
     def reorderRec(afterMap: Map[Variable, Seq[Variable]], indexMap: Map[Variable, Int]): Seq[Variable] = {
-      val newIndexMap = afterMap.map { case (k, v) => if (!v.filter(variables.contains).isEmpty) k -> (v.filter(variables.contains).map(indexMap).max + 1) else k -> indexMap(k)}
+      val newIndexMap = afterMap.map { case (k, v) => if (!v.filter(variables.contains).isEmpty) k -> (v.filter(variables.contains).map(indexMap).max + 1) else k -> indexMap(k)} ++ indexMap.filterNot {case (k, v) => afterMap.keySet.contains(k)}
       val sortedNewIndexMap = newIndexMap.toSeq.sortBy(_._2).map(_._1).zipWithIndex.toMap
       if (sortedNewIndexMap == indexMap) indexMap.toSeq.sortBy(_._2).map(_._1)
       else reorderRec(afterMap, sortedNewIndexMap)

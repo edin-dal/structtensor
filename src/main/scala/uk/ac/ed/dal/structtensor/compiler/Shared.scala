@@ -197,22 +197,9 @@ object Shared {
     return c1 + c0 + c2 + c3
   }
 
-  def MLIR_start_timer_code(): String = s"""
-    %stime = "func.call"() {callee = @timer} : () -> i64
+  def MLIR_start_timer_code(postfix: String = ""): String = s"""
+    %stime$postfix = "func.call"() {callee = @timer} : () -> i64
 """
-
-  def MLIR_end_code(cerr_load: String = ""): String = {
-    s"""
-    %time = "func.call"(%stime) {callee = @timer_elapsed} : (i64) -> i64
-    ${cerr_load}
-    "func.call"(%last) {callee = @print_f64_cerr} : (f64) -> ()
-    "func.call"(%time) {callee = @print_i64} : (i64) -> ()
-    
-    "func.return"() : () -> ()
-    })  {function_type = (i32, !llvm.ptr) -> (), sym_name = "main", sym_visibility = "private"} : () -> ()
-}) : () -> ()
-"""
-  }
 
   def getDefaultCondition(condName: String): (Int, String, String, Int) = (-1, condName, "", -1)
 
@@ -238,9 +225,9 @@ int main(int argc, char **argv){
     acc + s"const int $name = atoi(argv[$id]);\n"
   })
 
-  def CPP_timer_start(): String = "long time = 0, start, end;\nstart = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();"
+  def CPP_timer_start(postfix: String = ""): String = s"long time$postfix = 0, start$postfix, end$postfix;\nstart$postfix = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();"
 
-  def CPP_timer_end(): String = "end = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();\ntime = end - start;\ncout << time << endl;"
+  def CPP_timer_end(postfix: String = ""): String = s"end$postfix = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();\ntime$postfix = end$postfix - start$postfix;\ncout << time$postfix << endl;"
 
   def CPP_printerr(var_name: String, dimensions: Seq[String]) = s"cerr << $var_name[${dimensions.map(e => s"$e - 1").mkString("][")}] << endl;"
 
@@ -309,9 +296,9 @@ int main(int argc, char **argv){
 
   def C_read_argv(argv_names: Seq[String]): String = CPP_read_argv(argv_names)
 
-  def C_timer_start(): String = "struct timespec start = timer_start();"
+  def C_timer_start(postfix: String = ""): String = s"struct timespec start$postfix = timer_start();"
 
-  def C_timer_end(): String = "long time = timer_end(start);\nprintf(\"%ld\\n\", time);"
+  def C_timer_end(postfix: String = ""): String = s"long time$postfix = timer_end(start$postfix);" + "\nprintf(\"%ld\\n\", " + s"time$postfix);"
 
   def C_free(var_name: String): String = s"free($var_name);"
 
@@ -347,7 +334,6 @@ int main(int argc, char **argv){
   }
 
   def CPP_convert_condition(condition: SoP): (String, String) = C_convert_condition(condition)
-
 
   def C_alloc_and_gen_random_number(head: Access, dims: Seq[Dim], sopCond: SoP): String = {
     val var_name = head.name
@@ -521,15 +507,6 @@ int main(int argc, char **argv){
     val rval2 = getVar("rval")
     val rval3 = getVar("rval")
     val rval4 = getVar("rval")
-//      val c2 = s"""
-//     "scf.if"(${flag}) ({
-//       "memref.store"(%onef, %$var_name, $ivars): (f64, memref<${qvars}f64>, $index_vars) -> ()
-//       "scf.yield"() : () -> ()
-//     }, {
-//       "memref.store"(%zerof, %$var_name, $ivars): (f64, memref<${qvars}f64>, $index_vars) -> ()
-//       "scf.yield"() : () -> ()
-//     }) : (i1) -> ()
-// """
     val c2 = s"""
     "scf.if"(${flag}) ({
       %$rval1 = "func.call"() {callee = @rand} : () -> i32
@@ -587,9 +564,9 @@ int main(int argc, char **argv){
     return s"$dimensions_code\n$c0\n$c1\n$c2\n$c3"
   }
 
-  def MLIR_timer_end(): String = """
-%time = "func.call"(%stime) {callee = @timer_elapsed} : (i64) -> i64
-"func.call"(%time) {callee = @print_i64} : (i64) -> ()"""
+  def MLIR_timer_end(postfix: String = ""): String = s"""
+%time$postfix = "func.call"(%stime$postfix) {callee = @timer_elapsed} : (i64) -> i64
+"func.call"(%time$postfix) {callee = @print_i64} : (i64) -> ()"""
 
   def CPP_printerr(access: Access): String = s"cerr << ${access.name}[${access.vars.map(e => s"0").mkString("][")}] << endl;"
 
@@ -663,19 +640,19 @@ $last = "memref.load"(%${access.name}${", %const_val_0" * access.vars.length}) :
     case _ => throw new Exception("Unknown code language")
   }
 
-  def init_timer(lang: String): String = lang.toUpperCase() match {
-    case "C" => C_timer_start()
-    case "CPP" => CPP_timer_start()
-    case "MLIR" => MLIR_start_timer_code()
-    case "SNIPPETS" => MLIR_start_timer_code()
+  def init_timer(lang: String, postfix: String = ""): String = lang.toUpperCase() match {
+    case "C" => C_timer_start(postfix=postfix)
+    case "CPP" => CPP_timer_start(postfix=postfix)
+    case "MLIR" => MLIR_start_timer_code(postfix=postfix)
+    case "SNIPPETS" => MLIR_start_timer_code(postfix=postfix)
     case _ => throw new Exception("Unknown code language")
   }
 
-  def end_timer(lang: String): String = lang.toUpperCase() match {
-    case "C" => C_timer_end()
-    case "CPP" => CPP_timer_end()
-    case "MLIR" => MLIR_timer_end()
-    case "SNIPPETS" => MLIR_timer_end()
+  def end_timer(lang: String, postfix: String = ""): String = lang.toUpperCase() match {
+    case "C" => C_timer_end(postfix=postfix)
+    case "CPP" => CPP_timer_end(postfix=postfix)
+    case "MLIR" => MLIR_timer_end(postfix=postfix)
+    case "SNIPPETS" => MLIR_timer_end(postfix=postfix)
     case _ => throw new Exception("Unknown code language")
   }
 

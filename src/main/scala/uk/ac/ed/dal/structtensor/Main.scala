@@ -189,13 +189,14 @@ PGLM      = Population Growth Leslie Matrix
             // println("RM")
             // redundancyMaps_computation.map{case (k, v) => println(s"${k.prettyFormat} -> ${v.prettyFormat}")}
 
-            val (newUS, newRM, newCC, newComputationCode) = tensorComputations_computation.foldLeft((uniqueSets_computation, redundancyMaps_computation, Map[Access, Rule](), ""))((acc, tc) => {
+            val (newUS, newRM, newCC, newComputationCode, newReconstructionCode) = tensorComputations_computation.foldLeft((uniqueSets_computation, redundancyMaps_computation, Map[Access, Rule](), "", ""))((acc, tc) => {
               val inps: Seq[(Rule, Rule, Rule, Rule)] = getInps(tc, acc._1, acc._2, acc._3)
               val (usRule, rmRule, ccRule) = compile(tc, inps)
+              val rcRule = Rule(ccRule.head, SoPTimesSoP(SoP(Seq(Prod(Seq(ccRule.head.vars2RedundancyVars)))), rmRule.body))
               // println(s"usRule: ${usRule.prettyFormat}")
-              // println(s"rmRule: ${rmRule.prettyFormat}")
+              println(s"rmRule: ${rmRule.prettyFormat}")
               // println(s"ccRule: ${ccRule.prettyFormat}")
-              (acc._1 + (usRule.head -> usRule), acc._2 + (rmRule.head -> rmRule), acc._3 + (ccRule.head -> ccRule), s"${acc._4}\n${Codegen(ccRule, symbols)}")
+              (acc._1 + (usRule.head -> usRule), acc._2 + (rmRule.head -> rmRule), acc._3 + (ccRule.head -> ccRule), s"${acc._4}\n${Codegen(ccRule, symbols)}", s"${acc._5}\n${Codegen(rcRule, symbols)}")
             })
 
             val (newUS_preprocess, newRM_preprocess, newCC_preprocess, newPreprocessCode) = tensorComputations_preprocess.foldLeft((uniqueSets_preprocess, redundancyMaps_preprocess, Map[Access, Rule](), ""))((acc, tc) => {
@@ -204,8 +205,8 @@ PGLM      = Population Growth Leslie Matrix
               (acc._1 + (usRule.head -> usRule), acc._2 + (rmRule.head -> rmRule), acc._3 + (ccRule.head -> ccRule), s"${acc._4}\n${Codegen(ccRule, symbols)}")
             })
 
-            val timer_start_index = init_str.indexOf(init_timer(config.codeLang))
-            write2File(config.outFilePath, init_str.slice(0, timer_start_index) + "\n" + newPreprocessCode + "\n" + init_str.slice(timer_start_index, init_str.length) + "\n" + newComputationCode + "\n" + end_str)
+            // val timer_start_index = init_str.indexOf(init_timer(config.codeLang))
+            write2File(config.outFilePath, init_str + "\n" + newPreprocessCode + "\n" + init_timer(config.codeLang, postfix="_computation") + "\n" + newComputationCode + "\n" + end_timer(config.codeLang, postfix="_computation") + "\n" + init_timer(config.codeLang, postfix="_reconstruction") + "\n" + newReconstructionCode + "\n" + end_timer(config.codeLang, postfix="_reconstruction") + "\n" + "\n" + end_str)
           } else {
             println("Please specify the stur code or the file path")
           }
