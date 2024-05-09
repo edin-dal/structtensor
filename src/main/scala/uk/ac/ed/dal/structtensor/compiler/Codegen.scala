@@ -129,7 +129,7 @@ object Codegen {
       }
       // println(s"v: $v, begin: $begin, end: $end, equals: $equals, rest: $rest")
       val eqCode = equals.map(e => e match {
-        case va: Variable => if ((!begin.isEmpty || !end.isEmpty) && !variables.contains(va) && !symbols.contains(va)) s"int ${CPPFormat(va)} = ${CPPFormat(v)};" else s"int ${CPPFormat(v)} = ${CPPFormat(va)};"
+        case va: Variable => if ((!begin.isEmpty || !end.isEmpty) && !symbols.contains(va)) s"int ${CPPFormat(va)} = ${CPPFormat(v)};" else s"int ${CPPFormat(v)} = ${CPPFormat(va)};"
         case _ => s"int ${CPPFormat(v)} = ${CPPFormat(e)};"
       }).mkString("\n")
       (begin.length, end.length, eqCode.contains(s"int ${CPPFormat(v)} = ")) match {

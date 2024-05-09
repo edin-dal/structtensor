@@ -194,7 +194,7 @@ PGLM      = Population Growth Leslie Matrix
               val (usRule, rmRule, ccRule) = compile(tc, inps)
               val rcRule = Rule(ccRule.head, SoPTimesSoP(SoP(Seq(Prod(Seq(ccRule.head.vars2RedundancyVars)))), rmRule.body))
               // println(s"usRule: ${usRule.prettyFormat}")
-              println(s"rmRule: ${rmRule.prettyFormat}")
+              // println(s"rmRule: ${rmRule.prettyFormat}")
               // println(s"ccRule: ${ccRule.prettyFormat}")
               (acc._1 + (usRule.head -> usRule), acc._2 + (rmRule.head -> rmRule), acc._3 + (ccRule.head -> ccRule), s"${acc._4}\n${Codegen(ccRule, symbols)}", s"${acc._5}\n${Codegen(rcRule, symbols)}")
             })
