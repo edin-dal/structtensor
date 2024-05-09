@@ -10,3 +10,5 @@ outputs_c/
 outputs_mlir/
 prev_outputs/
 stur_output/ex.stur
+results/
+scripts/
