@@ -14,7 +14,7 @@ object Shared {
   var cnt = 0
   def getVar(name: String): String = {
     cnt += 1
-    return s"$name$cnt"
+    s"$name$cnt"
   }
 
   def emptyProd(): Prod = Prod(Seq[Exp]())
@@ -194,7 +194,7 @@ object Shared {
     }) : (index, index, index) -> ()
 """
     })
-    return c1 + c0 + c2 + c3
+    c1 + c0 + c2 + c3
   }
 
   def MLIR_start_timer_code(postfix: String = ""): String = s"""
@@ -526,7 +526,7 @@ int main(int argc, char **argv){
     }) : (index, index, index) -> ()
 """
     })
-    return s"$dimensions_code\n$c0\n$c1\n$c11\n$c2\n$c3"
+    s"$dimensions_code\n$c0\n$c1\n$c11\n$c2\n$c3"
   }
 
 
@@ -561,7 +561,7 @@ int main(int argc, char **argv){
     }) : (index, index, index) -> ()
 """
     })
-    return s"$dimensions_code\n$c0\n$c1\n$c2\n$c3"
+    s"$dimensions_code\n$c0\n$c1\n$c2\n$c3"
   }
 
   def MLIR_timer_end(postfix: String = ""): String = s"""

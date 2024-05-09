@@ -16,7 +16,7 @@ object Matrix {
     val rmBody: SoP = emptySoP()
     val rm: Rule = Rule(rmHead, rmBody)
     
-    return (us, rm)
+    (us, rm)
   } 
 
   def general(name: String, dim1: Dim, dim2: Dim): (Rule, Rule) = {
@@ -33,7 +33,7 @@ object Matrix {
     val rmBody: SoP = emptySoP()
     val rm: Rule = Rule(rmHead, rmBody)
     
-    return (us, rm)
+    (us, rm)
   } 
 
   def singletone(name: String, dim1: Dim, dim2: Dim, n1: Index, n2: Index): (Rule, Rule) = {
@@ -52,7 +52,7 @@ object Matrix {
     val rmBody: SoP = emptySoP()
     val rm: Rule = Rule(rmHead, rmBody)
     
-    return (us, rm)
+    (us, rm)
   } 
 
   def diagonal(name: String, dim1: Dim, dim2: Dim): (Rule, Rule) = {
@@ -70,7 +70,7 @@ object Matrix {
     val rmBody: SoP = emptySoP()
     val rm: Rule = Rule(rmHead, rmBody)
     
-    return (us, rm)
+    (us, rm)
   } 
 
   def row(name: String, dim1: Dim, dim2: Dim, r: Index): (Rule, Rule) = {
@@ -88,7 +88,7 @@ object Matrix {
     val rmBody: SoP = emptySoP()
     val rm: Rule = Rule(rmHead, rmBody)
     
-    return (us, rm)
+    (us, rm)
   } 
 
   def column(name: String, dim1: Dim, dim2: Dim, c: Index): (Rule, Rule) = {
@@ -106,7 +106,7 @@ object Matrix {
     val rmBody: SoP = emptySoP()
     val rm: Rule = Rule(rmHead, rmBody)
     
-    return (us, rm)
+    (us, rm)
   } 
 
   def symmetric(name: String, dim: Dim): (Rule, Rule) = {
@@ -126,6 +126,6 @@ object Matrix {
     val rmBody: SoP = SoP(Seq(rmBP1))
     val rm: Rule = Rule(rmHead, rmBody)
     
-    return (us, rm)
+    (us, rm)
   } 
 }

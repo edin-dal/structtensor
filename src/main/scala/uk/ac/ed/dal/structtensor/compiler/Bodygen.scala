@@ -21,7 +21,7 @@ object Bodygen {
     val c3 = all_tensors.distinctBy(_.name).filter(_.kind == Tensor).filterNot(only_lhs_heads.contains).map(t => alloc_and_gen_random_number(codeLang, t, all_dimensions(t), uniqueSets.getOrElse(t, emptyRule()).body)).mkString("\n")
     val c35 = only_lhs_heads.map(t => alloc_and_gen_zero(codeLang, t, all_dimensions(t))).mkString("\n")
     val c4 = "" // if (sturOpt) "" else init_timer(codeLang) 
-    return c1 + "\n" + c2 + "\n" + c3 + "\n" + c35 + "\n" + c4    
+    c1 + "\n" + c2 + "\n" + c3 + "\n" + c35 + "\n" + c4    
   }
 
   def generateEnd(codeLang: String, rules: Seq[Rule], all_tensors: Seq[Access], all_dimensions: Map[Access, Seq[Dim]], sturOpt: Boolean): String = {
@@ -30,6 +30,6 @@ object Bodygen {
     val c2 = all_tensors.map(t => printerr(codeLang, t)).mkString("\n")
     val c3 = all_tensors.distinctBy(_.name).map(t => free(codeLang, t.name, all_dimensions(t))).mkString("\n")
     val c4 = return_code(codeLang)
-    return c1 + "\n" + c2 + "\n" + c3 + "\n" + c4
+    c1 + "\n" + c2 + "\n" + c3 + "\n" + c4
   }
 }

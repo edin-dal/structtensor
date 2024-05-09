@@ -144,6 +144,6 @@ object Convertor {
     // println("All Dimensions:")
     // println(all_dimensions)
     val all_tensors: Seq[Access] = getAllTensors(tensorComputations).distinct
-    return (all_tensors, tensorComputations, dimInfo, uniqueSets, redundancyMaps)
+    (all_tensors, tensorComputations, dimInfo, uniqueSets, redundancyMaps)
   }
 }

@@ -5,11 +5,7 @@ package parser
 import compiler._
 
 object Interpreter {
-  var cnt = 0
-  def getVar(name: String): String = {
-    cnt += 1
-    return s"$name$cnt"
-  }
+  import Shared._
 
   def interpretAccess(n: String, v: Seq[Variable]): Access = {
     if (n.length < 3 && !n.contains(":")) Access(n, v, Tensor)
