@@ -168,11 +168,11 @@ PGLM      = Population Growth Leslie Matrix
             
             val parsedPreprocess = preprocess_lines.map(line => {
               val Parsed.Success(res, _) = parse(line, parser(_))
-              res(0)
+              res.head
             }).toSeq
             val parsedComputation = computation_lines.map(line => {
               val Parsed.Success(res, _) = parse(line, parser(_))
-              res(0)
+              res.head
             }).toSeq
             val (all_tensors_preprocess, tensorComputations_preprocess, dimInfo_preprocess, uniqueSets_preprocess, redundancyMaps_preprocess): (Seq[Access], Seq[Rule], Seq[DimInfo], Map[Access, Rule], Map[Access, Rule]) = convertRules(parsedPreprocess, config.enforceDimensions)
             val (all_tensors_computation, tensorComputations_computation, dimInfo_computation, uniqueSets_computation, redundancyMaps_computation): (Seq[Access], Seq[Rule], Seq[DimInfo], Map[Access, Rule], Map[Access, Rule]) = convertRules(parsedComputation, config.enforceDimensions)

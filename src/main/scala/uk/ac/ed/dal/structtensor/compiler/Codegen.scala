@@ -27,7 +27,7 @@ object Codegen {
       case c @ Comparison(op, i, v) => s"(${CPPFormat(i)} ${op} ${CPPFormat(v)})"
       case p: Prod => p.exps.length match {
         case 0 => "∅"
-        case 1 => CPPFormat(p.exps(0))
+        case 1 => CPPFormat(p.exps.head)
         case _ => s"(${p.exps.map(CPPFormat).mkString(" * ")})"
       }
       case s: SoP => s match {

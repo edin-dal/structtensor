@@ -66,7 +66,7 @@ object Convertor {
 
     // might be better if we have a min function and pass that in case of multiple upper bounds
     // println(s"Upper Bounds for $v: $upperBounds")
-    if (upperBounds.length > 0) upperBounds(0) else ConstantInt(0)
+    if (upperBounds.length > 0) upperBounds.head else ConstantInt(0)
   }
 
   def extractDims(dimSeqAsRuleSeq: Seq[Rule]): (Seq[DimInfo], Map[Access, DimInfo]) = {

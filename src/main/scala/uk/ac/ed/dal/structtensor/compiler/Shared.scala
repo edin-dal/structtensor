@@ -36,7 +36,7 @@ object Shared {
 
   def prodMult(prods: Seq[Prod]): Prod = {
     if (prods.size == 0) emptyProd()
-    else prods.slice(1, prods.size).foldLeft(prods(0))((acc, cur) => prodTimesProd(acc, cur))
+    else prods.tail.foldLeft(prods.head)((acc, cur) => prodTimesProd(acc, cur))
   }
 
   def prodTimesSoP(prod: Prod, sop: SoP): SoP = {
@@ -57,7 +57,7 @@ object Shared {
 
   def multSoP(sops: Seq[SoP]): SoP = {
     if (sops.size == 0) emptySoP()
-    else sops.slice(1, sops.length).foldLeft(sops(0))((acc, cur) => SoPTimesSoP(acc, cur))
+    else sops.tail.foldLeft(sops.head)((acc, cur) => SoPTimesSoP(acc, cur))
   } 
 
   def mergeMap[A, B](ms: Seq[Map[A, B]])(f: (B, B) => B): Map[A, B] = ms.flatten.foldLeft(Map[A, B]())((a, kv) => a + (if (a.contains(kv._1)) (kv._1 -> f(a(kv._1), kv._2)) else kv))
@@ -233,12 +233,12 @@ int main(int argc, char **argv){
 
   def CPP_free(var_name: String, dimensions: Seq[String], is_sparse: Boolean) = {
     if (is_sparse) s"delete[] $var_name;" else {
-      val c0 = dimensions.slice(1, dimensions.length).zipWithIndex.foldLeft("")((acc, dimId) => {
+      val c0 = dimensions.tail.zipWithIndex.foldLeft("")((acc, dimId) => {
         val (dim, i) = dimId
         val c_sub1 = s"for (size_t i$i = 0; i$i < $dim; ++i$i) {\n"
         acc + c_sub1
       })
-      val iter_seq: Seq[String] = dimensions.slice(1, dimensions.length).zipWithIndex.map(dimId => s"i${dimId._2}")
+      val iter_seq: Seq[String] = dimensions.tail.zipWithIndex.map(dimId => s"i${dimId._2}")
       val c1 = iter_seq.zipWithIndex.foldLeft("")((acc, iterId) => {
         val (iter, i) = iterId
         val c_sub1 = s"delete[] $var_name[${iter_seq.slice(0, iter_seq.length - i).mkString("][")}];\n}\n"
@@ -341,7 +341,7 @@ int main(int argc, char **argv){
     val iter_seq = vars.map(_.name)
     val dimensions = dims.map(C_convert_index(_))
     val (flag, c11) = C_convert_condition(sopCond)    
-    val c0 = if (dimensions.length == 1) s"double (*$var_name) = malloc(sizeof(double) * ${dimensions.mkString(" * ")});\n" else s"double (*$var_name)[${dimensions.slice(1, dimensions.length).mkString("][")}] = malloc(sizeof(double) * ${dimensions.mkString(" * ")});\n"
+    val c0 = if (dimensions.length == 1) s"double (*$var_name) = malloc(sizeof(double) * ${dimensions.mkString(" * ")});\n" else s"double (*$var_name)[${dimensions.tail.mkString("][")}] = malloc(sizeof(double) * ${dimensions.mkString(" * ")});\n"
     val c1 = dimensions.zip(iter_seq).foldLeft("")((acc, dimId) => {
       val (dim, i) = dimId
       val c_sub1 = s"for (size_t $i = 0; $i < $dim; ++$i) {\n"
@@ -358,7 +358,7 @@ int main(int argc, char **argv){
     val vars = head.vars
     val iter_seq = vars.map(_.name)
     val dimensions = dims.map(C_convert_index(_))
-    val c0 = if (dimensions.length == 1) s"double (*$var_name) = malloc(sizeof(double) * ${dimensions.mkString(" * ")});\n" else s"double (*$var_name)[${dimensions.slice(1, dimensions.length).mkString("][")}] = malloc(sizeof(double) * ${dimensions.mkString(" * ")});\n"
+    val c0 = if (dimensions.length == 1) s"double (*$var_name) = malloc(sizeof(double) * ${dimensions.mkString(" * ")});\n" else s"double (*$var_name)[${dimensions.tail.mkString("][")}] = malloc(sizeof(double) * ${dimensions.mkString(" * ")});\n"
     val c1 = dimensions.zip(iter_seq).foldLeft("")((acc, dimId) => {
       val (dim, i) = dimId
       val c_sub1 = s"for (size_t $i = 0; $i < $dim; ++$i) {\n"
@@ -376,7 +376,7 @@ int main(int argc, char **argv){
     val iter_seq = vars.map(_.name)
     val dimensions = dims.map(C_convert_index(_)).toSeq
     val (flag, c11) = CPP_convert_condition(sopCond)
-    val c0 = s"double " + "*" * dimensions.length + s"$var_name = new double" + "*" * (dimensions.length - 1) + s"[${dimensions(0)}];\n"
+    val c0 = s"double " + "*" * dimensions.length + s"$var_name = new double" + "*" * (dimensions.length - 1) + s"[${dimensions.head}];\n"
     val c1 = dimensions.zip(iter_seq).zipWithIndex.foldLeft("")((acc, dimIdNum) => {
       val ((dim, i), n) = dimIdNum
       val c_sub1 = s"for (size_t $i = 0; $i < $dim; ++$i) {\n"
@@ -394,7 +394,7 @@ int main(int argc, char **argv){
     val vars = head.vars
     val iter_seq = vars.map(_.name)
     val dimensions = dims.map(C_convert_index(_)).toSeq
-    val c0 = s"double " + "*" * dimensions.length + s"$var_name = new double" + "*" * (dimensions.length - 1) + s"[${dimensions(0)}];\n"
+    val c0 = s"double " + "*" * dimensions.length + s"$var_name = new double" + "*" * (dimensions.length - 1) + s"[${dimensions.head}];\n"
     val c1 = dimensions.zip(iter_seq).zipWithIndex.foldLeft("")((acc, dimIdNum) => {
       val ((dim, i), n) = dimIdNum
       val c_sub1 = s"for (size_t $i = 0; $i < $dim; ++$i) {\n"
@@ -582,12 +582,12 @@ $last = "memref.load"(%${access.name}${", %const_val_0" * access.vars.length}) :
 
   def CPP_free(var_name: String, dims: Seq[Dim]) = {
     val dimensions = dims.map(C_convert_index(_))
-    val c0 = dimensions.slice(1, dimensions.length).zipWithIndex.foldLeft("")((acc, dimId) => {
+    val c0 = dimensions.tail.zipWithIndex.foldLeft("")((acc, dimId) => {
       val (dim, i) = dimId
       val c_sub1 = s"for (size_t i$i = 0; i$i < $dim; ++i$i) {\n"
       acc + c_sub1
     })
-    val iter_seq: Seq[String] = dimensions.slice(1, dimensions.length).zipWithIndex.map(dimId => s"i${dimId._2}")
+    val iter_seq: Seq[String] = dimensions.tail.zipWithIndex.map(dimId => s"i${dimId._2}")
     val c1 = iter_seq.zipWithIndex.foldLeft("")((acc, iterId) => {
       val (iter, i) = iterId
       val c_sub1 = s"delete[] $var_name[${iter_seq.slice(0, iter_seq.length - i).mkString("][")}];\n}\n"

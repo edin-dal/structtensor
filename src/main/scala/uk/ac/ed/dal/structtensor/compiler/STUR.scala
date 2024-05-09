@@ -156,7 +156,7 @@ case class Prod(exps: Seq[Exp]) {
       cnt += 1
       (allVars :+ newVar, code + newCode)
     })
-    val (multCode, lastMult) = vars.slice(1, vars.length - 1).foldLeft(("", vars(0)))((acc, cur) => {
+    val (multCode, lastMult) = vars.slice(1, vars.length - 1).foldLeft(("", vars.head))((acc, cur) => {
       val code = acc._1
       val last = acc._2
       val newProd = s"prod$cnt"
@@ -205,7 +205,7 @@ case class SoP(prods: Seq[Prod]) {
       cnt += 1
       (allVars :+ newVar, code + newCode)
     })
-    val (sumCode, lastSum) = vars.slice(1, vars.length - 1).foldLeft(("", vars(0)))((acc, cur) => {
+    val (sumCode, lastSum) = vars.slice(1, vars.length - 1).foldLeft(("", vars.head))((acc, cur) => {
       val code = acc._1
       val last = acc._2
       val newSum = s"sum$cnt"

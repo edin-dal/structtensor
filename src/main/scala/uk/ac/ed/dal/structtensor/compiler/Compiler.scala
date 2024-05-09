@@ -48,14 +48,14 @@ object Compiler {
 
   def normalizeSingleProdRule(r: Rule): Seq[Rule] = {
     assert(r.body.prods.length == 1)
-    val prod = r.body.prods(0)
+    val prod = r.body.prods.head
     val nonSizeVariables = getNonDimensionVariables(r).distinct
     if (prod.exps.length < 2) Seq(r)
-    else if (prod.exps.length == 2 && r.head.vars.toSet == appendDistinctVars(getAllVariables(prod.exps(0)), getAllVariables(prod.exps(1))).filter(nonSizeVariables.contains).toSet) Seq(r)
+    else if (prod.exps.length == 2 && r.head.vars.toSet == appendDistinctVars(getAllVariables(prod.exps.head), getAllVariables(prod.exps(1))).filter(nonSizeVariables.contains).toSet) Seq(r)
     else {
-      val sameNameExpsList = groupBySameName(prod.exps(0), prod.exps.slice(1, prod.exps.length))
+      val sameNameExpsList = groupBySameName(prod.exps.head, prod.exps.tail)
       if (sameNameExpsList.length == 1) {
-        prod.exps(0) match {
+        prod.exps.head match {
           case acc @ Access(_, vars, _) if (prod.exps.length > vars.length && isShift(r.head, prod.exps.slice(0, vars.length + 1))) => {
             val newHead = Access(getVar("shiftHead"), r.head.vars, Tensor)
             val newBody = SoP(Seq(Prod(prod.exps.slice(0, vars.length + 1))))
@@ -65,9 +65,9 @@ object Compiler {
             Seq(newRule) ++ normalizeSingleProdRule(Rule(r.head, restBody))
           }
           case _ => {
-            val newVariables = appendDistinctVars(getAllVariables(prod.exps(0)), getAllVariables(prod.exps(1))).filter(nonSizeVariables.contains)
+            val newVariables = appendDistinctVars(getAllVariables(prod.exps.head), getAllVariables(prod.exps(1))).filter(nonSizeVariables.contains)
             val newHead = Access(getVar("prodHead"), newVariables, Tensor)
-            val newBody = SoP(Seq(Prod(Seq(prod.exps(0), prod.exps(1)))))
+            val newBody = SoP(Seq(Prod(Seq(prod.exps.head, prod.exps(1)))))
             val newRule = Rule(newHead, newBody)
 
             val restBody = SoP(Seq(Prod(Seq(newHead) ++ prod.exps.slice(2, prod.exps.length))))
@@ -88,7 +88,7 @@ object Compiler {
 
   def normalizeSumOfAccessSeq(head: Access, accSeq: Seq[Access]): Seq[Rule] = {
     // We made sure in the previous function that all of them have the exact same variables as head
-    if (accSeq.length == 1) Seq(Rule(head, SoP(Seq(Prod(Seq(accSeq(0)))))))
+    if (accSeq.length == 1) Seq(Rule(head, SoP(Seq(Prod(Seq(accSeq.head))))))
     else {
       val newHead = Access(getVar("sumHead"), head.vars, Tensor)
       val newBody = SoP(Seq(Prod(Seq(accSeq(0))), Prod(Seq(accSeq(1)))))
@@ -342,7 +342,7 @@ object Compiler {
       val swaps = (0 to iters.length - 1).flatMap(i => vectorizeComparisonMultiplication("=", accSeq(i).vars, accSeq(iters(i)).vars.redundancyVars))
       Prod(conds ++ swaps ++ allUSMult)
     }).toSeq
-    val bodyRMProdSeq2 = bodyRMSeq21.slice(1, bodyRMSeq21.length)
+    val bodyRMProdSeq2 = bodyRMSeq21.tail
 
     val rmBody = SoP(bodyRMProdSeq1 ++ bodyRMProdSeq2)
     val rm = Rule(lhs.redundancyHead, rmBody)
@@ -431,14 +431,14 @@ object Compiler {
     val prods: Seq[Prod] = r.body.prods
     assert(prods.length <= 2)
     if (prods.length == 1) {
-      val exps: Seq[Exp] = prods(0).exps
+      val exps: Seq[Exp] = prods.head.exps
       if (isShift(head, exps)) {
         exps.head match {
           case access: Access => shift(head, access, exps.tail)
           case _ => throw new IllegalArgumentException("Expected an Access expression")
         }
       } else if (exps.length == 1) {
-        exps(0) match {
+        exps.head match {
           case access: Access => project(head, access)
           case _ => throw new AssertionError("Expected an Access expression")
         }
@@ -452,7 +452,7 @@ object Compiler {
     } else if (prods.length == 2) {
       // We made sure in the normalization step that all the products that reach here have only 1 expression and they are all accesses
       assert(prods(0).exps.length == 1 && prods(1).exps.length == 1)
-      binAdd(head, prods(0).exps(0), prods(1).exps(0), ctx)
+      binAdd(head, prods(0).exps.head, prods(1).exps.head, ctx)
     } else throw new Exception("Only binary computations or self-outer product must be passed to infer function")
   }
 
@@ -494,14 +494,14 @@ object Compiler {
     val prods: Seq[Prod] = r.body.prods
     assert(prods.length <= 2)
     if (prods.length == 1) {
-      val exps: Seq[Exp] = prods(0).exps
+      val exps: Seq[Exp] = prods.head.exps
       if (isShift(head, exps)) {
         exps.head match {
           case access: Access => shiftDimInfer(head, access, exps.tail)
           case _ => throw new IllegalArgumentException("Expected an Access expression")
         }
       } else if (exps.length == 1) {
-        exps(0) match {
+        exps.head match {
           case access: Access => projectDimInfer(head, access)
           case _ => throw new AssertionError("Expected an Access expression")
         }
@@ -512,7 +512,7 @@ object Compiler {
       }
     } else if (prods.length == 2) {
       assert(prods(0).exps.length == 1 && prods(1).exps.length == 1)
-      binAddDimInfer(head, prods(0).exps(0), prods(1).exps(0))
+      binAddDimInfer(head, prods(0).exps.head, prods(1).exps.head)
     } else throw new Exception("Only binary computations or self-outer product must be passed to infer function")
   } 
 
