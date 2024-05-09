@@ -23,7 +23,6 @@ object Codegen {
         case _ => ""
       }
       case a: Access => s"${a.name}[${a.vars.map(_.name).mkString("][")}]"
-      // case d: Dim => d.cFormat
       case c @ Comparison(op, i, v) => s"(${CPPFormat(i)} ${op} ${CPPFormat(v)})"
       case p: Prod => p.exps.length match {
         case 0 => "∅"

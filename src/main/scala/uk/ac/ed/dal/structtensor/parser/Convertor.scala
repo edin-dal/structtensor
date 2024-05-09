@@ -70,15 +70,16 @@ object Convertor {
   }
 
   def extractDims(dimSeqAsRuleSeq: Seq[Rule]): (Seq[DimInfo], Map[Access, DimInfo]) = {
-    dimSeqAsRuleSeq.foldLeft((Seq[DimInfo](), Map[Access, DimInfo]()))((acc, r) => {
-      val old_head = r.head
+    val (dimInfos, headToDimInfoMap) = dimSeqAsRuleSeq.map { r =>
+      val oldHead = r.head
       val name = if (r.head.name.contains("_D")) r.head.name.substring(0, r.head.name.length - 2) else r.head.name
       val head = Access(name, r.head.vars, Tensor)
       val body = r.body
 
       val dimSeq = head.vars.map(v => findUpperBound(v, body))
-      (acc._1 :+ DimInfo(head, dimSeq), acc._2 ++ Map(old_head -> DimInfo(r.head, dimSeq)))
-    })
+      (DimInfo(head, dimSeq), oldHead -> DimInfo(r.head, dimSeq))
+    }.unzip
+    (dimInfos, headToDimInfoMap.toMap)
   }
 
   def extractSet(headToSetMap: Map[Access, Rule], dimInfoMap: Map[Access, DimInfo], kind: AccessType): Map[Access, Rule] = {
