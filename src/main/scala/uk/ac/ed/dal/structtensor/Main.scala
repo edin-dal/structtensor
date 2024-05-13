@@ -135,5 +135,8 @@ object Main extends App {
         println("Please specify the stur code or the file path")
       }
     }
+    case _ => {
+      println("Use --help to see the options")
+    }
   }
 }
