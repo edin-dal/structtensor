@@ -8,7 +8,7 @@ import scala.collection.mutable.LinkedHashMap
 
 object Convertor {
   import Compiler._
-  import Optimizer.denormalizeDim, Optimizer.setIdempotentOpt, Optimizer.removeEmptyProductsOpt
+  import Optimizer.setIdempotentOpt, Optimizer.removeEmptyProductsOpt
   import Bodygen._
   import Shared._
 
@@ -101,49 +101,16 @@ object Convertor {
 
   def getAllTensors(rules: Seq[Rule]): Seq[Access] = rules.flatMap(r => r.head +: r.body.prods.flatMap(_.exps.collect { case access: Access => access }))
 
-
-  // def getAllOptDims(tensorComputations: Seq[Rule], headToDimensionMap: Map[Access, Rule]): Seq[Rule] = {
-  //   val norms = tensorComputations.map(normalize)
-  //   val dimsSeq = norms.map(norm => norm.map(dimensionInfer))
-  //   val denormDimsSeq = dimsSeq.foldLeft(Seq[Rule]())((acc, dimSeq) => {
-  //     acc :+ denormalizeDim(dimSeq.last.head, headToDimensionMap.values.toSeq.map(r => Rule(r.head.dimensionHead, r.body)) ++ acc ++ dimSeq)
-  //   })
-  //   val idempotentDimsSeq = denormDimsSeq.map(setIdempotentOpt)
-  //   val removeEmptyProductsDimsSeq = idempotentDimsSeq.map(removeEmptyProductsOpt)
-  //   removeEmptyProductsDimsSeq
-  // }
-
   def convertRules(rules: Seq[Rule], enforceDimensions: Boolean): (Seq[Access], Seq[Rule], Seq[DimInfo], Map[Access, Rule], Map[Access, Rule]) = {
     val (headToTensorMap, headToUniqueSetMap, headToRedundancyMapMap, headToDimensionMap) = groupRules(rules)
-    // headToTensorMap.foreach{case (k, v) => println(s"**************************\nTensor:\n${k.prettyFormat} -> ${v.prettyFormat}\n")}
-    // headToUniqueSetMap.foreach{case (k, v) => println(s"**************************\nUnique Set:\n${k.prettyFormat} -> ${v.prettyFormat}\n")}
-    // headToRedundancyMapMap.foreach{case (k, v) => println(s"**************************\nRedundancy Map:\n${k.prettyFormat} -> ${v.prettyFormat}\n")}
-    // headToDimensionMap.foreach{case (k, v) => println(s"**************************\nDimension:\n${k.prettyFormat} -> ${v.prettyFormat}\n")}
     val tensorComputations = headToTensorMap.values.toSeq
-    // TODO: Extract the dimensions needed from the rules (pay attention to shift, min and maxes and stuff)
 
     val dimsAvailable = checkDimsAvailable(headToTensorMap, headToDimensionMap)
     if (!dimsAvailable) throw new Exception("Dimensions not available for all tensors")
     
-    // val optDimsSeq = getAllOptDims(tensorComputations, headToDimensionMap)
-
-    // val (dimInfo, dimInfoMap): (Seq[DimInfo], Map[Access, DimInfo]) = extractDims(headToDimensionMap.values.toSeq ++ optDimsSeq)
     val (dimInfo, dimInfoMap): (Seq[DimInfo], Map[Access, DimInfo]) = extractDims(headToDimensionMap.values.toSeq)
     val uniqueSets: Map[Access, Rule] = if (!enforceDimensions) headToUniqueSetMap.values.map(r => (Access(r.head.name, r.head.vars, Tensor) -> Rule(Access(r.head.name, r.head.vars, UniqueSet), r.body))).toMap else extractSet(headToUniqueSetMap, dimInfoMap, UniqueSet)
     val redundancyMaps: Map[Access, Rule] = if (!enforceDimensions) headToRedundancyMapMap.values.map(r => (Access(r.head.name, r.head.vars.slice(0, r.head.vars.length / 2), Tensor) -> Rule(Access(r.head.name, r.head.vars, RedundancyMap), r.body))).toMap else extractSet(headToRedundancyMapMap, dimInfoMap, RedundancyMap)
-    // println("Enforce Dimensions:")
-    // println(enforceDimensions)
-    // println("Tensor Computations:")
-    // tensorComputations.map(r => println(r.prettyFormat))
-    // println("Unique Sets:")
-    // uniqueSets.values.toSeq.map(r => println(r.prettyFormat))
-    // println("Redundancy Maps:")
-    // redundancyMaps.values.toSeq.map(r => println(r.prettyFormat))
-    // println("Dimensions:")
-    // println(dimInfo)
-    ///// val all_dimensions: Seq[DimInfo] = tensorComputations.foldLeft(dimInfo)((acc, r) => acc :+ DimInfo(r.head, infer(r, acc, uniqueSets, redundancyMaps)._4.dims))
-    // println("All Dimensions:")
-    // println(all_dimensions)
     val all_tensors: Seq[Access] = getAllTensors(tensorComputations).distinct
     (all_tensors, tensorComputations, dimInfo, uniqueSets, redundancyMaps)
   }

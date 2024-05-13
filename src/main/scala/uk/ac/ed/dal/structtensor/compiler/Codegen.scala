@@ -126,7 +126,6 @@ object Codegen {
         case va: Variable => variables.contains(va) || symbols.contains(va)
         case _ => true
       }
-      // println(s"v: $v, begin: $begin, end: $end, equals: $equals, rest: $rest")
       val eqCode = equals.map(e => e match {
         case va: Variable => if ((!begin.isEmpty || !end.isEmpty) && !symbols.contains(va)) s"int ${CPPFormat(va)} = ${CPPFormat(v)};" else s"int ${CPPFormat(v)} = ${CPPFormat(va)};"
         case _ => s"int ${CPPFormat(v)} = ${CPPFormat(e)};"

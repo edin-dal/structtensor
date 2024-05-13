@@ -21,7 +21,6 @@ object Main extends App {
           val cc = if (ccMap.contains(access)) {
             Rule(ccMap(access).head.compressedHead, ccMap(access).body)
           } else Rule(usMap(access).head.compressedHead, SoPTimesSoP(SoP(Seq(Prod(Seq(e)))), usMap(access).body))
-          // val cc = Rule(usMap(access).head.compressedHead, SoPTimesSoP(SoP(Seq(Prod(Seq(e)))), SoP(Seq(Prod(Seq(usMap(access).head.uniqueHead))))))
           val t = Rule(access, SoP(Seq(Prod(Seq(e)))))
           (us, rm, cc, t)
         }
@@ -177,25 +176,11 @@ PGLM      = Population Growth Leslie Matrix
             val (all_tensors_preprocess, tensorComputations_preprocess, dimInfo_preprocess, uniqueSets_preprocess, redundancyMaps_preprocess): (Seq[Access], Seq[Rule], Seq[DimInfo], Map[Access, Rule], Map[Access, Rule]) = convertRules(parsedPreprocess, config.enforceDimensions)
             val (all_tensors_computation, tensorComputations_computation, dimInfo_computation, uniqueSets_computation, redundancyMaps_computation): (Seq[Access], Seq[Rule], Seq[DimInfo], Map[Access, Rule], Map[Access, Rule]) = convertRules(parsedComputation, config.enforceDimensions)
             val (init_str, end_str): (String, String) = if (!config.initTensors) ("", "") else Bodygen(config.codeLang, (parsedPreprocess ++ parsedComputation).distinct, (all_tensors_preprocess ++ all_tensors_computation).distinct, (dimInfo_preprocess ++ dimInfo_computation).distinct.toAccessMap, uniqueSets_preprocess ++ uniqueSets_computation, config.sturOpt)
-            // println("**************************")
-            // println("Preprocess Tensor Computations:")
-            // tensorComputations_preprocess.map(r => println(r.prettyFormat))
-            // println("Computation Tensor Computations:")
-            // tensorComputations_computation.map(r => println(r.prettyFormat))
-            // println("**************************")
-
-            // println("US")
-            // uniqueSets_computation.map{case (k, v) => println(s"${k.prettyFormat} -> ${v.prettyFormat}")}
-            // println("RM")
-            // redundancyMaps_computation.map{case (k, v) => println(s"${k.prettyFormat} -> ${v.prettyFormat}")}
 
             val (newUS, newRM, newCC, newComputationCode, newReconstructionCode) = tensorComputations_computation.foldLeft((uniqueSets_computation, redundancyMaps_computation, Map[Access, Rule](), "", ""))((acc, tc) => {
               val inps: Seq[(Rule, Rule, Rule, Rule)] = getInps(tc, acc._1, acc._2, acc._3)
               val (usRule, rmRule, ccRule) = compile(tc, inps)
               val rcRule = Rule(ccRule.head, SoPTimesSoP(SoP(Seq(Prod(Seq(ccRule.head.vars2RedundancyVars)))), rmRule.body))
-              // println(s"usRule: ${usRule.prettyFormat}")
-              // println(s"rmRule: ${rmRule.prettyFormat}")
-              // println(s"ccRule: ${ccRule.prettyFormat}")
               (acc._1 + (usRule.head -> usRule), acc._2 + (rmRule.head -> rmRule), acc._3 + (ccRule.head -> ccRule), s"${acc._4}\n${Codegen(ccRule, symbols)}", s"${acc._5}\n${Codegen(rcRule, symbols)}")
             })
 
@@ -205,7 +190,6 @@ PGLM      = Population Growth Leslie Matrix
               (acc._1 + (usRule.head -> usRule), acc._2 + (rmRule.head -> rmRule), acc._3 + (ccRule.head -> ccRule), s"${acc._4}\n${Codegen(ccRule, symbols)}")
             })
 
-            // val timer_start_index = init_str.indexOf(init_timer(config.codeLang))
             write2File(config.outFilePath, init_str + "\n" + newPreprocessCode + "\n" + init_timer(config.codeLang, postfix="_computation") + "\n" + newComputationCode + "\n" + end_timer(config.codeLang, postfix="_computation") + "\n" + init_timer(config.codeLang, postfix="_reconstruction") + "\n" + newReconstructionCode + "\n" + end_timer(config.codeLang, postfix="_reconstruction") + "\n" + "\n" + end_str)
           } else {
             println("Please specify the stur code or the file path")

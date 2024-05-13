@@ -107,4 +107,4 @@ case class Rule(head: Access, body: SoP) {
 
 case class Interval(begin: Seq[Index], end: Seq[Index])
 
-case class DimInfo(access: Access, dims: Seq[Dim]) // how to assert that dims.size == access.vars.size?
+case class DimInfo(access: Access, dims: Seq[Dim])

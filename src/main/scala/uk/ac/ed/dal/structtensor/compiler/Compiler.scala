@@ -519,42 +519,25 @@ object Compiler {
   @scala.annotation.tailrec
   def fixedPointOpt(us: Rule, rm: Rule, cc: Rule): (Rule, Rule, Rule) = {
     val (idempotentOptUS, idempotentOptRM, idempotentOptCC) = (setIdempotentOpt(us), setIdempotentOpt(rm), setIdempotentOpt(cc))
-    // println(s"=================================\nIdempotent:\n${idempotentOptCC.prettyFormat}\n${idempotentOptRM.prettyFormat}\n")
     val (removeEmptyProdOptUS, removeEmptyProdOptRM, removeEmptyProdOptCC) = (removeEmptyProductsOpt(idempotentOptUS), removeEmptyProductsOpt(idempotentOptRM), removeEmptyProductsOpt(idempotentOptCC))
-    // println(s"=================================\nRemoved empty prods:\n${removeEmptyProdOptCC.prettyFormat}\n${removeEmptyProdOptRM.prettyFormat}\n")
     val (replacedEqualVariablesOptUS, replacedEqualVariablesOptRM, replacedEqualVariablesOptCC) = (replaceEqualVariables(removeEmptyProdOptUS), replaceEqualVariables(removeEmptyProdOptRM), replaceEqualVariables(removeEmptyProdOptCC))
-    // println(s"=================================\nReplaced equal variables:\n${replacedEqualVariablesOptCC.prettyFormat}\n${replacedEqualVariablesOptRM.prettyFormat}\n")
     if (isSoPEquals(replacedEqualVariablesOptUS.body, us.body) && isSoPEquals(replacedEqualVariablesOptRM.body, rm.body) && isSoPEquals(replacedEqualVariablesOptCC.body, cc.body)) (replacedEqualVariablesOptUS, replacedEqualVariablesOptRM, replacedEqualVariablesOptCC)
     else fixedPointOpt(replacedEqualVariablesOptUS, replacedEqualVariablesOptRM, replacedEqualVariablesOptCC) 
   }
 
   def compile(computation: Rule, inputs: Seq[(Rule, Rule, Rule, Rule)]): (Rule, Rule, Rule) = {
-    // println(s"------------------\nComputation:\n${computation.prettyFormat}\n")
     val norm = normalize(computation)
-    // println(s"------------------\nNormalized:\n${norm.map(_.prettyFormat).mkString("\n")}\n")
-
     val us_rm_cc_tc_seq = norm.foldLeft(inputs)((ctx, r) => {
       val (us, rm, cc) = infer(r, ctx)
       ctx ++ Seq((us, rm, cc, r))
     })
-    // us_rm_cc_tc_seq.map{case(r1, r2, r3, r4) => println(s"====================\nUnique:\n${r1.prettyFormat}\nRedundancy:\n${r2.prettyFormat}\nCompressed:\n${r3.prettyFormat}\nComputation:\n${r4.prettyFormat}\n")}
-    
     
     // Optimization
     val (denormUS, denormRM, denormCC, denormTC) = denormalize(computation.head, inputs ++ us_rm_cc_tc_seq)
-    // println(s"------------------\nDenormalized:\n${denormCC.prettyFormat}\n${denormRM.prettyFormat}\n")
-    
     val (idempotentOptUS, idempotentOptRM, idempotentOptCC) = (setIdempotentOpt(denormUS), setIdempotentOpt(denormRM), setIdempotentOpt(denormCC))
-    // println(s"=================================\nIdempotent:\n${idempotentOptCC.prettyFormat}\n${idempotentOptRM.prettyFormat}\n")
-
     val (removeEmptyProdOptUS, removeEmptyProdOptRM, removeEmptyProdOptCC) = (removeEmptyProductsOpt(idempotentOptUS), removeEmptyProductsOpt(idempotentOptRM), removeEmptyProductsOpt(idempotentOptCC))
-    // println(s"=================================\nRemoved empty prods:\n${removeEmptyProdOptCC.prettyFormat}\n${removeEmptyProdOptRM.prettyFormat}\n")
-
     val (replacedEqualVariablesOptUS, replacedEqualVariablesOptRM, replacedEqualVariablesOptCC) = (replaceEqualVariables(removeEmptyProdOptUS), replaceEqualVariables(removeEmptyProdOptRM), replaceEqualVariables(removeEmptyProdOptCC))
-    // println(s"=================================\nReplaced equal variables:\n${replacedEqualVariablesOptCC.prettyFormat}\n${replacedEqualVariablesOptRM.prettyFormat}\n")
-
     val (fixedUS, fixedRM, fixedCC) = fixedPointOpt(replacedEqualVariablesOptUS, replacedEqualVariablesOptRM, replacedEqualVariablesOptCC)
-    // println(s"=================================\nFixed point:\n${fixedCC.prettyFormat}\n${fixedRM.prettyFormat}\n")
     
     (fixedUS, fixedRM, fixedCC)
   }

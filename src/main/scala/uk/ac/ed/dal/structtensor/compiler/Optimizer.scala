@@ -30,25 +30,12 @@ object Optimizer {
       acc + (us.head -> usBody) + (rm.head -> rmBody) + (cc.head -> ccBody) + (tc.head -> tcBody)
     })
     
-    // denormMap.foreach{case (k, v) => println(s"**************************\nDenormalized:\n${k.prettyFormat} -> ${v.prettyFormat}\n")}
-    // val compressedComputation = Rule(head, denormMap(head.compressedHead))
-    // val reconstructionComputation = Rule(head, SoPTimesSoP(SoP(Seq(Prod(Seq(head.vars2RedundancyVars)))), denormMap(head.redundancyHead)))
-
     val denormUS = Rule(head, denormMap(head.uniqueHead))
     val denormRM = Rule(head, denormMap(head.redundancyHead))
     val denormCC = Rule(head, denormMap(head.compressedHead))
     val denormTC = Rule(head, denormMap(head))
 
-    // (compressedComputation, reconstructionComputation)
     (denormUS, denormRM, denormCC, denormTC)
-  }
-
-  def denormalizeDim(head: Access, ctx: Seq[Rule]): Rule = {
-    val denormMap = ctx.foldLeft(Map[Access, SoP]())((acc, dc) => {
-      val dcBody = denormalizeSingle(dc.body, acc)
-      acc + (dc.head -> dcBody)
-    })
-    Rule(head, denormMap(head))
   }
 
   def singleProdIdempotence(p: Prod): Prod = {
@@ -63,11 +50,6 @@ object Optimizer {
     val (boolDomainExps, realDomainExps) = removeEquivalentComparisonsOpt(p).exps.partition(extractBooleanDomainComputation)
     val distinctBoolDomainExps = boolDomainExps.distinct
 
-    // println("^^^^^^^^^^^^^^^^^^")
-    // println("boolDomainExps: " + boolDomainExps)
-    // println("distinctBoolDomainExps: " + distinctBoolDomainExps)
-    // println("realDomainExps: " + realDomainExps)
-    
     Prod(distinctBoolDomainExps ++ realDomainExps)
   }
 

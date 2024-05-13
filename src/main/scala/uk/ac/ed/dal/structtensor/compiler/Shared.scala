@@ -28,11 +28,6 @@ object Shared {
   def prodTimesProd(prod1: Prod, prod2: Prod): Prod = {
     if (prod1.exps.isEmpty || prod2.exps.isEmpty) emptyProd()
     else Prod(prod1.exps ++ prod2.exps)
-  } 
-
-  def prodMult(prods: Seq[Prod]): Prod = {
-    if (prods.isEmpty) emptyProd()
-    else prods.tail.foldLeft(prods.head)((acc, cur) => prodTimesProd(acc, cur))
   }
 
   def prodTimesSoP(prod: Prod, sop: SoP): SoP = {
