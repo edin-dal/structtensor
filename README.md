@@ -103,3 +103,26 @@ Usage: sturct-tensor [options]
   -o, --outf <path>       where to stored the generated code
   --init-tensors          initialize the tensors randomly in the generated code
 ```
+
+## Citing StructTensor
+
+To cite StructTensor's paper, use the following BibTex:
+```
+@article{structtensor2023,
+  author       = {Mahdi Ghorbani and
+                  Mathieu Huot and
+                  Shideh Hashemian and
+                  Amir Shaikhha},
+  title        = {Compiling Structured Tensor Algebra},
+  journal      = {Proc. {ACM} Program. Lang.},
+  volume       = {7},
+  number       = {{OOPSLA2}},
+  pages        = {204--233},
+  year         = {2023},
+  url          = {https://doi.org/10.1145/3622804},
+  doi          = {10.1145/3622804},
+  timestamp    = {Sun, 10 Dec 2023 17:01:16 +0100},
+  biburl       = {https://dblp.org/rec/journals/pacmpl/GhorbaniHHS23.bib},
+  bibsource    = {dblp computer science bibliography, https://dblp.org}
+}
+```
