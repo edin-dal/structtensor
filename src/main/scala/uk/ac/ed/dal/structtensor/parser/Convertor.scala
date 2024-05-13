@@ -3,13 +3,13 @@ package structtensor
 package parser
 
 import compiler._
+import utils._
 
 import scala.collection.mutable.LinkedHashMap
 
 object Convertor {
   import Compiler._
   import Optimizer.setIdempotentOpt, Optimizer.removeEmptyProductsOpt
-  import Bodygen._
   import Shared._
 
   def groupRules(rules: Seq[Rule]): (LinkedHashMap[Access, Rule], Map[Access, Rule], Map[Access, Rule], Map[Access, Rule]) = {

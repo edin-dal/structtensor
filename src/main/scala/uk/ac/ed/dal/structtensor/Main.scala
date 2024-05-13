@@ -4,6 +4,8 @@ package structtensor
 import parser._
 import fastparse._
 import compiler._
+import utils._
+import codegen._
 
 import java.io.File
 import scopt.OParser

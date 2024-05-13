@@ -1,6 +1,8 @@
 package uk.ac.ed.dal
 package structtensor
-package compiler
+package utils
+
+import compiler._
 
 import java.io._ 
 

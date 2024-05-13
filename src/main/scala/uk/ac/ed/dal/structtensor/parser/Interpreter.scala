@@ -2,6 +2,7 @@ package uk.ac.ed.dal
 package structtensor
 package parser
 
+import utils._
 import compiler._
 
 object Interpreter {

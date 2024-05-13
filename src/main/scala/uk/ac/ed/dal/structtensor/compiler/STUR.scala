@@ -2,6 +2,8 @@ package uk.ac.ed.dal
 package structtensor
 package compiler
 
+import utils._
+
 sealed trait Exp {
   def prettyFormat(): String
   def vars2RedundancyVars(): Exp

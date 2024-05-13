@@ -1,6 +1,9 @@
 package uk.ac.ed.dal
 package structtensor
-package compiler
+package codegen
+
+import utils._
+import compiler._
 
 import scala.collection.mutable.ArraySeq
 import scala.sys.process._
