@@ -101,7 +101,7 @@ object Convertor {
 
   def getAllTensors(rules: Seq[Rule]): Seq[Access] = rules.flatMap(r => r.head +: r.body.prods.flatMap(_.exps.collect { case access: Access => access }))
 
-  def convertRules(rules: Seq[Rule], enforceDimensions: Boolean): (Seq[Access], Seq[Rule], Seq[DimInfo], Map[Access, Rule], Map[Access, Rule]) = {
+  def convertRules(rules: Seq[Rule]): (Seq[Access], Seq[Rule], Seq[DimInfo], Map[Access, Rule], Map[Access, Rule]) = {
     val (headToTensorMap, headToUniqueSetMap, headToRedundancyMapMap, headToDimensionMap) = groupRules(rules)
     val tensorComputations = headToTensorMap.values.toSeq
 
@@ -109,8 +109,8 @@ object Convertor {
     if (!dimsAvailable) throw new Exception("Dimensions not available for all tensors")
     
     val (dimInfo, dimInfoMap): (Seq[DimInfo], Map[Access, DimInfo]) = extractDims(headToDimensionMap.values.toSeq)
-    val uniqueSets: Map[Access, Rule] = if (!enforceDimensions) headToUniqueSetMap.values.map(r => (Access(r.head.name, r.head.vars, Tensor) -> Rule(Access(r.head.name, r.head.vars, UniqueSet), r.body))).toMap else extractSet(headToUniqueSetMap, dimInfoMap, UniqueSet)
-    val redundancyMaps: Map[Access, Rule] = if (!enforceDimensions) headToRedundancyMapMap.values.map(r => (Access(r.head.name, r.head.vars.slice(0, r.head.vars.length / 2), Tensor) -> Rule(Access(r.head.name, r.head.vars, RedundancyMap), r.body))).toMap else extractSet(headToRedundancyMapMap, dimInfoMap, RedundancyMap)
+    val uniqueSets: Map[Access, Rule] = extractSet(headToUniqueSetMap, dimInfoMap, UniqueSet)
+    val redundancyMaps: Map[Access, Rule] = extractSet(headToRedundancyMapMap, dimInfoMap, RedundancyMap)
     val all_tensors: Seq[Access] = getAllTensors(tensorComputations).distinct
     (all_tensors, tensorComputations, dimInfo, uniqueSets, redundancyMaps)
   }

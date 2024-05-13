@@ -43,7 +43,6 @@ object Main extends App {
     inFilePath: String = "",
     sturOpt: Boolean = false,
     initTensors: Boolean = false,
-    enforceDimensions: Boolean = false,
     outFilePath: String = "",
     compress: Boolean = false,
     sturOptArgs: Seq[String] = Seq(),
@@ -73,9 +72,6 @@ object Main extends App {
       opt[Unit]("init-tensors")
         .action((_, c) => c.copy(initTensors = true))
         .text("initialize the tensors randomly in the generated code"),
-      opt[Unit]("enforce-dims")
-        .action((_, c) => c.copy(enforceDimensions = true))
-        .text("enforce the dimensions of the tensors in the generated code by multiplying dimensions by unique set (if false, we assume unique set is in the dimension boundaries)"),
       opt[Unit]("stur-opt-code-gen")
         .action((_, c) => c.copy(sturOpt = true))
         .text("send the code through stur-opt path for code generation"),
@@ -117,19 +113,19 @@ object Main extends App {
           val Parsed.Success(res, _) = parse(line, parser(_))
           res.head
         }).toSeq
-        val (all_tensors_preprocess, tensorComputations_preprocess, dimInfo_preprocess, uniqueSets_preprocess, redundancyMaps_preprocess): (Seq[Access], Seq[Rule], Seq[DimInfo], Map[Access, Rule], Map[Access, Rule]) = convertRules(parsedPreprocess, config.enforceDimensions)
-        val (all_tensors_computation, tensorComputations_computation, dimInfo_computation, uniqueSets_computation, redundancyMaps_computation): (Seq[Access], Seq[Rule], Seq[DimInfo], Map[Access, Rule], Map[Access, Rule]) = convertRules(parsedComputation, config.enforceDimensions)
-        val (init_str, end_str): (String, String) = if (!config.initTensors) ("", "") else Bodygen(config.codeLang, (parsedPreprocess ++ parsedComputation).distinct, (all_tensors_preprocess ++ all_tensors_computation).distinct, (dimInfo_preprocess ++ dimInfo_computation).distinct.toAccessMap, uniqueSets_preprocess ++ uniqueSets_computation, config.sturOpt)
+        val (all_tensors_preprocess, tensorComputations_preprocess, dimInfo_preprocess, uniqueSets_preprocess, redundancyMaps_preprocess): (Seq[Access], Seq[Rule], Seq[DimInfo], Map[Access, Rule], Map[Access, Rule]) = convertRules(parsedPreprocess)
+        val (all_tensors_computation, tensorComputations_computation, dimInfo_computation, uniqueSets_computation, redundancyMaps_computation): (Seq[Access], Seq[Rule], Seq[DimInfo], Map[Access, Rule], Map[Access, Rule]) = convertRules(parsedComputation)
+        val (init_str, end_str) = Bodygen(config.codeLang, (parsedPreprocess ++ parsedComputation).distinct, (all_tensors_preprocess ++ all_tensors_computation).distinct, (dimInfo_preprocess ++ dimInfo_computation).distinct.toAccessMap, uniqueSets_preprocess ++ uniqueSets_computation, config.initTensors, symbols)
 
         val (newUS, newRM, newCC, newComputationCode, newReconstructionCode) = tensorComputations_computation.foldLeft((uniqueSets_computation, redundancyMaps_computation, Map[Access, Rule](), "", ""))((acc, tc) => {
-          val inps: Seq[(Rule, Rule, Rule, Rule)] = getInputs(tc, acc._1, acc._2, acc._3)
+          val inps = getInputs(tc, acc._1, acc._2, acc._3)
           val (usRule, rmRule, ccRule) = compile(tc, inps)
           val rcRule = Rule(ccRule.head, SoPTimesSoP(SoP(Seq(Prod(Seq(ccRule.head.vars2RedundancyVars)))), rmRule.body))
           (acc._1 + (usRule.head -> usRule), acc._2 + (rmRule.head -> rmRule), acc._3 + (ccRule.head -> ccRule), s"${acc._4}\n${Codegen(ccRule, symbols)}", s"${acc._5}\n${Codegen(rcRule, symbols)}")
         })
 
         val (newUS_preprocess, newRM_preprocess, newCC_preprocess, newPreprocessCode) = tensorComputations_preprocess.foldLeft((uniqueSets_preprocess, redundancyMaps_preprocess, Map[Access, Rule](), ""))((acc, tc) => {
-          val inps: Seq[(Rule, Rule, Rule, Rule)] = getInputs(tc, acc._1, acc._2, acc._3)
+          val inps = getInputs(tc, acc._1, acc._2, acc._3)
           val (usRule, rmRule, ccRule) = compile(tc, inps)
           (acc._1 + (usRule.head -> usRule), acc._2 + (rmRule.head -> rmRule), acc._3 + (ccRule.head -> ccRule), s"${acc._4}\n${Codegen(ccRule, symbols)}")
         })
