@@ -6,7 +6,7 @@ To learn more about StructTensor, please read [our paper published in OOPSLA'23]
 
 ## Requirements
 
-To run this framework, you need [Scala](https://www.scala-lang.org/download/) version 2.13.3 and [sbt](https://www.scala-sbt.org/download/) of minimum version 1.4.0. Note that sbt relies on JDK version 8. To compile the generated code, any C++ compiler, such as GCC or Clang can be used.
+To run this framework, you need [Scala](https://www.scala-lang.org/download/) of minimum version 2.13.3 and [sbt](https://www.scala-sbt.org/download/) of minimum version 1.7.0. Note that sbt relies on JDK version 8. To compile the generated code, any C++ compiler, such as GCC or Clang can be used.
 
 ## Usage
 
