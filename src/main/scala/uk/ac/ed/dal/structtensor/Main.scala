@@ -41,11 +41,8 @@ object Main extends App {
   case class Config(
     codeLang: String = "CPP",
     inFilePath: String = "",
-    sturOpt: Boolean = false,
     initTensors: Boolean = false,
     outFilePath: String = "",
-    compress: Boolean = false,
-    sturOptArgs: Seq[String] = Seq(),
   )
 
   val builder = OParser.builder[Config]
@@ -71,17 +68,7 @@ object Main extends App {
         .valueName("<path>"),
       opt[Unit]("init-tensors")
         .action((_, c) => c.copy(initTensors = true))
-        .text("initialize the tensors randomly in the generated code"),
-      opt[Unit]("stur-opt-code-gen")
-        .action((_, c) => c.copy(sturOpt = true))
-        .text("send the code through stur-opt path for code generation"),
-      opt[Unit]("compress")
-        .action((_, c) => c.copy(compress = true))
-        .text("generate the compressed code"),
-      opt[Seq[String]]("stur-opt-args")
-        .action((x, c) => c.copy(sturOptArgs = x))
-        .text("arguments to be passed to stur-opt")
-        .valueName("<args>")
+        .text("initialize the tensors randomly in the generated code")
     )
   }
 
