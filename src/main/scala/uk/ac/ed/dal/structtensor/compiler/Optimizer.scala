@@ -201,23 +201,22 @@ object Optimizer {
       p.exps.flatMap {
         case Comparison("=", i1, i2) => {
           (i1, i2) match {
-            case (v1: Variable, v2: Variable) => Set(Set(v1, v2))
-            case _ => Set()
+            case (v1: Variable, v2: Variable) => Seq(Seq(v1, v2))
+            case _ => Seq()
           }
         }
-        case _ => Set()
-      }.toSet
+        case _ => Seq()
+      }
     })
 
     // Merge equal binary sets:
-    val mergedSets = binaryEqualSets.map(setOfSets => setOfSets.foldLeft(Set[Set[Variable]]()) { (merged, current) =>
+    val mergedSets = binaryEqualSets.map(setOfSets => setOfSets.foldLeft(Seq[Seq[Variable]]()) { (merged, current) =>
       val (toMerge, rest) = merged.partition(_.intersect(current).nonEmpty)
-      val mergedSet = toMerge.flatten ++ current
-      rest + mergedSet
+      val mergedSet = (toMerge.flatten ++ current).distinct
+      mergedSet +: rest
     })
 
-    // Transform the set of sets to seq of seq of variables
-    mergedSets.map(_.map(_.toSeq).toSeq)
+    mergedSets
   }
 
   def replaceEqualVariableInIndex(index: Index, equalVariablesSet: Seq[Seq[Variable]]): Index = index match {
