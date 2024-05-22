@@ -153,9 +153,198 @@ object Optimizer {
     }
   }
 
+  // def simplifyArith(arith: Index): Index = {
+  //   arith match {
+  //     case Arithmetic("+", ConstantInt(0), i) => simplifyArith(i)
+  //     case Arithmetic("+", i, ConstantInt(0)) => simplifyArith(i)
+  //     case Arithmetic("-", i, ConstantInt(0)) => simplifyArith(i)
+  //     case Arithmetic("*", ConstantInt(1), i) => simplifyArith(i)
+  //     case Arithmetic("*", i, ConstantInt(1)) => simplifyArith(i)
+  //     case Arithmetic("/", i, ConstantInt(1)) => simplifyArith(i)
+  //     case Arithmetic("+", ConstantDouble(0), i) => simplifyArith(i)
+  //     case Arithmetic("+", i, ConstantDouble(0)) => simplifyArith(i)
+  //     case Arithmetic("-", i, ConstantDouble(0)) => simplifyArith(i)
+  //     case Arithmetic("*", ConstantDouble(1), i) => simplifyArith(i)
+  //     case Arithmetic("*", i, ConstantDouble(1)) => simplifyArith(i)
+  //     case Arithmetic("/", i, ConstantDouble(1)) => simplifyArith(i)
+      
+  //     case Arithmetic("+", ConstantInt(m), Arithmetic("+", ConstantInt(n), i)) => if (m + n == 0) simplifyArith(i) else Arithmetic("+", simplifyArith(i), ConstantInt(m + n))
+  //     case Arithmetic("+", ConstantInt(m), Arithmetic("+", i, ConstantInt(n))) => if (m + n == 0) simplifyArith(i) else Arithmetic("+", simplifyArith(i), ConstantInt(m + n))
+  //     case Arithmetic("+", Arithmetic("+", ConstantInt(m), i), ConstantInt(n)) => if (m + n == 0) simplifyArith(i) else Arithmetic("+", simplifyArith(i), ConstantInt(m + n))
+  //     case Arithmetic("+", Arithmetic("+", i, ConstantInt(m)), ConstantInt(n)) => if (m + n == 0) simplifyArith(i) else Arithmetic("+", simplifyArith(i), ConstantInt(m + n))
+  //     case Arithmetic("+", ConstantDouble(m), Arithmetic("+", ConstantDouble(n), i)) => if (m + n == 0) simplifyArith(i) else Arithmetic("+", simplifyArith(i), ConstantDouble(m + n))
+  //     case Arithmetic("+", ConstantDouble(m), Arithmetic("+", i, ConstantDouble(n))) => if (m + n == 0) simplifyArith(i) else Arithmetic("+", simplifyArith(i), ConstantDouble(m + n))
+  //     case Arithmetic("+", Arithmetic("+", ConstantDouble(m), i), ConstantDouble(n)) => if (m + n == 0) simplifyArith(i) else Arithmetic("+", simplifyArith(i), ConstantDouble(m + n))
+  //     case Arithmetic("+", Arithmetic("+", i, ConstantDouble(m)), ConstantDouble(n)) => if (m + n == 0) simplifyArith(i) else Arithmetic("+", simplifyArith(i), ConstantDouble(m + n))
+  //     case _ => arith
+  //   }
+  // }
+
+  def isExpEmpty(exp: Exp): Boolean = exp match {
+    case Comparison(op, index, variable) => index match {
+      case Arithmetic(opArith, i1, i2) => {
+        op match {
+          case "=" => {
+            opArith match {
+              case "+" | "-" => {
+                if (i1 == variable) i2 match {
+                  case ConstantInt(v) => v != 0
+                  case ConstantDouble(v) => v != 0
+                  case _ => false
+                }
+                else if (i2 == variable) i1 match {
+                  case ConstantInt(v) => v != 0
+                  case ConstantDouble(v) => v != 0
+                  case _ => false
+                }
+                else false
+              } // We can't have something similar for * and / (e.g., v = 5 * v holds true if v == 0)
+              case _ => false
+            }
+          }
+          case "<" => {
+            opArith match {
+              case "+" => {
+                if (i1 == variable) i2 match {
+                  case ConstantInt(v) => v >= 0
+                  case ConstantDouble(v) => v >= 0
+                  case _ => false
+                }
+                else if (i2 == variable) i1 match {
+                  case ConstantInt(v) => v >= 0
+                  case ConstantDouble(v) => v >= 0
+                  case _ => false
+                }
+                else false
+              }
+              case "-" => {
+                if (i1 == variable) i2 match {
+                  case ConstantInt(v) => v <= 0
+                  case ConstantDouble(v) => v <= 0
+                  case _ => false
+                }
+                else false
+              }
+              case _ => false
+            }
+          }
+          case "<=" => {
+            opArith match {
+              case "+" => {
+                if (i1 == variable) i2 match {
+                  case ConstantInt(v) => v > 0
+                  case ConstantDouble(v) => v > 0
+                  case _ => false
+                }
+                else if (i2 == variable) i1 match {
+                  case ConstantInt(v) => v > 0
+                  case ConstantDouble(v) => v > 0
+                  case _ => false
+                }
+                else false
+              }
+              case "-" => {
+                if (i1 == variable) i2 match {
+                  case ConstantInt(v) => v < 0
+                  case ConstantDouble(v) => v < 0
+                  case _ => false
+                }
+                else false
+              }
+              case _ => false
+            }
+          }
+          case ">" => {
+            opArith match {
+              case "+" => {
+                if (i1 == variable) i2 match {
+                  case ConstantInt(v) => v <= 0
+                  case ConstantDouble(v) => v <= 0
+                  case _ => false
+                }
+                else if (i2 == variable) i1 match {
+                  case ConstantInt(v) => v <= 0
+                  case ConstantDouble(v) => v <= 0
+                  case _ => false
+                }
+                else false
+              }
+              case "-" => {
+                if (i1 == variable) i2 match {
+                  case ConstantInt(v) => v >= 0
+                  case ConstantDouble(v) => v >= 0
+                  case _ => false
+                }
+                else false
+              }
+              case _ => false
+            }
+          }
+          case ">=" => {
+            opArith match {
+              case "+" => {
+                if (i1 == variable) i2 match {
+                  case ConstantInt(v) => v < 0
+                  case ConstantDouble(v) => v < 0
+                  case _ => false
+                }
+                else if (i2 == variable) i1 match {
+                  case ConstantInt(v) => v < 0
+                  case ConstantDouble(v) => v < 0
+                  case _ => false
+                }
+                else false
+              }
+              case "-" => {
+                if (i1 == variable) i2 match {
+                  case ConstantInt(v) => v > 0
+                  case ConstantDouble(v) => v > 0
+                  case _ => false
+                }
+                else false
+              }
+              case _ => false
+            }
+          }
+          case "!=" => {
+            opArith match {
+              case "+" => {
+                if (i1 == variable) i2 match {
+                  case ConstantInt(v) => v == 0
+                  case ConstantDouble(v) => v == 0
+                  case _ => false
+                }
+                else if (i2 == variable) i1 match {
+                  case ConstantInt(v) => v == 0
+                  case ConstantDouble(v) => v == 0
+                  case _ => false
+                }
+                else false
+              }
+              case "-" => {
+                if (i1 == variable) i2 match {
+                  case ConstantInt(v) => v == 0
+                  case ConstantDouble(v) => v == 0
+                  case _ => false
+                }
+                else false
+              }
+              case _ => false
+            }
+          }
+          case _ => false
+        }
+      }
+      case _ => false
+    }
+    case _ => false
+  }
+
   def isProductEmpty(prod: Prod): Boolean = prod.exps.combinations(2).exists { case Seq(e1, e2) => isBinaryProductEmpty(e1, e2) }
 
-  def removeEmptyProductsOpt(r: Rule): Rule = Rule(r.head, SoP(r.body.prods.filterNot(isProductEmpty)))
+  def isExpOrProductEmpty(prod: Prod): Boolean = prod.exps.exists(isExpEmpty) || isProductEmpty(prod)
+
+  def removeEmptyProductsOpt(r: Rule): Rule = Rule(r.head, SoP(r.body.prods.filterNot(isExpOrProductEmpty)))
 
   def getNonDimensionVariables(prod: Prod): Seq[Variable] = prod.exps.flatMap {
       case Access(_, vars, _) => vars.distinct
