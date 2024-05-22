@@ -25,7 +25,7 @@ object Codegen {
         case a @ Arithmetic(op, i1, i2) => s"(${CPPFormat(i1)} ${op} ${CPPFormat(i2)})"
         case _ => ""
       }
-      case a: Access => s"${a.name}[${a.vars.map(_.name).mkString("][")}]"
+      case a: Access => if (a.vars.isEmpty) a.name else s"${a.name}[${a.vars.map(_.name).mkString("][")}]"
       case c @ Comparison(op, i, v) => s"(${CPPFormat(i)} ${op} ${CPPFormat(v)})"
       case p: Prod => p.exps.length match {
         case 0 => "∅"
