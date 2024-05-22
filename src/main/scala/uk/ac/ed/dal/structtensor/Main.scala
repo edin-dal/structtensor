@@ -42,6 +42,7 @@ object Main extends App {
     codeLang: String = "CPP",
     inFilePath: String = "",
     initTensors: Boolean = false,
+    onlyComputation: Boolean = false,
     outFilePath: String = "",
   )
 
@@ -68,7 +69,10 @@ object Main extends App {
         .valueName("<path>"),
       opt[Unit]("init-tensors")
         .action((_, c) => c.copy(initTensors = true))
-        .text("initialize the tensors randomly in the generated code")
+        .text("initialize the tensors randomly in the generated code"),
+      opt[Unit]("only-computation")
+        .action((_, c) => c.copy(onlyComputation = true))
+        .text("generate only the computation code (no reconstruction code)"),
     )
   }
 
@@ -116,8 +120,11 @@ object Main extends App {
           val (usRule, rmRule, ccRule) = compile(tc, inps)
           (acc._1 + (usRule.head -> usRule), acc._2 + (rmRule.head -> rmRule), acc._3 + (ccRule.head -> ccRule), s"${acc._4}\n${Codegen(ccRule, symbols)}")
         })
-
-        write2File(config.outFilePath, init_str + "\n" + newPreprocessCode + "\n" + init_timer(config.codeLang, postfix="_computation") + "\n" + newComputationCode + "\n" + end_timer(config.codeLang, postfix="_computation") + "\n" + init_timer(config.codeLang, postfix="_reconstruction") + "\n" + newReconstructionCode + "\n" + end_timer(config.codeLang, postfix="_reconstruction") + "\n" + "\n" + end_str)
+        
+        config.onlyComputation match {
+          case true => write2File(config.outFilePath, init_str + "\n" + newPreprocessCode + "\n" + init_timer(config.codeLang, postfix="_computation") + "\n" + newComputationCode + "\n" + end_timer(config.codeLang, postfix="_computation") + "\n" + end_str)
+          case false => write2File(config.outFilePath, init_str + "\n" + newPreprocessCode + "\n" + init_timer(config.codeLang, postfix="_computation") + "\n" + newComputationCode + "\n" + end_timer(config.codeLang, postfix="_computation") + "\n" + init_timer(config.codeLang, postfix="_reconstruction") + "\n" + newReconstructionCode + "\n" + end_timer(config.codeLang, postfix="_reconstruction") + "\n" + end_str)
+        }
       } else {
         println("Please specify the stur code or the file path")
       }
