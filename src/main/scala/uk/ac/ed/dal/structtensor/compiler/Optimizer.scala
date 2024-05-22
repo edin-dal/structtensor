@@ -87,7 +87,7 @@ object Optimizer {
 
     areAllComparison match {
       case true => {
-        val prodSetOfExpSet = r.body.prods.map(p => removeEquivalentComparisonsOpt(p).exps.toSet).toSet
+        val prodSetOfExpSet = r.body.prods.map(p => removeEquivalentComparisonsOpt(p).exps.distinct).distinct
         Rule(r.head, SoP(prodSetOfExpSet.map(p => Prod(p.toSeq)).toSeq))
       }
       case false => setIdempotentIntersectionOpt(r)
