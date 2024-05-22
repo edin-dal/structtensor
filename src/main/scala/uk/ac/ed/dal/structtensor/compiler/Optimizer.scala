@@ -153,33 +153,6 @@ object Optimizer {
     }
   }
 
-  // def simplifyArith(arith: Index): Index = {
-  //   arith match {
-  //     case Arithmetic("+", ConstantInt(0), i) => simplifyArith(i)
-  //     case Arithmetic("+", i, ConstantInt(0)) => simplifyArith(i)
-  //     case Arithmetic("-", i, ConstantInt(0)) => simplifyArith(i)
-  //     case Arithmetic("*", ConstantInt(1), i) => simplifyArith(i)
-  //     case Arithmetic("*", i, ConstantInt(1)) => simplifyArith(i)
-  //     case Arithmetic("/", i, ConstantInt(1)) => simplifyArith(i)
-  //     case Arithmetic("+", ConstantDouble(0), i) => simplifyArith(i)
-  //     case Arithmetic("+", i, ConstantDouble(0)) => simplifyArith(i)
-  //     case Arithmetic("-", i, ConstantDouble(0)) => simplifyArith(i)
-  //     case Arithmetic("*", ConstantDouble(1), i) => simplifyArith(i)
-  //     case Arithmetic("*", i, ConstantDouble(1)) => simplifyArith(i)
-  //     case Arithmetic("/", i, ConstantDouble(1)) => simplifyArith(i)
-      
-  //     case Arithmetic("+", ConstantInt(m), Arithmetic("+", ConstantInt(n), i)) => if (m + n == 0) simplifyArith(i) else Arithmetic("+", simplifyArith(i), ConstantInt(m + n))
-  //     case Arithmetic("+", ConstantInt(m), Arithmetic("+", i, ConstantInt(n))) => if (m + n == 0) simplifyArith(i) else Arithmetic("+", simplifyArith(i), ConstantInt(m + n))
-  //     case Arithmetic("+", Arithmetic("+", ConstantInt(m), i), ConstantInt(n)) => if (m + n == 0) simplifyArith(i) else Arithmetic("+", simplifyArith(i), ConstantInt(m + n))
-  //     case Arithmetic("+", Arithmetic("+", i, ConstantInt(m)), ConstantInt(n)) => if (m + n == 0) simplifyArith(i) else Arithmetic("+", simplifyArith(i), ConstantInt(m + n))
-  //     case Arithmetic("+", ConstantDouble(m), Arithmetic("+", ConstantDouble(n), i)) => if (m + n == 0) simplifyArith(i) else Arithmetic("+", simplifyArith(i), ConstantDouble(m + n))
-  //     case Arithmetic("+", ConstantDouble(m), Arithmetic("+", i, ConstantDouble(n))) => if (m + n == 0) simplifyArith(i) else Arithmetic("+", simplifyArith(i), ConstantDouble(m + n))
-  //     case Arithmetic("+", Arithmetic("+", ConstantDouble(m), i), ConstantDouble(n)) => if (m + n == 0) simplifyArith(i) else Arithmetic("+", simplifyArith(i), ConstantDouble(m + n))
-  //     case Arithmetic("+", Arithmetic("+", i, ConstantDouble(m)), ConstantDouble(n)) => if (m + n == 0) simplifyArith(i) else Arithmetic("+", simplifyArith(i), ConstantDouble(m + n))
-  //     case _ => arith
-  //   }
-  // }
-
   def isExpEmpty(exp: Exp): Boolean = exp match {
     case Comparison(op, index, variable) => index match {
       case Arithmetic(opArith, i1, i2) => {
