@@ -83,7 +83,7 @@ object Main extends App {
         import Optimizer._
         import Codegen._
         val lines = scala.io.Source.fromFile(config.inFilePath).mkString
-        val lineSeqInit = lines.split("\n").toSeq
+        val lineSeqInit = lines.split("\n").toSeq.filter(_.nonEmpty).filterNot(_.startsWith("#"))
         val (symbols_lines, index) = lineSeqInit.zipWithIndex.filter(_._1.startsWith("symbols:")).unzip
         val symbols = symbols_lines.map(e => e.slice(8, e.length)).flatMap(_.split(",").map(_.trim).toSeq).map(Variable(_))
         val lineSeq = lineSeqInit.zipWithIndex.filterNot(x => index.contains(x._2)).map(_._1)
