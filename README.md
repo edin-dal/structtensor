@@ -97,11 +97,12 @@ All command line options can be obtained by using the command `sbt run --help`. 
 struct-tensor 0.1
 Usage: sturct-tensor [options]
 
-  --help                  prints this usage text
-  -l, --lang <lang>       select the target language for the generated code
-  -i, --inf <path>        path to the stur input file
-  -o, --outf <path>       where to stored the generated code
-  --init-tensors          initialize the tensors randomly in the generated code
+  --help              prints this usage text
+  -l, --lang <lang>   select the target language for the generated code
+  -i, --inf <path>    path to the stur input file
+  -o, --outf <path>   where to stored the generated code
+  --init-tensors      initialize the tensors randomly in the generated code
+  --only-computation  generate only the computation code (no reconstruction code)
 ```
 
 ## Citing StructTensor
