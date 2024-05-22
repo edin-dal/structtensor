@@ -36,7 +36,7 @@ object Bodygen {
 using namespace std;
 using namespace std::chrono;
 """
-      val tensor_to_str = all_tensors.distinctBy(_.name).map(t => "double " + "*" * t.vars.length + " " + t.name).mkString(", ")
+      val tensor_to_str = all_tensors.distinctBy(_.name).map(t => "double " + (if (t.vars.isEmpty) "&" else "*" * t.vars.length) + " " + t.name).mkString(", ")
       val symbols_to_str = symbols.map(v => "int " + v.name).mkString(", ")
       val c2 = s"void fn($tensor_to_str, $symbols_to_str) {\n"
       c1 + c2
