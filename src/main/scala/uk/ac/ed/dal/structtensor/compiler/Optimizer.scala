@@ -155,6 +155,15 @@ object Optimizer {
 
   def isExpEmpty(exp: Exp): Boolean = exp match {
     case Comparison(op, index, variable) => index match {
+      case v: Variable => {
+        if (v == variable) {
+          op match {
+            case "=" | "<=" | ">=" => false
+            case "<" | ">" | "!=" => true
+            case _ => false
+          }
+        } else false
+      }
       case Arithmetic(opArith, i1, i2) => {
         op match {
           case "=" => {
