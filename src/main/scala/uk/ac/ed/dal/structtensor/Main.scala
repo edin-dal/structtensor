@@ -88,9 +88,11 @@ object Main extends App {
         import Codegen._
         val lines = scala.io.Source.fromFile(config.inFilePath).mkString
         val lineSeqInit = lines.split("\n").toSeq.filter(_.nonEmpty).filterNot(_.startsWith("#"))
-        val (symbols_lines, index) = lineSeqInit.zipWithIndex.filter(_._1.startsWith("symbols:")).unzip
+        val (symbols_lines, symbols_index) = lineSeqInit.zipWithIndex.filter(_._1.startsWith("symbols:")).unzip
+        val (outputs_lines, outputs_index) = lineSeqInit.zipWithIndex.filter(_._1.startsWith("outputs:")).unzip
         val symbols = symbols_lines.map(e => e.slice(8, e.length)).flatMap(_.split(",").map(_.trim).toSeq).map(Variable(_))
-        val lineSeq = lineSeqInit.zipWithIndex.filterNot(x => index.contains(x._2)).map(_._1)
+        val outputs_names = outputs_lines.map(e => e.slice(8, e.length)).flatMap(_.split(",").map(_.trim).toSeq)
+        val lineSeq = lineSeqInit.zipWithIndex.filterNot(x => symbols_index.contains(x._2) || outputs_index.contains(x._2)).map(_._1)
         val preprocess_start_index = lineSeq.indexOf("@preprocess_start")
         val preprocess_end_index = lineSeq.indexOf("@preprocess_end")
         val preprocess_lines = lineSeq.slice(preprocess_start_index + 1, preprocess_end_index)
@@ -104,26 +106,34 @@ object Main extends App {
           val Parsed.Success(res, _) = parse(line, parser(_))
           res.head
         }).toSeq
+        // TODO: There is a bug in bodygen for --init-tensors on jacobian
+        // Pass the outputs to get rid of intermediates in bodygen
         val (all_tensors_preprocess, tensorComputations_preprocess, dimInfo_preprocess, uniqueSets_preprocess, redundancyMaps_preprocess): (Seq[Access], Seq[Rule], Seq[DimInfo], Map[Access, Rule], Map[Access, Rule]) = convertRules(parsedPreprocess)
         val (all_tensors_computation, tensorComputations_computation, dimInfo_computation, uniqueSets_computation, redundancyMaps_computation): (Seq[Access], Seq[Rule], Seq[DimInfo], Map[Access, Rule], Map[Access, Rule]) = convertRules(parsedComputation)
         val (init_str, end_str) = Bodygen(config.codeLang, (parsedPreprocess ++ parsedComputation).distinct, (all_tensors_preprocess ++ all_tensors_computation).distinct, (dimInfo_preprocess ++ dimInfo_computation).distinct.toAccessMap, uniqueSets_preprocess ++ uniqueSets_computation, config.initTensors, symbols)
 
-        val (newUS, newRM, newCC, newComputationCode, newReconstructionCode) = tensorComputations_computation.foldLeft((uniqueSets_computation, redundancyMaps_computation, Map[Access, Rule](), "", ""))((acc, tc) => {
+        val (newUS, newRM, newCC, ccRuleSeq, rcRuleSeq) = tensorComputations_computation.foldLeft((uniqueSets_computation, redundancyMaps_computation, Map[Access, Rule](), Seq[Rule](), Seq[Rule]()))((acc, tc) => {
           val inps = getInputs(tc, acc._1, acc._2, acc._3)
           val (usRule, rmRule, ccRule) = compile(tc, inps)
           val rcRule = Rule(ccRule.head, SoPTimesSoP(SoP(Seq(Prod(Seq(ccRule.head.vars2RedundancyVars)))), rmRule.body))
-          (acc._1 + (usRule.head -> usRule), acc._2 + (rmRule.head -> rmRule), acc._3 + (ccRule.head -> ccRule), s"${acc._4}\n${Codegen(ccRule, symbols)}", s"${acc._5}\n${Codegen(rcRule, symbols)}")
+          (acc._1 + (usRule.head -> usRule), acc._2 + (rmRule.head -> rmRule), acc._3 + (ccRule.head -> ccRule), acc._4 :+ ccRule, acc._5 :+ rcRule)
         })
 
-        val (newUS_preprocess, newRM_preprocess, newCC_preprocess, newPreprocessCode) = tensorComputations_preprocess.foldLeft((uniqueSets_preprocess, redundancyMaps_preprocess, Map[Access, Rule](), ""))((acc, tc) => {
+        val (newUS_preprocess, newRM_preprocess, newCC_preprocess, ccRuleSeq_preprocess) = tensorComputations_preprocess.foldLeft((uniqueSets_preprocess, redundancyMaps_preprocess, Map[Access, Rule](), Seq[Rule]()))((acc, tc) => {
           val inps = getInputs(tc, acc._1, acc._2, acc._3)
           val (usRule, rmRule, ccRule) = compile(tc, inps)
-          (acc._1 + (usRule.head -> usRule), acc._2 + (rmRule.head -> rmRule), acc._3 + (ccRule.head -> ccRule), s"${acc._4}\n${Codegen(ccRule, symbols)}")
+          (acc._1 + (usRule.head -> usRule), acc._2 + (rmRule.head -> rmRule), acc._3 + (ccRule.head -> ccRule), acc._4 :+ ccRule)
         })
-        
+
+        val preprocessComputation = ccRuleSeq_preprocess.map(r => Codegen(r, symbols)).mkString("\n")
+        val ccComputation = outputs_names.isEmpty match {
+          case true => ccRuleSeq.map(r => Codegen(r, symbols)).mkString("\n")
+          case false => ccRuleSeq.filter(r => outputs_names.contains(r.head.name)).map(r => Codegen(r, symbols)).mkString("\n")
+        }
+
         config.onlyComputation match {
-          case true => write2File(config.outFilePath, init_str + "\n" + newPreprocessCode + "\n" + init_timer(config.codeLang, postfix="_computation") + "\n" + newComputationCode + "\n" + end_timer(config.codeLang, postfix="_computation") + "\n" + end_str)
-          case false => write2File(config.outFilePath, init_str + "\n" + newPreprocessCode + "\n" + init_timer(config.codeLang, postfix="_computation") + "\n" + newComputationCode + "\n" + end_timer(config.codeLang, postfix="_computation") + "\n" + init_timer(config.codeLang, postfix="_reconstruction") + "\n" + newReconstructionCode + "\n" + end_timer(config.codeLang, postfix="_reconstruction") + "\n" + end_str)
+          case true => write2File(config.outFilePath, init_str + "\n" + preprocessComputation + "\n" + init_timer(config.codeLang, postfix="_computation") + "\n" + ccComputation + "\n" + end_timer(config.codeLang, postfix="_computation") + "\n" + end_str)
+          case false => write2File(config.outFilePath, init_str + "\n" + preprocessComputation + "\n" + init_timer(config.codeLang, postfix="_computation") + "\n" + ccComputation + "\n" + end_timer(config.codeLang, postfix="_computation") + "\n" + init_timer(config.codeLang, postfix="_reconstruction") + "\n" + rcRuleSeq.map(r => Codegen(r, symbols)).mkString("\n") + "\n" + end_timer(config.codeLang, postfix="_reconstruction") + "\n" + end_str)
         }
       } else {
         println("Please specify the stur code or the file path")
