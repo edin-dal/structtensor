@@ -106,11 +106,9 @@ object Main extends App {
           val Parsed.Success(res, _) = parse(line, parser(_))
           res.head
         }).toSeq
-        // TODO: There is a bug in bodygen for --init-tensors on jacobian
-        // Pass the outputs to get rid of intermediates in bodygen
         val (all_tensors_preprocess, tensorComputations_preprocess, dimInfo_preprocess, uniqueSets_preprocess, redundancyMaps_preprocess): (Seq[Access], Seq[Rule], Seq[DimInfo], Map[Access, Rule], Map[Access, Rule]) = convertRules(parsedPreprocess)
         val (all_tensors_computation, tensorComputations_computation, dimInfo_computation, uniqueSets_computation, redundancyMaps_computation): (Seq[Access], Seq[Rule], Seq[DimInfo], Map[Access, Rule], Map[Access, Rule]) = convertRules(parsedComputation)
-        val (init_str, end_str) = Bodygen(config.codeLang, (parsedPreprocess ++ parsedComputation).distinct, (all_tensors_preprocess ++ all_tensors_computation).distinct, (dimInfo_preprocess ++ dimInfo_computation).distinct.toAccessMap, uniqueSets_preprocess ++ uniqueSets_computation, config.initTensors, symbols)
+        val (init_str, end_str) = Bodygen(config.codeLang, (parsedPreprocess ++ parsedComputation).distinct, (all_tensors_preprocess ++ all_tensors_computation).distinct, (dimInfo_preprocess ++ dimInfo_computation).distinct.toAccessMap, uniqueSets_preprocess ++ uniqueSets_computation, config.initTensors, symbols, outputs_names)
 
         val (newUS, newRM, newCC, ccRuleSeq, rcRuleSeq) = tensorComputations_computation.foldLeft((uniqueSets_computation, redundancyMaps_computation, Map[Access, Rule](), Seq[Rule](), Seq[Rule]()))((acc, tc) => {
           val inps = getInputs(tc, acc._1, acc._2, acc._3)
