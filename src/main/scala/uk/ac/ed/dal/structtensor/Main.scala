@@ -131,7 +131,13 @@ object Main extends App {
 
         config.onlyComputation match {
           case true => write2File(config.outFilePath, init_str + "\n" + preprocessComputation + "\n" + init_timer(config.codeLang, postfix="_computation") + "\n" + ccComputation + "\n" + end_timer(config.codeLang, postfix="_computation") + "\n" + end_str)
-          case false => write2File(config.outFilePath, init_str + "\n" + preprocessComputation + "\n" + init_timer(config.codeLang, postfix="_computation") + "\n" + ccComputation + "\n" + end_timer(config.codeLang, postfix="_computation") + "\n" + init_timer(config.codeLang, postfix="_reconstruction") + "\n" + rcRuleSeq.map(r => Codegen(r, symbols)).mkString("\n") + "\n" + end_timer(config.codeLang, postfix="_reconstruction") + "\n" + end_str)
+          case false => {
+            val rcComputation = outputs_names.isEmpty match {
+              case true => rcRuleSeq.map(r => Codegen(r, symbols)).mkString("\n")
+              case false => rcRuleSeq.filter(r => outputs_names.contains(r.head.name)).map(r => Codegen(r, symbols)).mkString("\n")
+            }
+            write2File(config.outFilePath, init_str + "\n" + preprocessComputation + "\n" + init_timer(config.codeLang, postfix="_computation") + "\n" + ccComputation + "\n" + end_timer(config.codeLang, postfix="_computation") + "\n" + init_timer(config.codeLang, postfix="_reconstruction") + "\n" + rcComputation + "\n" + end_timer(config.codeLang, postfix="_reconstruction") + "\n" + end_str)
+          }
         }
       } else {
         println("Please specify the stur code or the file path")
