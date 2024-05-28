@@ -23,7 +23,10 @@ object Bodygen {
         val all_vars = allVariables(rules).toSeq
         val c2 = read_argv(codeLang, argv_names)
         val c3 = all_tensors.distinctBy(_.name).filter(_.kind == Tensor).filterNot(only_lhs_heads.contains).map(t => alloc_and_gen_random_number(codeLang, t, all_dimensions.getOrElse(t, Seq[Dim]()), uniqueSets.getOrElse(t, emptyRule()).body)).mkString("\n")
-        val c4 = only_lhs_heads.filter(e => outputs_names.contains(e.name)).map(t => alloc_and_gen_zero(codeLang, t, all_dimensions.getOrElse(t, Seq[Dim]()))).mkString("\n")
+        val c4 = outputs_names.isEmpty match {
+          case true => only_lhs_heads.map(t => alloc_and_gen_zero(codeLang, t, all_dimensions.getOrElse(t, Seq[Dim]()))).mkString("\n")
+          case false => only_lhs_heads.filter(e => outputs_names.contains(e.name)).map(t => alloc_and_gen_zero(codeLang, t, all_dimensions.getOrElse(t, Seq[Dim]()))).mkString("\n")
+        }
         c1 + "\n" + c2 + "\n" + c3 + "\n" + c4  
       }
       case false => {
@@ -36,7 +39,10 @@ object Bodygen {
 using namespace std;
 using namespace std::chrono;
 """
-      val only_lhs_heads_not_in_output = rules.map(_.head).filter(_.kind == Tensor).distinctBy(_.name).filterNot(e => outputs_names.contains(e.name))
+      val only_lhs_heads_not_in_output = outputs_names.isEmpty match {
+        case true => Seq()
+        case false => rules.map(_.head).filter(_.kind == Tensor).distinctBy(_.name).filterNot(e => outputs_names.contains(e.name))
+      }
       val tensor_to_str = all_tensors.filterNot(only_lhs_heads_not_in_output.contains).distinctBy(_.name).map(t => "double " + (if (t.vars.isEmpty) "&" else "*" * t.vars.length) + " " + t.name).mkString(", ")
       val symbols_to_str = symbols.map(v => "int " + v.name).mkString(", ")
       val c2 = s"void fn($tensor_to_str, $symbols_to_str) {\n"
@@ -49,8 +55,14 @@ using namespace std::chrono;
   def generateEnd(codeLang: String, rules: Seq[Rule], all_tensors: Seq[Access], all_dimensions: Map[Access, Seq[Dim]], initTensors: Boolean, outputs_names: Seq[String]): String = {
     initTensors match {
       case true => {
-        val only_lhs_heads_not_in_output = rules.map(_.head).filter(_.kind == Tensor).distinctBy(_.name).filterNot(e => outputs_names.contains(e.name))
-        val c1 = all_tensors.filter(e => outputs_names.contains(e.name)).map(t => printerr(codeLang, t)).mkString("\n")
+        val only_lhs_heads_not_in_output = outputs_names.isEmpty match {
+          case true => Seq()
+          case false => rules.map(_.head).filter(_.kind == Tensor).distinctBy(_.name).filterNot(e => outputs_names.contains(e.name))
+        }
+        val c1 = outputs_names.isEmpty match {
+          case true => all_tensors.map(t => printerr(codeLang, t)).mkString("\n")
+          case false => all_tensors.filter(e => outputs_names.contains(e.name)).map(t => printerr(codeLang, t)).mkString("\n")
+        }
         val c2 = all_tensors.filterNot(only_lhs_heads_not_in_output.contains).distinctBy(_.name).filter(all_dimensions.contains).map(t => free(codeLang, t.name, all_dimensions(t))).mkString("\n")
         val c3 = return_code(codeLang)
         c1 + "\n" + c2 + "\n" + c3
