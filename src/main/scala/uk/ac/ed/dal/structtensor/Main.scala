@@ -123,18 +123,18 @@ object Main extends App {
           (acc._1 + (usRule.head -> usRule), acc._2 + (rmRule.head -> rmRule), acc._3 + (ccRule.head -> ccRule), acc._4 :+ ccRule)
         })
 
-        val preprocessComputation = ccRuleSeq_preprocess.map(r => Codegen(r, symbols)).mkString("\n")
+        val preprocessComputation = ccRuleSeq_preprocess.map(r => Codegen(r, symbols, config.codeLang)).mkString("\n")
         val ccComputation = outputs_names.isEmpty match {
-          case true => ccRuleSeq.map(r => Codegen(r, symbols)).mkString("\n")
-          case false => ccRuleSeq.filter(r => outputs_names.contains(r.head.name)).map(r => Codegen(r, symbols)).mkString("\n")
+          case true => ccRuleSeq.map(r => Codegen(r, symbols, config.codeLang)).mkString("\n")
+          case false => ccRuleSeq.filter(r => outputs_names.contains(r.head.name)).map(r => Codegen(r, symbols, config.codeLang)).mkString("\n")
         }
 
         config.onlyComputation match {
           case true => write2File(config.outFilePath, init_str + "\n" + preprocessComputation + "\n" + init_timer(config.codeLang, postfix="_computation") + "\n" + ccComputation + "\n" + end_timer(config.codeLang, postfix="_computation") + "\n" + end_str)
           case false => {
             val rcComputation = outputs_names.isEmpty match {
-              case true => rcRuleSeq.map(r => Codegen(r, symbols)).mkString("\n")
-              case false => rcRuleSeq.filter(r => outputs_names.contains(r.head.name)).map(r => Codegen(r, symbols)).mkString("\n")
+              case true => rcRuleSeq.map(r => Codegen(r, symbols, config.codeLang)).mkString("\n")
+              case false => rcRuleSeq.filter(r => outputs_names.contains(r.head.name)).map(r => Codegen(r, symbols, config.codeLang)).mkString("\n")
             }
             write2File(config.outFilePath, init_str + "\n" + preprocessComputation + "\n" + init_timer(config.codeLang, postfix="_computation") + "\n" + ccComputation + "\n" + end_timer(config.codeLang, postfix="_computation") + "\n" + init_timer(config.codeLang, postfix="_reconstruction") + "\n" + rcComputation + "\n" + end_timer(config.codeLang, postfix="_reconstruction") + "\n" + end_str)
           }

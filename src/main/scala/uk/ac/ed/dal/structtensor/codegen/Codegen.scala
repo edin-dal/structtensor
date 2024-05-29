@@ -120,9 +120,9 @@ object Codegen {
     reorderRec(afterMap, indexMap)
   }
 
-  def codeGenSingleProd(computationHead: Access, conditions: Seq[Comparison], accesses: Seq[Access], symbols: Seq[Variable], orderedVariables: Seq[Variable] = Seq()): String = {
+  def codeGenSingleProd(computationHead: Access, conditions: Seq[Comparison], accesses: Seq[Access], symbols: Seq[Variable], codeLang: String): String = {
     val variablesInit = (computationHead.vars ++ accesses.flatMap(_.vars)).distinct
-    val variables = if (orderedVariables.isEmpty) reorder(variablesInit, conditions, symbols) else orderedVariables
+    val variables = reorder(variablesInit, conditions, symbols)
     val (loopNests, restOfConditions, numberOfBrackets1) = variables.reverse.foldLeft(Seq[String](), conditions, 0)((acc, v) => {
       val (begin, end, equalsFullList, rest) = getConditionsOnVariable(v, acc._2)
       val equals = equalsFullList.filter {
@@ -133,26 +133,90 @@ object Codegen {
         case va: Variable => if ((!begin.isEmpty || !end.isEmpty) && !symbols.contains(va)) s"int ${CPPFormat(va)} = ${CPPFormat(v)};" else s"int ${CPPFormat(v)} = ${CPPFormat(va)};"
         case _ => s"int ${CPPFormat(v)} = ${CPPFormat(e)};"
       }).mkString("\n")
-      (begin.length, end.length, eqCode.contains(s"int ${CPPFormat(v)} = ")) match {
-        case (0, 0, _) => (acc._1 :+ eqCode, rest, acc._3)
-        case (0, 1, _) => (acc._1 ++ Seq(s"if (${CPPFormat(v)} < ${end.mkString}) {", eqCode), rest, acc._3 + 1)
-        case (0, _, _) => (acc._1 ++ Seq(s"if (${CPPFormat(v)} < ${end.mkString("min({", ", ", "})")}) {", eqCode), rest, acc._3 + 1)
-        case (1, 0, _) => (acc._1 ++ Seq(s"if (${CPPFormat(v)} >= ${begin.mkString}) {", eqCode), rest, acc._3 + 1)
-        case (_, 0, _) => (acc._1 ++ Seq(s"if (${CPPFormat(v)} >= ${begin.mkString("max({", ", ", "})")}) {", eqCode), rest, acc._3 + 1)
-        case (1, 1, false) => {
-          if (end.mkString == s"(${begin.mkString}) + 1") (acc._1 ++ Seq(eqCode, s"int ${CPPFormat(v)} = ${begin.mkString};"), rest, acc._3)
-          else (acc._1 ++ Seq(eqCode, s"for (int ${CPPFormat(v)} = ${begin.mkString}; ${CPPFormat(v)} < ${end.mkString}; ++${CPPFormat(v)}) {"), rest, acc._3 + 1)
-        } 
-        case (1, _, false) => (acc._1 ++ Seq(eqCode, s"for (int ${CPPFormat(v)} = ${begin.mkString}; ${CPPFormat(v)} < ${end.mkString("min({", ", ", "})")}; ++${CPPFormat(v)}) {"), rest, acc._3 + 1)
-        case (_, 1, false) => (acc._1 ++ Seq(eqCode, s"for (int ${CPPFormat(v)} = ${begin.mkString("max({", ", ", "})")}; ${CPPFormat(v)} < ${end.mkString}; ++${CPPFormat(v)}) {"), rest, acc._3 + 1)
-        case (_, _, false) => (acc._1 ++ Seq(eqCode, s"for (int ${CPPFormat(v)} = ${begin.mkString("max({", ", ", "})")}; ${CPPFormat(v)} < ${end.mkString("min({", ", ", "})")}; ++${CPPFormat(v)}) {"), rest, acc._3 + 1)
-        case (1, 1, true) => {
-          if (end.mkString == s"(${begin.mkString}) + 1") (acc._1 ++ Seq(s"int ${CPPFormat(v)} = ${begin.mkString};", eqCode), rest, acc._3)
-          else (acc._1 ++ Seq(s"if (${CPPFormat(v)} >= ${begin.mkString} && ${CPPFormat(v)} < ${end.mkString}) {", eqCode), rest, acc._3 + 1)
-        } 
-        case (1, _, true) => (acc._1 ++ Seq(s"if (${CPPFormat(v)} >= ${begin.mkString} && ${CPPFormat(v)} < ${end.mkString("min({", ", ", "})")}) {", eqCode), rest, acc._3 + 1)
-        case (_, 1, true) => (acc._1 ++ Seq(s"if (${CPPFormat(v)} >= ${begin.mkString("max({", ", ", "})")} && ${CPPFormat(v)} < ${end.mkString}) {", eqCode), rest, acc._3 + 1)
-        case (_, _, true) => (acc._1 ++ Seq(s"if (${CPPFormat(v)} >= ${begin.mkString("max({", ", ", "})")} && ${CPPFormat(v)} < ${end.mkString("min({", ", ", "})")}) {", eqCode), rest, acc._3 + 1)
+      codeLang.toLowerCase() match {
+        case "cpp" | "c++" => {
+          (begin.length, end.length, eqCode.contains(s"int ${CPPFormat(v)} = ")) match {
+            case (0, 0, _) => (acc._1 :+ eqCode, rest, acc._3)
+            case (0, 1, _) => (acc._1 ++ Seq(s"if (${CPPFormat(v)} < ${end.mkString}) {", eqCode), rest, acc._3 + 1)
+            case (0, _, _) => (acc._1 ++ Seq(s"if (${CPPFormat(v)} < ${end.mkString("min({", ", ", "})")}) {", eqCode), rest, acc._3 + 1)
+            case (1, 0, _) => (acc._1 ++ Seq(s"if (${CPPFormat(v)} >= ${begin.mkString}) {", eqCode), rest, acc._3 + 1)
+            case (_, 0, _) => (acc._1 ++ Seq(s"if (${CPPFormat(v)} >= ${begin.mkString("max({", ", ", "})")}) {", eqCode), rest, acc._3 + 1)
+            case (1, 1, false) => {
+              if (end.mkString == s"(${begin.mkString}) + 1") (acc._1 ++ Seq(eqCode, s"int ${CPPFormat(v)} = ${begin.mkString};"), rest, acc._3)
+              else (acc._1 ++ Seq(eqCode, s"for (int ${CPPFormat(v)} = ${begin.mkString}; ${CPPFormat(v)} < ${end.mkString}; ++${CPPFormat(v)}) {"), rest, acc._3 + 1)
+            } 
+            case (1, _, false) => (acc._1 ++ Seq(eqCode, s"for (int ${CPPFormat(v)} = ${begin.mkString}; ${CPPFormat(v)} < ${end.mkString("min({", ", ", "})")}; ++${CPPFormat(v)}) {"), rest, acc._3 + 1)
+            case (_, 1, false) => (acc._1 ++ Seq(eqCode, s"for (int ${CPPFormat(v)} = ${begin.mkString("max({", ", ", "})")}; ${CPPFormat(v)} < ${end.mkString}; ++${CPPFormat(v)}) {"), rest, acc._3 + 1)
+            case (_, _, false) => (acc._1 ++ Seq(eqCode, s"for (int ${CPPFormat(v)} = ${begin.mkString("max({", ", ", "})")}; ${CPPFormat(v)} < ${end.mkString("min({", ", ", "})")}; ++${CPPFormat(v)}) {"), rest, acc._3 + 1)
+            case (1, 1, true) => {
+              if (end.mkString == s"(${begin.mkString}) + 1") (acc._1 ++ Seq(s"int ${CPPFormat(v)} = ${begin.mkString};", eqCode), rest, acc._3)
+              else (acc._1 ++ Seq(s"if (${CPPFormat(v)} >= ${begin.mkString} && ${CPPFormat(v)} < ${end.mkString}) {", eqCode), rest, acc._3 + 1)
+            } 
+            case (1, _, true) => (acc._1 ++ Seq(s"if (${CPPFormat(v)} >= ${begin.mkString} && ${CPPFormat(v)} < ${end.mkString("min({", ", ", "})")}) {", eqCode), rest, acc._3 + 1)
+            case (_, 1, true) => (acc._1 ++ Seq(s"if (${CPPFormat(v)} >= ${begin.mkString("max({", ", ", "})")} && ${CPPFormat(v)} < ${end.mkString}) {", eqCode), rest, acc._3 + 1)
+            case (_, _, true) => (acc._1 ++ Seq(s"if (${CPPFormat(v)} >= ${begin.mkString("max({", ", ", "})")} && ${CPPFormat(v)} < ${end.mkString("min({", ", ", "})")}) {", eqCode), rest, acc._3 + 1)
+          }
+        }
+        case "c" => {
+          (begin.length, end.length, eqCode.contains(s"int ${CPPFormat(v)} = ")) match {
+            case (0, 0, _) => (acc._1 :+ eqCode, rest, acc._3)
+            case (0, 1, _) => (acc._1 ++ Seq(s"if (${CPPFormat(v)} < ${end.mkString}) {", eqCode), rest, acc._3 + 1)
+            case (0, _, _) => {
+              val arr = getVar("arr")
+              val c1 = s"size_t $arr[${end.length}] = ${end.mkString("{", ", ", "}")};"
+              (acc._1 ++ Seq(s"if (${CPPFormat(v)} < min($arr, ${end.length})) {", eqCode, c1), rest, acc._3 + 1)
+            }
+            case (1, 0, _) => (acc._1 ++ Seq(s"if (${CPPFormat(v)} >= ${begin.mkString}) {", eqCode), rest, acc._3 + 1)
+            case (_, 0, _) => {
+              val arr = getVar("arr")
+              val c1 = s"size_t $arr[${end.length}] = ${end.mkString("{", ", ", "}")};"
+              (acc._1 ++ Seq(s"if (${CPPFormat(v)} >= max($arr, ${end.length})) {", eqCode, c1), rest, acc._3 + 1)
+            }
+            case (1, 1, false) => {
+              if (end.mkString == s"(${begin.mkString}) + 1") (acc._1 ++ Seq(eqCode, s"int ${CPPFormat(v)} = ${begin.mkString};"), rest, acc._3)
+              else (acc._1 ++ Seq(eqCode, s"for (int ${CPPFormat(v)} = ${begin.mkString}; ${CPPFormat(v)} < ${end.mkString}; ++${CPPFormat(v)}) {"), rest, acc._3 + 1)
+            } 
+            case (1, _, false) => {
+              val arr = getVar("arr")
+              val c1 = s"size_t $arr[${end.length}] = ${end.mkString("{", ", ", "}")};"
+              (acc._1 ++ Seq(eqCode, s"for (int ${CPPFormat(v)} = ${begin.mkString}; ${CPPFormat(v)} < min($arr, ${end.length}); ++${CPPFormat(v)}) {", c1), rest, acc._3 + 1)
+            }
+            case (_, 1, false) => {
+              val arr = getVar("arr")
+              val c1 = s"size_t $arr[${end.length}] = ${end.mkString("{", ", ", "}")};"
+              (acc._1 ++ Seq(eqCode, s"for (int ${CPPFormat(v)} = max($arr, ${end.length}); ${CPPFormat(v)} < ${end.mkString}; ++${CPPFormat(v)}) {", c1), rest, acc._3 + 1)
+            }
+            case (_, _, false) => {
+              val arr1 = getVar("arr1")
+              val arr2 = getVar("arr2")
+              val c1 = s"size_t $arr1[${begin.length}] = ${begin.mkString("{", ", ", "}")};"
+              val c2 = s"size_t $arr2[${end.length}] = ${end.mkString("{", ", ", "}")};"
+              (acc._1 ++ Seq(eqCode, s"for (int ${CPPFormat(v)} = max($arr1, ${begin.length}); ${CPPFormat(v)} < min($arr2, ${end.length}); ++${CPPFormat(v)}) {", c2, c1), rest, acc._3 + 1)
+            }
+            case (1, 1, true) => {
+              if (end.mkString == s"(${begin.mkString}) + 1") (acc._1 ++ Seq(s"int ${CPPFormat(v)} = ${begin.mkString};", eqCode), rest, acc._3)
+              else (acc._1 ++ Seq(s"if (${CPPFormat(v)} >= ${begin.mkString} && ${CPPFormat(v)} < ${end.mkString}) {", eqCode), rest, acc._3 + 1)
+            } 
+            case (1, _, true) => {
+              val arr = getVar("arr")
+              val c1 = s"size_t $arr[${end.length}] = ${end.mkString("{", ", ", "}")};"
+              (acc._1 ++ Seq(s"if (${CPPFormat(v)} >= ${begin.mkString} && ${CPPFormat(v)} < min($arr, ${end.length})) {", eqCode, c1), rest, acc._3 + 1)
+            }
+            case (_, 1, true) => {
+              val arr = getVar("arr")
+              val c1 = s"size_t $arr[${end.length}] = ${end.mkString("{", ", ", "}")};"
+              (acc._1 ++ Seq(s"if (${CPPFormat(v)} >= max($arr, ${end.length}) && ${CPPFormat(v)} < ${end.mkString}) {", eqCode, c1), rest, acc._3 + 1)
+            }
+            case (_, _, true) => {
+              val arr1 = getVar("arr1")
+              val arr2 = getVar("arr2")
+              val c1 = s"size_t $arr1[${begin.length}] = ${begin.mkString("{", ", ", "}")};"
+              val c2 = s"size_t $arr2[${end.length}] = ${end.mkString("{", ", ", "}")};"
+              (acc._1 ++ Seq(s"if (${CPPFormat(v)} >= max($arr1, ${begin.length}) && ${CPPFormat(v)} < min($arr2, ${end.length})) {", eqCode, c2, c1), rest, acc._3 + 1)
+            }
+          }
+        }
+        case _ => throw new Exception(s"Unsupported language: $codeLang")
       }
     })
     val restString = restOfConditions.collect { case c @ Comparison(op, i, v) => op match {
@@ -167,12 +231,12 @@ object Codegen {
     s"$loopNestsString\n${CPPFormat(computationHead)} += $computationBody;\n$brackets"
   }
 
-  def apply(rule: Rule, symbols: Seq[Variable]): String = {
+  def apply(rule: Rule, symbols: Seq[Variable], codeLang: String): String = {
     val computationHead = rule.head
     rule.body.prods.map(prod => {
       val conditions = prod.exps.collect { case condition: Comparison => condition }
       val accesses = prod.exps.collect { case access: Access => access }
-      codeGenSingleProd(computationHead, conditions, accesses, symbols)
+      codeGenSingleProd(computationHead, conditions, accesses, symbols, codeLang)
     }).mkString("\n")
   }
 }

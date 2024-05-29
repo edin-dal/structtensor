@@ -181,7 +181,6 @@ size_t min2(size_t a, size_t b) {
 
 size_t min(size_t arr[], size_t size) {
   if (size == 0) {
-    // Return some sentinel value or handle error
     return -1;
   }
 
@@ -191,6 +190,23 @@ size_t min(size_t arr[], size_t size) {
   }
 
   return min_val;
+}
+
+size_t max2(size_t a, size_t b) {
+  return a > b ? a : b;
+}
+
+size_t max(size_t arr[], size_t size) {
+  if (size == 0) {
+    return -1;
+  }
+
+  size_t max_val = arr[0];
+  for (size_t i = 1; i < size; i++) {
+    max_val = max2(max_val, arr[i]);
+  }
+
+  return max_val;
 }
 
 
@@ -244,8 +260,12 @@ int main(int argc, char **argv){
         val iter_seq = vars.map(_.name)
         val dimensions = dims.map(C_convert_index(_))
         val (flag, c11) = C_convert_condition(sopCond)    
-        val c0 = if (dimensions.length == 1) s"double (*$var_name) = malloc(sizeof(double) * ${dimensions.mkString(" * ")});\n" else s"double (*$var_name)[${dimensions.tail.mkString("][")}] = malloc(sizeof(double) * ${dimensions.mkString(" * ")});\n"
-        val c1 = dimensions.zip(iter_seq).map {case (dim, i) => s"for (size_t $i = 0; $i < $dim; ++$i) {"}.mkString("\n")
+        val c0 = s"double ${"*" * dimensions.length} $var_name = malloc(sizeof(double ${"*" * (dimensions.length - 1)}) * ${dimensions.head});\n"
+        val c1 = dimensions.zip(iter_seq).zipWithIndex.map {case ((dim, i), n) => {
+          val c_sub1 = s"for (size_t $i = 0; $i < $dim; ++$i) {\n"
+          val c_sub2 = if (n != dimensions.length - 1) s"$var_name[${iter_seq.slice(0, n + 1).mkString("][")}] = malloc(sizeof(double " + "*" * (dimensions.length - 2 - n) + s") * ${dimensions(n + 1)});\n" else ""
+          c_sub1 + c_sub2
+        }}.mkString("\n")
         val c2 = s"if ($flag) {\n" + s"$var_name[${iter_seq.mkString("][")}] = (double) (rand() % 1000000) / 1e6;\n" + s"} else {\n" + s"$var_name[${iter_seq.mkString("][")}] = 0.0;\n" + s"}\n"
         val c3 = dimensions.map(_ => "}").mkString("\n")
         s"$c0$c1$c11$c2$c3"
@@ -261,8 +281,12 @@ int main(int argc, char **argv){
         val vars = head.vars
         val iter_seq = vars.map(_.name)
         val dimensions = dims.map(C_convert_index(_))
-        val c0 = if (dimensions.length == 1) s"double (*$var_name) = malloc(sizeof(double) * ${dimensions.mkString(" * ")});\n" else s"double (*$var_name)[${dimensions.tail.mkString("][")}] = malloc(sizeof(double) * ${dimensions.mkString(" * ")});\n"
-        val c1 = dimensions.zip(iter_seq).map{ case (dim, i) => s"for (size_t $i = 0; $i < $dim; ++$i) {"}.mkString("\n")
+        val c0 = s"double ${"*" * dimensions.length} $var_name = malloc(sizeof(double ${"*" * (dimensions.length - 1)}) * ${dimensions.head});\n"
+        val c1 = dimensions.zip(iter_seq).zipWithIndex.map {case ((dim, i), n) => {
+          val c_sub1 = s"for (size_t $i = 0; $i < $dim; ++$i) {\n"
+          val c_sub2 = if (n != dimensions.length - 1) s"$var_name[${iter_seq.slice(0, n + 1).mkString("][")}] = malloc(sizeof(double " + "*" * (dimensions.length - 2 - n) + s") * ${dimensions(n + 1)});\n" else ""
+          c_sub1 + c_sub2
+        }}.mkString("\n")
         val c2 = s"$var_name[${iter_seq.mkString("][")}] = 0.0;\n"
         val c3 = dimensions.map(_ => "}").mkString("\n")
         s"$c0$c1$c2$c3"
