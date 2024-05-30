@@ -519,15 +519,15 @@ object Compiler {
   } 
 
   @scala.annotation.tailrec
-  def fixedPointOpt(us: Rule, rm: Rule, cc: Rule): (Rule, Rule, Rule) = {
+  def fixedPointOpt(us: Rule, rm: Rule, cc: Rule, symbols: Seq[Variable]): (Rule, Rule, Rule) = {
     val (idempotentOptUS, idempotentOptRM, idempotentOptCC) = (setIdempotentOpt(us), setIdempotentOpt(rm), setIdempotentOpt(cc))
     val (removeEmptyProdOptUS, removeEmptyProdOptRM, removeEmptyProdOptCC) = (removeEmptyProductsOpt(idempotentOptUS), removeEmptyProductsOpt(idempotentOptRM), removeEmptyProductsOpt(idempotentOptCC))
-    val (replacedEqualVariablesOptUS, replacedEqualVariablesOptRM, replacedEqualVariablesOptCC) = (replaceEqualVariables(removeEmptyProdOptUS), replaceEqualVariables(removeEmptyProdOptRM), replaceEqualVariables(removeEmptyProdOptCC))
+    val (replacedEqualVariablesOptUS, replacedEqualVariablesOptRM, replacedEqualVariablesOptCC) = (replaceEqualVariables(removeEmptyProdOptUS, symbols), replaceEqualVariables(removeEmptyProdOptRM, symbols), replaceEqualVariables(removeEmptyProdOptCC, symbols))
     if (isSoPEquals(replacedEqualVariablesOptUS.body, us.body) && isSoPEquals(replacedEqualVariablesOptRM.body, rm.body) && isSoPEquals(replacedEqualVariablesOptCC.body, cc.body)) (replacedEqualVariablesOptUS, replacedEqualVariablesOptRM, replacedEqualVariablesOptCC)
-    else fixedPointOpt(replacedEqualVariablesOptUS, replacedEqualVariablesOptRM, replacedEqualVariablesOptCC) 
+    else fixedPointOpt(replacedEqualVariablesOptUS, replacedEqualVariablesOptRM, replacedEqualVariablesOptCC, symbols) 
   }
 
-  def compile(computation: Rule, inputs: Seq[(Rule, Rule, Rule, Rule)]): (Rule, Rule, Rule) = {
+  def compile(computation: Rule, inputs: Seq[(Rule, Rule, Rule, Rule)], symbols: Seq[Variable]): (Rule, Rule, Rule) = {
     val norm = normalize(computation)
     val us_rm_cc_tc_seq = norm.foldLeft(inputs)((ctx, r) => {
       val (us, rm, cc) = infer(r, ctx)
@@ -538,8 +538,8 @@ object Compiler {
     val (denormUS, denormRM, denormCC, denormTC) = denormalize(computation.head, inputs ++ us_rm_cc_tc_seq)
     val (idempotentOptUS, idempotentOptRM, idempotentOptCC) = (setIdempotentOpt(denormUS), setIdempotentOpt(denormRM), setIdempotentOpt(denormCC))
     val (removeEmptyProdOptUS, removeEmptyProdOptRM, removeEmptyProdOptCC) = (removeEmptyProductsOpt(idempotentOptUS), removeEmptyProductsOpt(idempotentOptRM), removeEmptyProductsOpt(idempotentOptCC))
-    val (replacedEqualVariablesOptUS, replacedEqualVariablesOptRM, replacedEqualVariablesOptCC) = (replaceEqualVariables(removeEmptyProdOptUS), replaceEqualVariables(removeEmptyProdOptRM), replaceEqualVariables(removeEmptyProdOptCC))
-    val (fixedUS, fixedRM, fixedCC) = fixedPointOpt(replacedEqualVariablesOptUS, replacedEqualVariablesOptRM, replacedEqualVariablesOptCC)
+    val (replacedEqualVariablesOptUS, replacedEqualVariablesOptRM, replacedEqualVariablesOptCC) = (replaceEqualVariables(removeEmptyProdOptUS, symbols), replaceEqualVariables(removeEmptyProdOptRM, symbols), replaceEqualVariables(removeEmptyProdOptCC, symbols))
+    val (fixedUS, fixedRM, fixedCC) = fixedPointOpt(replacedEqualVariablesOptUS, replacedEqualVariablesOptRM, replacedEqualVariablesOptCC, symbols)
     
     (fixedUS, fixedRM, fixedCC)
   }

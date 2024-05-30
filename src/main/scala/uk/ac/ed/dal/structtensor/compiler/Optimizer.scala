@@ -446,12 +446,17 @@ object Optimizer {
     case _ => throw new Exception("Unknown expression")
   }
 
-  def replaceEqualVariables(rule: Rule): Rule = {
+  def replaceEqualVariables(rule: Rule, symbols: Seq[Variable]): Rule = {
     val equalVariablesSet = getEqualVariables(rule)
     val newBody = SoP(rule.body.prods.zip(equalVariablesSet).map{ case (p, eSet) => {
       Prod(p.exps.map(exp => replaceEqualVariablesInExp(exp, eSet)).flatten)
     }})
-    
-    Rule(rule.head, newBody)
+
+    val all_variable_names = (symbols.map(_.name) ++ boundVariables(Seq(rule))).distinct
+    val finalBody = SoP(newBody.prods.map(p => {
+      Prod(p.exps.filter(e => getVariables(e).map(_.name).forall(all_variable_names.contains(_))))
+    }))
+
+    Rule(rule.head, finalBody)
   }
 }

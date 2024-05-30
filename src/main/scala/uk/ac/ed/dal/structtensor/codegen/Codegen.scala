@@ -73,12 +73,6 @@ object Codegen {
     (begin.distinct.filterNot(_ == ""), end.distinct.filterNot(_ == ""), equals.distinct.filterNot(_ == ""), conditions.zipWithIndex.filterNot{case (_, ind) => usedIndices.contains(ind)}.map(_._1))
   }
 
-  def getVariablesInIndex(i: Index): Seq[Variable] = i match {
-    case v: Variable => Seq(v)
-    case a @ Arithmetic(_, i1, i2) => (getVariablesInIndex(i1) ++ getVariablesInIndex(i2)).distinct
-    case _ => Seq()
-  }
-
   def reorder(variables: Seq[Variable], conditions: Seq[Comparison], symbols: Seq[Variable]): Seq[Variable] = {
     // afterMap is a <key, value> pair where key is the variable, and value is a list of variables that key depends on
     // If 2 variables depend on each other, they might get removed completely and cause an issue (e.g., a < b + 5 and b > a - 5.)

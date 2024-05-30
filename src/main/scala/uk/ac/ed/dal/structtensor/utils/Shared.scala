@@ -650,4 +650,15 @@ $last = "memref.load"(%${access.name}${", %const_val_0" * access.vars.length}) :
     }.toSet
   }
 
+  def getVariablesInIndex(i: Index): Seq[Variable] = i match {
+    case v: Variable => Seq(v)
+    case a @ Arithmetic(_, i1, i2) => (getVariablesInIndex(i1) ++ getVariablesInIndex(i2)).distinct
+    case _ => Seq()
+  }
+
+  def getVariables(e: Exp): Seq[Variable] = e match {
+    case Access(_, vars, _) => vars.distinct
+    case Comparison(_, i, v) => (getVariablesInIndex(i) :+ v).distinct
+    case _ => Seq()
+  }
 }

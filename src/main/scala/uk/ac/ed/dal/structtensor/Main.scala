@@ -112,14 +112,14 @@ object Main extends App {
 
         val (newUS, newRM, newCC, ccRuleSeq, rcRuleSeq) = tensorComputations_computation.foldLeft((uniqueSets_computation, redundancyMaps_computation, Map[Access, Rule](), Seq[Rule](), Seq[Rule]()))((acc, tc) => {
           val inps = getInputs(tc, acc._1, acc._2, acc._3)
-          val (usRule, rmRule, ccRule) = compile(tc, inps)
+          val (usRule, rmRule, ccRule) = compile(tc, inps, symbols)
           val rcRule = Rule(ccRule.head, SoPTimesSoP(SoP(Seq(Prod(Seq(ccRule.head.vars2RedundancyVars)))), rmRule.body))
           (acc._1 + (usRule.head -> usRule), acc._2 + (rmRule.head -> rmRule), acc._3 + (ccRule.head -> ccRule), acc._4 :+ ccRule, acc._5 :+ rcRule)
         })
 
         val (newUS_preprocess, newRM_preprocess, newCC_preprocess, ccRuleSeq_preprocess) = tensorComputations_preprocess.foldLeft((uniqueSets_preprocess, redundancyMaps_preprocess, Map[Access, Rule](), Seq[Rule]()))((acc, tc) => {
           val inps = getInputs(tc, acc._1, acc._2, acc._3)
-          val (usRule, rmRule, ccRule) = compile(tc, inps)
+          val (usRule, rmRule, ccRule) = compile(tc, inps, symbols)
           (acc._1 + (usRule.head -> usRule), acc._2 + (rmRule.head -> rmRule), acc._3 + (ccRule.head -> ccRule), acc._4 :+ ccRule)
         })
 
