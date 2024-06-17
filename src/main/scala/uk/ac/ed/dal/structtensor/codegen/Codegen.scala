@@ -163,8 +163,8 @@ object Codegen {
             case (1, 0, _) => (acc._1 ++ Seq(s"if (${CPPFormat(v)} >= ${begin.mkString}) {", eqCode), rest, acc._3 + 1)
             case (_, 0, _) => {
               val arr = getVar("arr")
-              val c1 = s"size_t $arr[${end.length}] = ${end.mkString("{", ", ", "}")};"
-              (acc._1 ++ Seq(s"if (${CPPFormat(v)} >= max($arr, ${end.length})) {", eqCode, c1), rest, acc._3 + 1)
+              val c1 = s"size_t $arr[${begin.length}] = ${begin.mkString("{", ", ", "}")};"
+              (acc._1 ++ Seq(s"if (${CPPFormat(v)} >= max($arr, ${begin.length})) {", eqCode, c1), rest, acc._3 + 1)
             }
             case (1, 1, false) => {
               if (end.mkString == s"(${begin.mkString}) + 1") (acc._1 ++ Seq(eqCode, s"int ${CPPFormat(v)} = ${begin.mkString};"), rest, acc._3)
@@ -177,8 +177,8 @@ object Codegen {
             }
             case (_, 1, false) => {
               val arr = getVar("arr")
-              val c1 = s"size_t $arr[${end.length}] = ${end.mkString("{", ", ", "}")};"
-              (acc._1 ++ Seq(eqCode, s"for (int ${CPPFormat(v)} = max($arr, ${end.length}); ${CPPFormat(v)} < ${end.mkString}; ++${CPPFormat(v)}) {", c1), rest, acc._3 + 1)
+              val c1 = s"size_t $arr[${begin.length}] = ${begin.mkString("{", ", ", "}")};"
+              (acc._1 ++ Seq(eqCode, s"for (int ${CPPFormat(v)} = max($arr, ${begin.length}); ${CPPFormat(v)} < ${end.mkString}; ++${CPPFormat(v)}) {", c1), rest, acc._3 + 1)
             }
             case (_, _, false) => {
               val arr1 = getVar("arr1")
@@ -198,8 +198,8 @@ object Codegen {
             }
             case (_, 1, true) => {
               val arr = getVar("arr")
-              val c1 = s"size_t $arr[${end.length}] = ${end.mkString("{", ", ", "}")};"
-              (acc._1 ++ Seq(s"if (${CPPFormat(v)} >= max($arr, ${end.length}) && ${CPPFormat(v)} < ${end.mkString}) {", eqCode, c1), rest, acc._3 + 1)
+              val c1 = s"size_t $arr[${begin.length}] = ${begin.mkString("{", ", ", "}")};"
+              (acc._1 ++ Seq(s"if (${CPPFormat(v)} >= max($arr, ${begin.length}) && ${CPPFormat(v)} < ${end.mkString}) {", eqCode, c1), rest, acc._3 + 1)
             }
             case (_, _, true) => {
               val arr1 = getVar("arr1")
