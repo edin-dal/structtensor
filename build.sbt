@@ -1,4 +1,4 @@
-scalaVersion := "2.13.3"
+scalaVersion := "2.13.14"
 
 name := "struct-tensor"
 organization := "uk.ac.ed.dal"

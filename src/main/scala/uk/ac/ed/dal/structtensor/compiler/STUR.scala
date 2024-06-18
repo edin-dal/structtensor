@@ -40,7 +40,6 @@ case object DimensionType extends AccessType {
   def prettyFormat(): String = "D"
 }
 
-
 case class Variable(name: String) extends Index with Dim {
   def prettyFormat(): String = name
   def vars2RedundancyVars(): Variable = Variable(s"${name}p")
@@ -56,31 +55,42 @@ case class ConstantInt(value: Int) extends Index with Dim {
   def vars2RedundancyVars(): ConstantInt = this
 }
 
-case class Arithmetic(op: String, index1: Index, index2: Index) extends Index with Dim {
-  def prettyFormat(): String = s"(${index1.prettyFormat} $op ${index2.prettyFormat})"
-  def vars2RedundancyVars(): Arithmetic = Arithmetic(op, index1.vars2RedundancyVars, index2.vars2RedundancyVars)
+case class Arithmetic(op: String, index1: Index, index2: Index)
+    extends Index
+    with Dim {
+  def prettyFormat(): String =
+    s"(${index1.prettyFormat} $op ${index2.prettyFormat})"
+  def vars2RedundancyVars(): Arithmetic =
+    Arithmetic(op, index1.vars2RedundancyVars, index2.vars2RedundancyVars)
 }
 
-case class Access(name: String, vars: Seq[Variable], kind: AccessType) extends Exp {
+case class Access(name: String, vars: Seq[Variable], kind: AccessType)
+    extends Exp {
   import Shared._
   def prettyFormat(): String = {
     val pr = vars.map(_.prettyFormat).mkString(", ")
     if (pr.isEmpty) name else s"$name($pr)"
   }
 
-  def vars2RedundancyVars(): Access = Access(name, vars.map(_.vars2RedundancyVars), kind)
+  def vars2RedundancyVars(): Access =
+    Access(name, vars.map(_.vars2RedundancyVars), kind)
   def uniqueHead(): Access = Access(name.uniqueName, vars, UniqueSet)
-  def redundancyHead(): Access = Access(name.redundancyName, vars.redundancyVarsInplace, RedundancyMap)
-  def compressedHead(): Access = Access(name.compressedName, vars, CompressedTensor)
+  def redundancyHead(): Access =
+    Access(name.redundancyName, vars.redundancyVarsInplace, RedundancyMap)
+  def compressedHead(): Access =
+    Access(name.compressedName, vars, CompressedTensor)
   def dimensionHead(): Access = Access(name.dimensionName, vars, DimensionType)
 }
 
-case class Comparison(op: String, index: Index, variable: Variable) extends Exp {
+case class Comparison(op: String, index: Index, variable: Variable)
+    extends Exp {
   def prettyFormat(): String = index match {
-    case _: Variable | _ if op != "=" => s"(${index.prettyFormat} $op ${variable.prettyFormat})"
+    case _: Variable | _ if op != "=" =>
+      s"(${index.prettyFormat} $op ${variable.prettyFormat})"
     case _ => s"(${variable.prettyFormat} $op ${index.prettyFormat})"
   }
-  def vars2RedundancyVars(): Comparison = Comparison(op, index.vars2RedundancyVars, variable.vars2RedundancyVars)
+  def vars2RedundancyVars(): Comparison =
+    Comparison(op, index.vars2RedundancyVars, variable.vars2RedundancyVars)
 }
 
 case class Prod(exps: Seq[Exp]) {
