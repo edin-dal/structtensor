@@ -43,6 +43,17 @@ class ParserTest extends AnyFlatSpec with Matchers with ParallelTestExecution {
     )
   }
 
+  it should "parse an access in multiple parantheses" in {
+    val input = "(((foo(x, y, z))))"
+    val result = fastparse.parse(input, Parser.access(_))
+    result.isSuccess shouldBe true
+    result.get.value shouldBe Access(
+      "foo",
+      Seq(Variable("x"), Variable("y"), Variable("z")),
+      Tensor
+    )
+  }
+
   it should "parse an integer" in {
     val input = "123"
     val result = fastparse.parse(input, Parser.integer(_))
