@@ -62,10 +62,10 @@ class ParserTest extends AnyFlatSpec with Matchers with ParallelTestExecution {
   }
 
   it should "parse a decimal" in {
-    val input = "3.14"
+    val input = "273.1124"
     val result = fastparse.parse(input, Parser.decimal(_))
     result.isSuccess shouldBe true
-    result.get.value shouldBe ConstantDouble(3.14)
+    result.get.value shouldBe ConstantDouble(273.1124)
   }
 
   it should "parse an arithmetic operation" in {
