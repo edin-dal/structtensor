@@ -101,6 +101,16 @@ class ParserTest extends AnyFlatSpec with Matchers with ParallelTestExecution {
     result.get.value shouldBe Seq(Comparison(">", Variable("x"), Variable("y")))
   }
 
+  it should "parse a chained comparison" in {
+    val input = "x > y = z"
+    val result = fastparse.parse(input, Parser.comparison(_))
+    result.isSuccess shouldBe true
+    result.get.value shouldBe Seq(
+      Comparison(">", Variable("x"), Variable("y")),
+      Comparison("=", Variable("y"), Variable("z"))
+    )
+  }
+
   it should "parse an expression" in {
     val input = "foo(x, y, z)"
     val result = fastparse.parse(input, Parser.exp(_))

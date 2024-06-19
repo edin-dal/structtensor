@@ -58,8 +58,11 @@ object Parser {
   ).!
 
   def comparison[$: P]: P[Seq[Comparison]] =
-    P(arithmetic ~ comp_op ~ arithmetic).map({ case (i1, op, i2) =>
-      interpretComparison(op, i1, i2)
+    P(arithmetic ~ (comp_op ~ arithmetic).rep(1)).map({ case (i1, op_i2_Seq) =>
+      interpretComparison(op_i2_Seq(0)._1, i1, op_i2_Seq(0)._2) ++
+        op_i2_Seq.zipWithIndex.tail.flatMap({ case ((op, i2), index) =>
+          interpretComparison(op, op_i2_Seq(index - 1)._2, i2)
+        })
     })
 
   def exp[$: P]: P[Seq[Exp]] =
