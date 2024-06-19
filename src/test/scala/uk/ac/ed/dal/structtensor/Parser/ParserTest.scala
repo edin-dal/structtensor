@@ -204,4 +204,75 @@ class ParserTest extends AnyFlatSpec with Matchers with ParallelTestExecution {
       )
     )
   }
+
+  it should "parse a program" in {
+    val input =
+      """|foo(x, y, z):= bar(x, y, z) * baz(x, y, z) + qux(x, y, z)
+        |bax(x, y, z):= foo(x, y, z) * bar(x, y, z) + qux(x, y, z)
+        |""".stripMargin
+    val result = fastparse.parse(input, Parser.program(_))
+    result.isSuccess shouldBe true
+    result.get.value shouldBe Seq(
+      Rule(
+        Access("foo", Seq(Variable("x"), Variable("y"), Variable("z")), Tensor),
+        SoP(
+          Seq(
+            Prod(
+              Seq(
+                Access(
+                  "bar",
+                  Seq(Variable("x"), Variable("y"), Variable("z")),
+                  Tensor
+                ),
+                Access(
+                  "baz",
+                  Seq(Variable("x"), Variable("y"), Variable("z")),
+                  Tensor
+                )
+              )
+            ),
+            Prod(
+              Seq(
+                Access(
+                  "qux",
+                  Seq(Variable("x"), Variable("y"), Variable("z")),
+                  Tensor
+                )
+              )
+            )
+          )
+        )
+      ),
+      Rule(
+        Access("bax", Seq(Variable("x"), Variable("y"), Variable("z")), Tensor),
+        SoP(
+          Seq(
+            Prod(
+              Seq(
+                Access(
+                  "foo",
+                  Seq(Variable("x"), Variable("y"), Variable("z")),
+                  Tensor
+                ),
+                Access(
+                  "bar",
+                  Seq(Variable("x"), Variable("y"), Variable("z")),
+                  Tensor
+                )
+              )
+            ),
+            Prod(
+              Seq(
+                Access(
+                  "qux",
+                  Seq(Variable("x"), Variable("y"), Variable("z")),
+                  Tensor
+                )
+              )
+            )
+          )
+        )
+      )
+    )
+  }
 }
