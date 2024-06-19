@@ -168,4 +168,40 @@ class ParserTest extends AnyFlatSpec with Matchers with ParallelTestExecution {
       )
     )
   }
+
+  it should "parse a rule" in {
+    val input = "foo(x, y, z):= bar(x, y, z) * baz(x, y, z) + qux(x, y, z)"
+    val result = fastparse.parse(input, Parser.rule(_))
+    result.isSuccess shouldBe true
+    result.get.value shouldBe Rule(
+      Access("foo", Seq(Variable("x"), Variable("y"), Variable("z")), Tensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access(
+                "bar",
+                Seq(Variable("x"), Variable("y"), Variable("z")),
+                Tensor
+              ),
+              Access(
+                "baz",
+                Seq(Variable("x"), Variable("y"), Variable("z")),
+                Tensor
+              )
+            )
+          ),
+          Prod(
+            Seq(
+              Access(
+                "qux",
+                Seq(Variable("x"), Variable("y"), Variable("z")),
+                Tensor
+              )
+            )
+          )
+        )
+      )
+    )
+  }
 }
