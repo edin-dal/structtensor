@@ -119,4 +119,22 @@ class ParserTest extends AnyFlatSpec with Matchers with ParallelTestExecution {
       Access("foo", Seq(Variable("x"), Variable("y"), Variable("z")), Tensor)
     )
   }
+
+  it should "parse a factor" in {
+    val input = "foo(x, y, z) * bar:U(x, y, z) * x > y = z"
+    val result = fastparse.parse(input, Parser.factor(_))
+    result.isSuccess shouldBe true
+    result.get.value shouldBe Prod(
+      Seq(
+        Access("foo", Seq(Variable("x"), Variable("y"), Variable("z")), Tensor),
+        Access(
+          "bar",
+          Seq(Variable("x"), Variable("y"), Variable("z")),
+          UniqueSet
+        ),
+        Comparison(">", Variable("x"), Variable("y")),
+        Comparison("=", Variable("y"), Variable("z"))
+      )
+    )
+  }
 }
