@@ -137,4 +137,35 @@ class ParserTest extends AnyFlatSpec with Matchers with ParallelTestExecution {
       )
     )
   }
+
+  it should "parse sum of factors" in {
+    val input = "foo(x, y, z) * bar(x, y, z) + baz(x, y) * qux(x, z) * x > y"
+    val result = fastparse.parse(input, Parser.sop(_))
+    result.isSuccess shouldBe true
+    result.get.value shouldBe SoP(
+      Seq(
+        Prod(
+          Seq(
+            Access(
+              "foo",
+              Seq(Variable("x"), Variable("y"), Variable("z")),
+              Tensor
+            ),
+            Access(
+              "bar",
+              Seq(Variable("x"), Variable("y"), Variable("z")),
+              Tensor
+            )
+          )
+        ),
+        Prod(
+          Seq(
+            Access("baz", Seq(Variable("x"), Variable("y")), Tensor),
+            Access("qux", Seq(Variable("x"), Variable("z")), Tensor),
+            Comparison(">", Variable("x"), Variable("y"))
+          )
+        )
+      )
+    )
+  }
 }
