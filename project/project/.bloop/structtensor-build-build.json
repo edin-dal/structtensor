@@ -198,7 +198,7 @@
         "platform": {
             "name": "jvm",
             "config": {
-                "home": "/home/mahdi/.cache/coursier/arc/https/github.com/adoptium/temurin17-binaries/releases/download/jdk-17%252B35/OpenJDK17-jdk_x64_linux_hotspot_17_35.tar.gz/jdk-17+35",
+                "home": "/usr/lib/jvm/java-8-openjdk-amd64/jre",
                 "options": [
                     "-Duser.dir=/home/mahdi/PhD/Git/structtensor/project/project"
                 ]
@@ -207,7 +207,7 @@
                 
             ],
             "runtimeConfig": {
-                "home": "/home/mahdi/.cache/coursier/arc/https/github.com/adoptium/temurin17-binaries/releases/download/jdk-17%252B35/OpenJDK17-jdk_x64_linux_hotspot_17_35.tar.gz/jdk-17+35",
+                "home": "/usr/lib/jvm/java-8-openjdk-amd64/jre",
                 "options": [
                     "-Duser.dir=/home/mahdi/PhD/Git/structtensor/project/project"
                 ]
