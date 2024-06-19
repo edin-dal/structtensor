@@ -79,6 +79,21 @@ class ParserTest extends AnyFlatSpec with Matchers with ParallelTestExecution {
     )
   }
 
+  it should "parse a complex arithmetic operation" in {
+    val input = "x + y * (z - 2)"
+    val result = fastparse.parse(input, Parser.arithmetic(_))
+    result.isSuccess shouldBe true
+    result.get.value shouldBe Arithmetic(
+      "+",
+      Variable("x"),
+      Arithmetic(
+        "*",
+        Variable("y"),
+        Arithmetic("-", Variable("z"), ConstantInt(2))
+      )
+    )
+  }
+
   it should "parse a comparison" in {
     val input = "x > y"
     val result = fastparse.parse(input, Parser.comparison(_))
