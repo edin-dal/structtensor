@@ -1,11 +1,12 @@
+package uk.ac.ed.dal
+package structtensor
 package parser
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.ParallelTestExecution
 
-import uk.ac.ed.dal.structtensor.parser.Parser
-import uk.ac.ed.dal.structtensor.compiler._
+import compiler._
 
 import fastparse._
 import fastparse.SingleLineWhitespace._
