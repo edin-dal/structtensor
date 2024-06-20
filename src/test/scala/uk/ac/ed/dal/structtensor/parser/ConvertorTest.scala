@@ -56,4 +56,35 @@ class ConvertorTest
     )
   }
 
+  it should "get heads that require dimension correctly" in {
+    val headToTensorMap = LinkedHashMap(
+      Access("foo", Seq(Variable("z"), Variable("y")), Tensor) -> Rule(
+        Access("foo", Seq(Variable("z"), Variable("y")), Tensor),
+        SoP(
+          Seq(
+            Prod(
+              Seq(
+                Access("bar", Seq(Variable("y")), Tensor),
+                Access("baz", Seq(Variable("z")), Tensor)
+              )
+            )
+          )
+        )
+      ),
+      Access("qux", Seq(Variable("y")), Tensor) -> Rule(
+        Access("qux", Seq(Variable("y")), Tensor),
+        SoP(
+          Seq(
+            Prod(Seq(Access("foo", Seq(Variable("z"), Variable("y")), Tensor)))
+          )
+        )
+      )
+    )
+    val heads = Convertor.getHeadsThatRequireDim(headToTensorMap)
+    heads should contain theSameElementsAs Seq(
+      Access("bar", Seq(Variable("y")), Tensor),
+      Access("baz", Seq(Variable("z")), Tensor)
+    )
+  }
+
 }
