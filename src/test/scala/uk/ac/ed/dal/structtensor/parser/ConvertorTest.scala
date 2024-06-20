@@ -284,4 +284,30 @@ class ConvertorTest
     )
   }
 
+  it should "get all tensors correctly" in {
+    val rules = Seq(
+      Rule(
+        Access("foo", Seq(Variable("x")), Tensor),
+        SoP(Seq(Prod(Seq(Access("qux", Seq(Variable("x")), Tensor)))))
+      ),
+      Rule(
+        Access("bar", Seq(Variable("y")), Tensor),
+        SoP(Seq(Prod(Seq(Access("awd", Seq(Variable("y")), Tensor)))))
+      ),
+      Rule(
+        Access("baz", Seq(Variable("z")), Tensor),
+        SoP(Seq(Prod(Seq(Access("lop", Seq(Variable("z")), Tensor)))))
+      )
+    )
+    val result = Convertor.getAllTensors(rules)
+    result should contain theSameElementsAs Seq(
+      Access("foo", Seq(Variable("x")), Tensor),
+      Access("bar", Seq(Variable("y")), Tensor),
+      Access("baz", Seq(Variable("z")), Tensor),
+      Access("qux", Seq(Variable("x")), Tensor),
+      Access("awd", Seq(Variable("y")), Tensor),
+      Access("lop", Seq(Variable("z")), Tensor)
+    )
+  }
+
 }
