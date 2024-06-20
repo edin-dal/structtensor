@@ -161,4 +161,49 @@ class ConvertorTest
     result should not be true
   }
 
+  it should "find upper bound of a variable correctly" in {
+    val sop = SoP(
+      Seq(
+        Prod(
+          Seq(
+            Comparison(">=", Variable("x"), Variable("y")),
+            Comparison("<", Variable("x"), Variable("z"))
+          )
+        )
+      )
+    )
+    val result = Convertor.findUpperBound(Variable("x"), sop)
+    result shouldBe Variable("z")
+  }
+
+  it should "add 1 to the upper bound of the variable, if the variable is less than equal to the bound" in {
+    val sop = SoP(
+      Seq(
+        Prod(
+          Seq(
+            Comparison(">=", Variable("x"), Variable("y")),
+            Comparison("<=", Variable("x"), Variable("z"))
+          )
+        )
+      )
+    )
+    val result = Convertor.findUpperBound(Variable("x"), sop)
+    result shouldBe Arithmetic("+", Variable("z"), ConstantInt(1))
+  }
+
+  it should "add 1 from the upper bound of the variable, if the bound is greater than equal to the variable" in {
+    val sop = SoP(
+      Seq(
+        Prod(
+          Seq(
+            Comparison("<=", Variable("y"), Variable("x")),
+            Comparison(">=", Variable("z"), Variable("x"))
+          )
+        )
+      )
+    )
+    val result = Convertor.findUpperBound(Variable("x"), sop)
+    result shouldBe Arithmetic("+", Variable("z"), ConstantInt(1))
+  }
+
 }

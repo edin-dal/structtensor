@@ -64,7 +64,7 @@ object Convertor {
         index match {
           case ind: Dim if (variable == v) => {
             op match {
-              case ">=" => Seq(Arithmetic("-", ind, ConstantInt(1)))
+              case ">=" => Seq(Arithmetic("+", ind, ConstantInt(1)))
               case ">"  => Seq(ind)
               case _    => Seq[Dim]()
             }
