@@ -225,4 +225,63 @@ class ConvertorTest
     result shouldBe Arithmetic("+", Variable("z"), Variable("y"))
   }
 
+  it should "extract unique set properly" in {
+    val headToUniqueSetMap = Map(
+      Access("foo", Seq(Variable("y"), Variable("z")), UniqueSet) -> Rule(
+        Access("foo", Seq(Variable("y"), Variable("z")), UniqueSet),
+        SoP(
+          Seq(
+            Prod(
+              Seq(
+                Access("bar", Seq(Variable("y")), Tensor),
+                Access("baz", Seq(Variable("z")), Tensor)
+              )
+            )
+          )
+        )
+      )
+    )
+
+    val dimInfoMap = Map(
+      Access("bar", Seq(Variable("y")), Tensor) -> DimInfo(
+        Access("bar", Seq(Variable("y")), Tensor),
+        Seq(Variable("N"))
+      ),
+      Access("baz", Seq(Variable("z")), Tensor) -> DimInfo(
+        Access("baz", Seq(Variable("z")), Tensor),
+        Seq(Variable("M"))
+      )
+    )
+
+    val result = Convertor.extractSet(headToUniqueSetMap, dimInfoMap, UniqueSet)
+    result should contain theSameElementsAs Map(
+      Access("bar", List(Variable("y")), Tensor) -> Rule(
+        Access("bar", List(Variable("y")), Tensor),
+        SoP(
+          List(
+            Prod(
+              List(
+                Comparison("<=", ConstantInt(0), Variable("y")),
+                Comparison(">", Variable("N"), Variable("y"))
+              )
+            )
+          )
+        )
+      ),
+      Access("baz", List(Variable("z")), Tensor) -> Rule(
+        Access("baz", List(Variable("z")), Tensor),
+        SoP(
+          List(
+            Prod(
+              List(
+                Comparison("<=", ConstantInt(0), Variable("z")),
+                Comparison(">", Variable("M"), Variable("z"))
+              )
+            )
+          )
+        )
+      )
+    )
+  }
+
 }
