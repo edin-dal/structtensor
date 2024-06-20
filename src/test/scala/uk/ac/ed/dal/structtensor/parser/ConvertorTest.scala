@@ -87,4 +87,78 @@ class ConvertorTest
     )
   }
 
+  it should "check dimensions available correctly" in {
+    val headToTensorMap = LinkedHashMap(
+      Access("foo", Seq(Variable("z"), Variable("y")), Tensor) -> Rule(
+        Access("foo", Seq(Variable("z"), Variable("y")), Tensor),
+        SoP(
+          Seq(
+            Prod(
+              Seq(
+                Access("bar", Seq(Variable("y")), Tensor),
+                Access("baz", Seq(Variable("z")), Tensor)
+              )
+            )
+          )
+        )
+      ),
+      Access("qux", Seq(Variable("y")), Tensor) -> Rule(
+        Access("qux", Seq(Variable("y")), Tensor),
+        SoP(
+          Seq(
+            Prod(Seq(Access("foo", Seq(Variable("z"), Variable("y")), Tensor)))
+          )
+        )
+      )
+    )
+    val headToDimensionMap = Map(
+      Access("bar", Seq(Variable("y")), Tensor) -> Rule(
+        Access("bar", Seq(Variable("y")), Tensor),
+        emptySoP()
+      ),
+      Access("baz", Seq(Variable("z")), Tensor) -> Rule(
+        Access("baz", Seq(Variable("z")), Tensor),
+        emptySoP()
+      )
+    )
+    val result =
+      Convertor.checkDimsAvailable(headToTensorMap, headToDimensionMap)
+    result shouldBe true
+  }
+
+  it should "detect when dimension is not available" in {
+    val headToTensorMap = LinkedHashMap(
+      Access("foo", Seq(Variable("z"), Variable("y")), Tensor) -> Rule(
+        Access("foo", Seq(Variable("z"), Variable("y")), Tensor),
+        SoP(
+          Seq(
+            Prod(
+              Seq(
+                Access("bar", Seq(Variable("y")), Tensor),
+                Access("baz", Seq(Variable("z")), Tensor)
+              )
+            )
+          )
+        )
+      ),
+      Access("qux", Seq(Variable("y")), Tensor) -> Rule(
+        Access("qux", Seq(Variable("y")), Tensor),
+        SoP(
+          Seq(
+            Prod(Seq(Access("foo", Seq(Variable("z"), Variable("y")), Tensor)))
+          )
+        )
+      )
+    )
+    val headToDimensionMap = Map(
+      Access("bar", Seq(Variable("y")), Tensor) -> Rule(
+        Access("bar", Seq(Variable("y")), Tensor),
+        emptySoP()
+      )
+    )
+    val result =
+      Convertor.checkDimsAvailable(headToTensorMap, headToDimensionMap)
+    result should not be true
+  }
+
 }
