@@ -12,7 +12,7 @@ import scopt.OParser
 
 object Main extends App {
   import Optimizer._
-  import Shared._
+  import Utils._
 
   def getInputs(
       tc: Rule,
@@ -91,7 +91,7 @@ object Main extends App {
       if (config.inFilePath != "") {
         import Parser._
         import Convertor._
-        import Shared._
+        import Utils._
         import Compiler._
         import Optimizer._
         import Codegen._

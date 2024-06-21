@@ -66,7 +66,7 @@ case class Arithmetic(op: String, index1: Index, index2: Index)
 
 case class Access(name: String, vars: Seq[Variable], kind: AccessType)
     extends Exp {
-  import Shared._
+  import Utils._
   def prettyFormat(): String = {
     val pr = vars.map(_.prettyFormat).mkString(", ")
     if (pr.isEmpty) name else s"$name($pr)"

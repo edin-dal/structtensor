@@ -3,14 +3,14 @@ package structtensor
 package codegen
 
 import utils._
+import Utils._
 import compiler._
+import CodegenUtils._
 
-import scala.collection.mutable.ArraySeq
 import scala.sys.process._
 import scala.io.Source
 
 object Codegen {
-  import Shared._
 
   def CPPFormat(a: Any): String = {
     a match {

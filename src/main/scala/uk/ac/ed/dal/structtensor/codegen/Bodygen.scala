@@ -3,10 +3,11 @@ package structtensor
 package codegen
 
 import utils._
+import Utils._
 import compiler._
+import CodegenUtils._
 
 object Bodygen {
-  import Shared._
   def apply(
       codeLang: String,
       rules: Seq[Rule],

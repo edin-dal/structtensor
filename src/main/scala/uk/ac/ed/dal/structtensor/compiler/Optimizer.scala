@@ -5,7 +5,7 @@ package compiler
 import utils._
 
 object Optimizer {
-  import Shared._
+  import Utils._
 
   def denormalizeSingle(body: SoP, denormMap: Map[Access, SoP]): SoP = {
     def extractAccessesInDenormalizationMapByName(exp: Exp): Boolean =

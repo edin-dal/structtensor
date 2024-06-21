@@ -10,4 +10,4 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.ParallelTestExecution
 
-class SharedTest extends AnyFlatSpec with Matchers with ParallelTestExecution {}
+class UtilsTest extends AnyFlatSpec with Matchers with ParallelTestExecution {}
