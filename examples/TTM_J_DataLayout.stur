@@ -1,3 +1,4 @@
+symbols: N, M, P, Q, J
 @preprocess_start
 B2(i, l) := B(i, j, l) * (j = J)
 B2:D(i, l) := (0 <= i) * (i < M) * (0 <= l) * (l < Q)

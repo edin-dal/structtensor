@@ -1,3 +1,4 @@
+symbols: M, N, P, Q, I, J
 A(i, j) := B(i, k, l) * C(k, j) * D(l, j)
 B:D(i, k, l) := (0 <= i) * (i < M) * (0 <= k) * (k < N) * (0 <= l) * (l < P)
 C:D(k, j) := (0 <= k) * (k < N) * (0 <= j) * (j < Q)

@@ -2,36 +2,10 @@ package uk.ac.ed.dal
 package structtensor
 package compiler
 
+import utils._
+
 object Optimizer {
-  import STURHelper._
-
-  var cnt = 0
-  def getVar(name: String): String = {
-    cnt += 1
-    return s"$name$cnt"
-  }
-
-  def concatSoP(sops: Seq[SoP]): SoP = SoP(sops.flatMap(sop => sop.prods))
-
-  def prodTimesProd(prod1: Prod, prod2: Prod): Prod = {
-    if (prod1.exps.size == 0 || prod2.exps.size == 0) emptyProd()
-    else Prod(prod1.exps ++ prod2.exps)
-  } 
-
-  def prodTimesSoP(prod: Prod, sop: SoP): SoP = {
-    if (prod.exps.size == 0 || sop.prods.size == 0) emptySoP()
-    else SoP(sop.prods.map(cur => prodTimesProd(prod, cur)))
-  }
-
-  def SoPTimesSoP(sop1: SoP, sop2: SoP): SoP = {
-    if (sop1.prods.size == 0 || sop2.prods.size == 0) emptySoP()
-    else SoP(sop1.prods.flatMap(cur => prodTimesSoP(cur, sop2).prods))
-  }
-
-  def multSoP(sops: Seq[SoP]): SoP = {
-    if (sops.size == 0) emptySoP()
-    else sops.slice(1, sops.length).foldLeft(sops(0))((acc, cur) => SoPTimesSoP(acc, cur))
-  } 
+  import Utils._
 
   def denormalizeSingle(body: SoP, denormMap: Map[Access, SoP]): SoP = {
     def extractAccessesInDenormalizationMapByName(exp: Exp): Boolean = exp match {
@@ -58,25 +32,12 @@ object Optimizer {
       acc + (us.head -> usBody) + (rm.head -> rmBody) + (cc.head -> ccBody) + (tc.head -> tcBody)
     })
     
-    // denormMap.foreach{case (k, v) => println(s"**************************\nDenormalized:\n${k.prettyFormat} -> ${v.prettyFormat}\n")}
-    // val compressedComputation = Rule(head, denormMap(head.compressedHead))
-    // val reconstructionComputation = Rule(head, SoPTimesSoP(SoP(Seq(Prod(Seq(head.vars2RedundancyVars)))), denormMap(head.redundancyHead)))
-
     val denormUS = Rule(head, denormMap(head.uniqueHead))
     val denormRM = Rule(head, denormMap(head.redundancyHead))
     val denormCC = Rule(head, denormMap(head.compressedHead))
     val denormTC = Rule(head, denormMap(head))
 
-    // (compressedComputation, reconstructionComputation)
     (denormUS, denormRM, denormCC, denormTC)
-  }
-
-  def denormalizeDim(head: Access, ctx: Seq[Rule]): Rule = {
-    val denormMap = ctx.foldLeft(Map[Access, SoP]())((acc, dc) => {
-      val dcBody = denormalizeSingle(dc.body, acc)
-      acc + (dc.head -> dcBody)
-    })
-    Rule(head, denormMap(head))
   }
 
   def singleProdIdempotence(p: Prod): Prod = {
@@ -88,19 +49,36 @@ object Optimizer {
       }
     }
     
-    val (boolDomainExps, realDomainExps) = p.exps.partition(extractBooleanDomainComputation)
+    val (boolDomainExps, realDomainExps) = removeEquivalentComparisonsOpt(p).exps.partition(extractBooleanDomainComputation)
     val distinctBoolDomainExps = boolDomainExps.distinct
 
-    // println("^^^^^^^^^^^^^^^^^^")
-    // println("boolDomainExps: " + boolDomainExps)
-    // println("distinctBoolDomainExps: " + distinctBoolDomainExps)
-    // println("realDomainExps: " + realDomainExps)
-    
     Prod(distinctBoolDomainExps ++ realDomainExps)
   }
 
   def setIdempotentIntersectionOpt(r: Rule): Rule = Rule(r.head, SoP(r.body.prods.map(singleProdIdempotence)))
 
+  def isComparisonEquivalent(c1: Comparison, c2: Comparison): Boolean = {
+    (c1, c2) match {
+      case (Comparison(op1, i1, v1), Comparison(op2, i2, v2)) => {
+        if (op1 == op2 && i1 == i2 && v1 == v2) true
+        else if (op1 == "<" && op2 == ">" && i1 == v2 && i2 == v1) true
+        else if (op1 == ">" && op2 == "<" && i1 == v2 && i2 == v1) true
+        else if (op1 == "<=" && op2 == ">=" && i1 == v2 && i2 == v1) true
+        else if (op1 == ">=" && op2 == "<=" && i1 == v2 && i2 == v1) true
+        else if (op1 == "=" && op2 == "=" && i1 == v2 && i2 == v1) true
+        else false
+      }
+      case _ => false
+    }
+  }
+
+  def removeEquivalentComparisonsOpt(prod: Prod): Prod = {
+    Prod(prod.exps.zipWithIndex.filterNot{ case(e1, i) => prod.exps.slice(i, prod.exps.length).exists(e2 => e1 != e2 && ((e1, e2) match {
+      case (c1: Comparison, c2: Comparison) => isComparisonEquivalent(c1, c2)
+      case _ => false
+    }))}.map(_._1))
+  }
+  
   def setIdempotentOpt(r: Rule): Rule = {
     val areAllComparison = r.body.prods.forall(p => p.exps.forall(e => e match {
       case _: Comparison => true
@@ -109,7 +87,7 @@ object Optimizer {
 
     areAllComparison match {
       case true => {
-        val prodSetOfExpSet = r.body.prods.map(p => p.exps.toSet).toSet
+        val prodSetOfExpSet = r.body.prods.map(p => removeEquivalentComparisonsOpt(p).exps.distinct).distinct
         Rule(r.head, SoP(prodSetOfExpSet.map(p => Prod(p.toSeq)).toSeq))
       }
       case false => setIdempotentIntersectionOpt(r)
@@ -158,10 +136,10 @@ object Optimizer {
                 else false
               } else false
             }
-            case (ConstantInt(v1), ConstantInt(v2)) => isBinaryProductWithConstantBoundsEmpty(op1, op2, v1, v2)
-            case (ConstantInt(v1), ConstantDouble(v2)) => isBinaryProductWithConstantBoundsEmpty(op1, op2, v1, v2)
-            case (ConstantDouble(v1), ConstantInt(v2)) => isBinaryProductWithConstantBoundsEmpty(op1, op2, v1, v2)
-            case (ConstantDouble(v1), ConstantDouble(v2)) => isBinaryProductWithConstantBoundsEmpty(op1, op2, v1, v2)
+            case (ConstantInt(v1), ConstantInt(v2)) if variable1 == variable2 => isBinaryProductWithConstantBoundsEmpty(op1, op2, v1, v2)
+            case (ConstantInt(v1), ConstantDouble(v2)) if variable1 == variable2 => isBinaryProductWithConstantBoundsEmpty(op1, op2, v1, v2)
+            case (ConstantDouble(v1), ConstantInt(v2)) if variable1 == variable2 => isBinaryProductWithConstantBoundsEmpty(op1, op2, v1, v2)
+            case (ConstantDouble(v1), ConstantDouble(v2)) if variable1 == variable2 => isBinaryProductWithConstantBoundsEmpty(op1, op2, v1, v2)
             case _ => {
               if (index1 == index2 && variable1 == variable2) {
                 if (opEmpty(op1).contains(op2)) true
@@ -175,9 +153,180 @@ object Optimizer {
     }
   }
 
+  def isExpEmpty(exp: Exp): Boolean = exp match {
+    case Comparison(op, index, variable) => index match {
+      case v: Variable => {
+        if (v == variable) {
+          op match {
+            case "=" | "<=" | ">=" => false
+            case "<" | ">" | "!=" => true
+            case _ => false
+          }
+        } else false
+      }
+      case Arithmetic(opArith, i1, i2) => {
+        op match {
+          case "=" => {
+            opArith match {
+              case "+" | "-" => {
+                if (i1 == variable) i2 match {
+                  case ConstantInt(v) => v != 0
+                  case ConstantDouble(v) => v != 0
+                  case _ => false
+                }
+                else if (i2 == variable) i1 match {
+                  case ConstantInt(v) => v != 0
+                  case ConstantDouble(v) => v != 0
+                  case _ => false
+                }
+                else false
+              } // We can't have something similar for * and / (e.g., v = 5 * v holds true if v == 0)
+              case _ => false
+            }
+          }
+          case "<" => {
+            opArith match {
+              case "+" => {
+                if (i1 == variable) i2 match {
+                  case ConstantInt(v) => v >= 0
+                  case ConstantDouble(v) => v >= 0
+                  case _ => false
+                }
+                else if (i2 == variable) i1 match {
+                  case ConstantInt(v) => v >= 0
+                  case ConstantDouble(v) => v >= 0
+                  case _ => false
+                }
+                else false
+              }
+              case "-" => {
+                if (i1 == variable) i2 match {
+                  case ConstantInt(v) => v <= 0
+                  case ConstantDouble(v) => v <= 0
+                  case _ => false
+                }
+                else false
+              }
+              case _ => false
+            }
+          }
+          case "<=" => {
+            opArith match {
+              case "+" => {
+                if (i1 == variable) i2 match {
+                  case ConstantInt(v) => v > 0
+                  case ConstantDouble(v) => v > 0
+                  case _ => false
+                }
+                else if (i2 == variable) i1 match {
+                  case ConstantInt(v) => v > 0
+                  case ConstantDouble(v) => v > 0
+                  case _ => false
+                }
+                else false
+              }
+              case "-" => {
+                if (i1 == variable) i2 match {
+                  case ConstantInt(v) => v < 0
+                  case ConstantDouble(v) => v < 0
+                  case _ => false
+                }
+                else false
+              }
+              case _ => false
+            }
+          }
+          case ">" => {
+            opArith match {
+              case "+" => {
+                if (i1 == variable) i2 match {
+                  case ConstantInt(v) => v <= 0
+                  case ConstantDouble(v) => v <= 0
+                  case _ => false
+                }
+                else if (i2 == variable) i1 match {
+                  case ConstantInt(v) => v <= 0
+                  case ConstantDouble(v) => v <= 0
+                  case _ => false
+                }
+                else false
+              }
+              case "-" => {
+                if (i1 == variable) i2 match {
+                  case ConstantInt(v) => v >= 0
+                  case ConstantDouble(v) => v >= 0
+                  case _ => false
+                }
+                else false
+              }
+              case _ => false
+            }
+          }
+          case ">=" => {
+            opArith match {
+              case "+" => {
+                if (i1 == variable) i2 match {
+                  case ConstantInt(v) => v < 0
+                  case ConstantDouble(v) => v < 0
+                  case _ => false
+                }
+                else if (i2 == variable) i1 match {
+                  case ConstantInt(v) => v < 0
+                  case ConstantDouble(v) => v < 0
+                  case _ => false
+                }
+                else false
+              }
+              case "-" => {
+                if (i1 == variable) i2 match {
+                  case ConstantInt(v) => v > 0
+                  case ConstantDouble(v) => v > 0
+                  case _ => false
+                }
+                else false
+              }
+              case _ => false
+            }
+          }
+          case "!=" => {
+            opArith match {
+              case "+" => {
+                if (i1 == variable) i2 match {
+                  case ConstantInt(v) => v == 0
+                  case ConstantDouble(v) => v == 0
+                  case _ => false
+                }
+                else if (i2 == variable) i1 match {
+                  case ConstantInt(v) => v == 0
+                  case ConstantDouble(v) => v == 0
+                  case _ => false
+                }
+                else false
+              }
+              case "-" => {
+                if (i1 == variable) i2 match {
+                  case ConstantInt(v) => v == 0
+                  case ConstantDouble(v) => v == 0
+                  case _ => false
+                }
+                else false
+              }
+              case _ => false
+            }
+          }
+          case _ => false
+        }
+      }
+      case _ => false
+    }
+    case _ => false
+  }
+
   def isProductEmpty(prod: Prod): Boolean = prod.exps.combinations(2).exists { case Seq(e1, e2) => isBinaryProductEmpty(e1, e2) }
 
-  def removeEmptyProductsOpt(r: Rule): Rule = Rule(r.head, SoP(r.body.prods.filterNot(isProductEmpty)))
+  def isExpOrProductEmpty(prod: Prod): Boolean = prod.exps.exists(isExpEmpty) || isProductEmpty(prod)
+
+  def removeEmptyProductsOpt(r: Rule): Rule = Rule(r.head, SoP(r.body.prods.filterNot(isExpOrProductEmpty)))
 
   def getNonDimensionVariables(prod: Prod): Seq[Variable] = prod.exps.flatMap {
       case Access(_, vars, _) => vars.distinct
@@ -216,5 +365,98 @@ object Optimizer {
       val alphaRenameMap = (key.vars.zip(access.vars) ++ alphaRenameRequiredVars.map(v => (v -> Variable(getVar("i"))))).toMap
       alphaRename(value, alphaRenameMap)
     } 
+  }
+
+  def getEqualVariables(rule: Rule): Seq[Seq[Seq[Variable]]] = {
+    val binaryEqualSets = rule.body.prods.map(p => {
+      p.exps.flatMap {
+        case Comparison("=", i1, i2) => {
+          (i1, i2) match {
+            case (v1: Variable, v2: Variable) => Seq(Seq(v1, v2))
+            case _ => Seq()
+          }
+        }
+        case _ => Seq()
+      }
+    })
+
+    // Merge equal binary sets:
+    val mergedSets = binaryEqualSets.map(setOfSets => setOfSets.foldLeft(Seq[Seq[Variable]]()) { (merged, current) =>
+      val (toMerge, rest) = merged.partition(_.intersect(current).nonEmpty)
+      val mergedSet = (toMerge.flatten ++ current).distinct
+      mergedSet +: rest
+    })
+
+    mergedSets
+  }
+
+  def replaceEqualVariableInIndex(index: Index, equalVariablesSet: Seq[Seq[Variable]]): Index = index match {
+    case v: Variable => {
+      val equalSet = equalVariablesSet.find(_.contains(v))
+      equalSet match {
+        case Some(set) => set.head
+        case None => v
+      }
+    }
+    case a @ Arithmetic(op, i1, i2) => Arithmetic(op, replaceEqualVariableInIndex(i1, equalVariablesSet), replaceEqualVariableInIndex(i2, equalVariablesSet))
+    case _ => index
+  }
+
+  def replaceEqualVariablesInExp(exp: Exp, equalVariablesSet: Seq[Seq[Variable]]): Seq[Exp] = exp match {
+    case Access(n, v, k) => Seq(Access(n, v.map(v2 => {
+      val equalSet = equalVariablesSet.find(_.contains(v2))
+      equalSet match {
+        case Some(set) => set.head
+        case None => v2
+      }
+    }), k))
+    case c @ Comparison(op, i, v) => op match {
+      // In case it is equality and one of the variables is head of the set, 
+      // don't replace it since the variables in head are not being replace to keep the number the rules one
+      case "=" => (i, v) match {
+        case (v1: Variable, v2: Variable) => {
+          val equalSet1 = equalVariablesSet.find(_.contains(v1))
+          val equalSet2 = equalVariablesSet.find(_.contains(v2))
+          (equalSet1, equalSet2) match {
+            case (Some(set1), _) if set1.head == v1 => Seq(c)
+            case (_, Some(set2)) if set2.head == v2 => Seq(c)
+            case (Some(set1), None) => Seq(Comparison("=", set1.head, v2))
+            case (None, Some(set2)) => Seq(Comparison("=", v1, set2.head))
+            case (Some(set1), Some(set2)) if set1.head == set2.head => Seq(Comparison("=", set1.head, v2), Comparison("=", v1, set2.head))
+            case (Some(set1), Some(set2)) => Seq(Comparison("=", set1.head, set2.head))
+            case (None, None) => Seq(c)
+          }
+        }
+        case _ => Seq(Comparison(op, replaceEqualVariableInIndex(i, equalVariablesSet), {
+          val equalSet = equalVariablesSet.find(_.contains(v))
+          equalSet match {
+            case Some(set) => set.head
+            case None => v
+          }
+        }))
+      }
+      case _ => Seq(Comparison(op, replaceEqualVariableInIndex(i, equalVariablesSet), {
+        val equalSet = equalVariablesSet.find(_.contains(v))
+        equalSet match {
+          case Some(set) => set.head
+          case None => v
+        }
+      }))
+    }
+    case _ => throw new Exception("Unknown expression")
+  }
+
+  def replaceEqualVariables(rule: Rule, symbols: Seq[Variable]): Rule = {
+    val equalVariablesSet = getEqualVariables(rule)
+    val newBody = SoP(rule.body.prods.zip(equalVariablesSet).map{ case (p, eSet) => {
+      Prod(p.exps.map(exp => replaceEqualVariablesInExp(exp, eSet)).flatten)
+    }})
+
+    val all_variable_names = (symbols.map(_.name) ++ boundVariables(Seq(rule))).distinct
+    val finalBody = SoP(newBody.prods.map(p => {
+      Prod(p.exps.filter(e => getVariables(e).map(_.name).forall(all_variable_names.contains(_))))
+    }))
+
+    Rule(rule.head, finalBody)
   }
 }
