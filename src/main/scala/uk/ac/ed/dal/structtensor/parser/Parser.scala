@@ -4,14 +4,10 @@ package parser
 
 import fastparse._, SingleLineWhitespace._
 import compiler._
+import utils._
+import Utils._
 
 object Parser {
-  var cnt = 0
-  def getVar(name: String): String = {
-    cnt += 1
-    return s"$name$cnt"
-  }
-
   def parseAccess(n: String, v: Seq[Variable]): Access = {
     if (n.length < 3 && !n.contains(":")) Access(n, v, Tensor)
     else n.substring(n.length-2, n.length) match {

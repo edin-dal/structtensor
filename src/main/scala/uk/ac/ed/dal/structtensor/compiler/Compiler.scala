@@ -5,7 +5,7 @@ package compiler
 import utils._
 
 object Compiler {
-  import Shared._
+  import Utils._
   import Optimizer._
   import scala.annotation.tailrec
 

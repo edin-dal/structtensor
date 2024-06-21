@@ -10,7 +10,7 @@ import scala.collection.mutable.LinkedHashMap
 object Convertor {
   import Compiler._
   import Optimizer.setIdempotentOpt, Optimizer.removeEmptyProductsOpt
-  import Shared._
+  import Utils._
 
   def groupRules(rules: Seq[Rule]): (LinkedHashMap[Access, Rule], Map[Access, Rule], Map[Access, Rule], Map[Access, Rule]) = {
     rules.foldLeft((LinkedHashMap.empty[Access, Rule], Map.empty[Access, Rule], Map.empty[Access, Rule], Map.empty[Access, Rule]))((acc, r) => {

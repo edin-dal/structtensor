@@ -3,10 +3,11 @@ package structtensor
 package codegen
 
 import utils._
+  import Utils._
 import compiler._
+import CodegenUtils._
 
 object Bodygen {
-  import Shared._
   def apply(codeLang: String, rules: Seq[Rule], all_tensors: Seq[Access], all_dimensions: Map[Access, Seq[Dim]], uniqueSets: Map[Access, Rule], initTensors: Boolean, symbols: Seq[Variable], outputs_names: Seq[String]): (String, String) = {
     (generateInit(codeLang, rules, all_tensors, all_dimensions, uniqueSets, initTensors, symbols, outputs_names), generateEnd(codeLang, rules, all_tensors, all_dimensions, initTensors, outputs_names))
   }
