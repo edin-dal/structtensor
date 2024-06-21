@@ -10,7 +10,7 @@ import compiler._
 import utils._
 
 import scala.collection.mutable.LinkedHashMap
-import uk.ac.ed.dal.structtensor.utils.Shared.emptySoP
+import utils.Shared.emptySoP
 
 class ConvertorTest
     extends AnyFlatSpec
