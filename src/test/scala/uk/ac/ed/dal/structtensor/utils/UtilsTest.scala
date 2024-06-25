@@ -508,4 +508,75 @@ class UtilsTest extends AnyFlatSpec with Matchers with ParallelTestExecution {
     )
   }
 
+  it should "concatenate a sequence of SoPs in one SoP" in {
+    val sop1 = SoP(
+      Seq(
+        Prod(
+          Seq(
+            Comparison("<=", ConstantInt(0), Variable("x")),
+            Comparison(">", Variable("N"), Variable("x")),
+            Comparison("<=", ConstantInt(0), Variable("y")),
+            Comparison(">", ConstantInt(100), Variable("y"))
+          )
+        )
+      )
+    )
+    val sop2 = SoP(
+      Seq(
+        Prod(
+          Seq(
+            Comparison("<=", ConstantInt(0), Variable("x")),
+            Comparison(">", Variable("M"), Variable("x")),
+            Comparison("<=", ConstantInt(0), Variable("z")),
+            Comparison(">", ConstantInt(1000), Variable("z"))
+          )
+        )
+      )
+    )
+    val sop3 = SoP(
+      Seq(
+        Prod(
+          Seq(
+            Comparison("<=", ConstantInt(0), Variable("x")),
+            Comparison(">", Variable("P"), Variable("x")),
+            Comparison("<=", ConstantInt(0), Variable("y")),
+            Comparison(">", ConstantInt(10000), Variable("y"))
+          )
+        )
+      )
+    )
+    val sops = Seq(sop1, sop2, sop3)
+
+    Utils.concatSoP(sops) should be(
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Comparison("<=", ConstantInt(0), Variable("x")),
+              Comparison(">", Variable("N"), Variable("x")),
+              Comparison("<=", ConstantInt(0), Variable("y")),
+              Comparison(">", ConstantInt(100), Variable("y"))
+            )
+          ),
+          Prod(
+            Seq(
+              Comparison("<=", ConstantInt(0), Variable("x")),
+              Comparison(">", Variable("M"), Variable("x")),
+              Comparison("<=", ConstantInt(0), Variable("z")),
+              Comparison(">", ConstantInt(1000), Variable("z"))
+            )
+          ),
+          Prod(
+            Seq(
+              Comparison("<=", ConstantInt(0), Variable("x")),
+              Comparison(">", Variable("P"), Variable("x")),
+              Comparison("<=", ConstantInt(0), Variable("y")),
+              Comparison(">", ConstantInt(10000), Variable("y"))
+            )
+          )
+        )
+      )
+    )
+  }
+
 }
