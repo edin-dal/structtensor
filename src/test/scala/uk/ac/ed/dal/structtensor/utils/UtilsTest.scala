@@ -10,6 +10,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.ParallelTestExecution
 import uk.ac.ed.dal.structtensor.utils.Utils.DimInfoOps
+import uk.ac.ed.dal.structtensor.utils.Utils.SeqDimInfoOps
 
 class UtilsTest extends AnyFlatSpec with Matchers with ParallelTestExecution {
   "Utils" should "write correct values to file" in {
@@ -222,27 +223,27 @@ class UtilsTest extends AnyFlatSpec with Matchers with ParallelTestExecution {
     )
   }
 
-  // it should "convert a sequence of DimInfos to an access map" in {
-  //   val dimInfo1 = DimInfo(
-  //     Access("T", Seq[Variable](Variable("x"), Variable("y")), Tensor),
-  //     Seq(Variable("N"), ConstantInt(100))
-  //   )
-  //   val dimInfo2 = DimInfo(
-  //     Access("V", Seq[Variable](Variable("x"), Variable("z")), Tensor),
-  //     Seq(Variable("M"), ConstantInt(1000))
-  //   )
-  //   val dimInfo3 = DimInfo(
-  //     Access("T", Seq[Variable](Variable("x"), Variable("y")), Tensor),
-  //     Seq(Variable("P"), ConstantInt(10000))
-  //   )
-  //   val dimInfoSeq = Seq[DimInfo](dimInfo1, dimInfo2, dimInfo3)
-  //   dimInfoSeq.toAccessMap should contain theSameElementsAs Map(
-  //     Access("T", Seq[Variable](Variable("x"), Variable("y")), Tensor) ->
-  //       Seq(Variable("N"), ConstantInt(100), Variable("P"), ConstantInt(10000)),
-  //     Access("V", Seq[Variable](Variable("x"), Variable("z")), Tensor) ->
-  //       Seq(Variable("M"), ConstantInt(1000))
-  //   )
-  // }
+  it should "convert a sequence of DimInfos to an access map" in {
+    val dimInfo1 = DimInfo(
+      Access("T", Seq[Variable](Variable("x"), Variable("y")), Tensor),
+      Seq(Variable("N"), ConstantInt(100))
+    )
+    val dimInfo2 = DimInfo(
+      Access("V", Seq[Variable](Variable("x"), Variable("z")), Tensor),
+      Seq(Variable("M"), ConstantInt(1000))
+    )
+    val dimInfo3 = DimInfo(
+      Access("T", Seq[Variable](Variable("x"), Variable("y")), Tensor),
+      Seq(Variable("P"), ConstantInt(10000))
+    )
+    val dimInfoSeq = Seq[DimInfo](dimInfo1, dimInfo2, dimInfo3)
+    dimInfoSeq.toAccessMap should contain theSameElementsAs Map(
+      Access("T", Seq[Variable](Variable("x"), Variable("y")), Tensor) ->
+        Seq(Variable("N"), ConstantInt(100), Variable("P"), ConstantInt(10000)),
+      Access("V", Seq[Variable](Variable("x"), Variable("z")), Tensor) ->
+        Seq(Variable("M"), ConstantInt(1000))
+    )
+  }
 
   it should "get variables of an access" in {
     val exp = Access("T", Seq[Variable](Variable("x"), Variable("y")), Tensor)
