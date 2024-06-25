@@ -126,4 +126,26 @@ class UtilsTest extends AnyFlatSpec with Matchers with ParallelTestExecution {
       SoP(Seq[Prod]())
     ) should be(SoP(Seq[Prod]()))
   }
+
+  it should "return correct multiplication of a sequence of SoPs" in {
+    Utils.multSoP(
+      Seq[SoP](
+        SoP(Seq[Prod](Prod(Seq[Exp](Access("x", Seq[Variable](), Tensor))))),
+        SoP(Seq[Prod](Prod(Seq[Exp](Access("y", Seq[Variable](), Tensor))))),
+        SoP(Seq[Prod](Prod(Seq[Exp](Access("z", Seq[Variable](), Tensor)))))
+      )
+    ) should be(
+      SoP(
+        Seq[Prod](
+          Prod(
+            Seq[Exp](
+              Access("x", Seq[Variable](), Tensor),
+              Access("y", Seq[Variable](), Tensor),
+              Access("z", Seq[Variable](), Tensor)
+            )
+          )
+        )
+      )
+    )
+  }
 }
