@@ -9,6 +9,7 @@ import java.io._
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.ParallelTestExecution
+import uk.ac.ed.dal.structtensor.utils.Utils.DimInfoOps
 
 class UtilsTest extends AnyFlatSpec with Matchers with ParallelTestExecution {
   "Utils" should "write correct values to file" in {
@@ -185,6 +186,19 @@ class UtilsTest extends AnyFlatSpec with Matchers with ParallelTestExecution {
       ),
       Access("z", Seq[Variable](), Tensor) -> Prod(
         Seq(Access("z", Seq[Variable](), Tensor))
+      )
+    )
+  }
+
+  it should "convert a DimInfo to access map" in {
+    val dimInfo = DimInfo(
+      Access("T", Seq[Variable](Variable("x"), Variable("y")), Tensor),
+      Seq(Variable("N"), ConstantInt(100))
+    )
+    dimInfo.toAccessMap should contain theSameElementsAs Map(
+      Access("T", Seq[Variable](Variable("x"), Variable("y")), Tensor) -> Seq(
+        Variable("N"),
+        ConstantInt(100)
       )
     )
   }
