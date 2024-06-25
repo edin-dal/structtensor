@@ -57,4 +57,22 @@ class UtilsTest extends AnyFlatSpec with Matchers with ParallelTestExecution {
       )
     )
   }
+
+  it should "return correct Prod times SoP" in {
+    Utils.prodTimesSoP(
+      Prod(Seq[Exp](Access("x", Seq[Variable](), Tensor))),
+      SoP(Seq[Prod](Prod(Seq[Exp](Access("y", Seq[Variable](), Tensor)))))
+    ) should be(
+      SoP(
+        Seq[Prod](
+          Prod(
+            Seq[Exp](
+              Access("x", Seq[Variable](), Tensor),
+              Access("y", Seq[Variable](), Tensor)
+            )
+          )
+        )
+      )
+    )
+  }
 }
