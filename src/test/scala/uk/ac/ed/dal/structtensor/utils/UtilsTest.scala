@@ -58,6 +58,17 @@ class UtilsTest extends AnyFlatSpec with Matchers with ParallelTestExecution {
     )
   }
 
+  it should "return empty if prod1 or prod2 is empty" in {
+    Utils.prodTimesProd(
+      Prod(Seq[Exp]()),
+      Prod(Seq[Exp](Access("y", Seq[Variable](), Tensor)))
+    ) should be(Prod(Seq[Exp]()))
+    Utils.prodTimesProd(
+      Prod(Seq[Exp](Access("x", Seq[Variable](), Tensor))),
+      Prod(Seq[Exp]())
+    ) should be(Prod(Seq[Exp]()))
+  }
+
   it should "return correct Prod times SoP" in {
     Utils.prodTimesSoP(
       Prod(Seq[Exp](Access("x", Seq[Variable](), Tensor))),
