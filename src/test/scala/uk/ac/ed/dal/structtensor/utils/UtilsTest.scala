@@ -22,4 +22,9 @@ class UtilsTest extends AnyFlatSpec with Matchers with ParallelTestExecution {
     lines should be("test")
     file.delete()
   }
+
+  it should "return correct variable name" in {
+    Utils.getVar("test") should be("test1")
+    Utils.getVar("test") should be("test2")
+  }
 }
