@@ -203,4 +203,23 @@ class UtilsTest extends AnyFlatSpec with Matchers with ParallelTestExecution {
     )
   }
 
+  it should "convert a DimInfo to access SoP" in {
+    val dimInfo = DimInfo(
+      Access("T", Seq[Variable](Variable("x"), Variable("y")), Tensor),
+      Seq(Variable("N"), ConstantInt(100))
+    )
+    dimInfo.toSoP shouldBe SoP(
+      Seq(
+        Prod(
+          Seq(
+            Comparison("<=", ConstantInt(0), Variable("x")),
+            Comparison(">", Variable("N"), Variable("x")),
+            Comparison("<=", ConstantInt(0), Variable("y")),
+            Comparison(">", ConstantInt(100), Variable("y"))
+          )
+        )
+      )
+    )
+  }
+
 }
