@@ -244,4 +244,34 @@ class UtilsTest extends AnyFlatSpec with Matchers with ParallelTestExecution {
   //   )
   // }
 
+  it should "get variables of an access" in {
+    val exp = Access("T", Seq[Variable](Variable("x"), Variable("y")), Tensor)
+
+    Utils.getVariables(exp) should contain theSameElementsAs Seq(
+      Variable("x"),
+      Variable("y")
+    )
+  }
+
+  it should "get variables of a comparison" in {
+    val exp = Comparison("<=", ConstantInt(0), Variable("x"))
+
+    Utils.getVariables(exp) should contain theSameElementsAs Seq(
+      Variable("x")
+    )
+  }
+
+  it should "get variables of an index" in {
+    val ind = Arithmetic(
+      "+",
+      Variable("x"),
+      Arithmetic("*", Variable("y"), ConstantInt(2))
+    )
+
+    Utils.getVariablesInIndex(ind) should contain theSameElementsAs Seq(
+      Variable("x"),
+      Variable("y")
+    )
+  }
+
 }
