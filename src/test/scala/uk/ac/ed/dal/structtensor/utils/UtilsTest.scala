@@ -148,4 +148,45 @@ class UtilsTest extends AnyFlatSpec with Matchers with ParallelTestExecution {
       )
     )
   }
+
+  it should "merge a sequence of maps" in {
+    val map1 = Map(
+      (Access("x", Seq[Variable](), Tensor) -> Prod(
+        Seq(Access("x", Seq[Variable](), Tensor))
+      ))
+    )
+    val map2 = Map(
+      (Access("y", Seq[Variable](), Tensor) -> Prod(
+        Seq(Access("y", Seq[Variable](), Tensor))
+      ))
+    )
+    val map3 = Map(
+      (Access("z", Seq[Variable](), Tensor) -> Prod(
+        Seq(Access("z", Seq[Variable](), Tensor))
+      ))
+    )
+    val map4 = Map(
+      (Access("x", Seq[Variable](), Tensor) -> Prod(
+        Seq(Access("z", Seq[Variable](), Tensor))
+      ))
+    )
+    val mapSeq = Seq(map1, map2, map3, map4)
+    Utils.mergeMap(mapSeq)((v1, v2) =>
+      Utils.prodTimesProd(v1, v2)
+    ) should contain theSameElementsAs Map(
+      Access("x", Seq[Variable](), Tensor) -> Prod(
+        Seq(
+          Access("x", Seq[Variable](), Tensor),
+          Access("z", Seq[Variable](), Tensor)
+        )
+      ),
+      Access("y", Seq[Variable](), Tensor) -> Prod(
+        Seq(Access("y", Seq[Variable](), Tensor))
+      ),
+      Access("z", Seq[Variable](), Tensor) -> Prod(
+        Seq(Access("z", Seq[Variable](), Tensor))
+      )
+    )
+  }
+
 }
