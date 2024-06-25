@@ -274,4 +274,238 @@ class UtilsTest extends AnyFlatSpec with Matchers with ParallelTestExecution {
     )
   }
 
+  it should "get all the variables in a rule" in {
+    val rule = Seq(
+      Rule(
+        Access("T", Seq[Variable](Variable("x"), Variable("y")), Tensor),
+        SoP(
+          Seq(
+            Prod(
+              Seq(
+                Comparison("<=", ConstantInt(0), Variable("x")),
+                Comparison(">", Variable("N"), Variable("x")),
+                Comparison("<=", ConstantInt(0), Variable("y")),
+                Comparison(">", ConstantInt(100), Variable("y"))
+              )
+            )
+          )
+        )
+      )
+    )
+
+    Utils.allVariables(rule) should contain theSameElementsAs Set("x", "y", "N")
+  }
+
+  it should "get all the variables in a sequence of rules" in {
+    val rule1 = Rule(
+      Access("T", Seq[Variable](Variable("x"), Variable("y")), Tensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Comparison("<=", ConstantInt(0), Variable("x")),
+              Comparison(">", Variable("N"), Variable("x")),
+              Comparison("<=", ConstantInt(0), Variable("y")),
+              Comparison(">", ConstantInt(100), Variable("y"))
+            )
+          )
+        )
+      )
+    )
+    val rule2 = Rule(
+      Access("V", Seq[Variable](Variable("x"), Variable("z")), Tensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Comparison("<=", ConstantInt(0), Variable("x")),
+              Comparison(">", Variable("M"), Variable("x")),
+              Comparison("<=", ConstantInt(0), Variable("z")),
+              Comparison(">", ConstantInt(1000), Variable("z"))
+            )
+          )
+        )
+      )
+    )
+    val rule3 = Rule(
+      Access("T", Seq[Variable](Variable("x"), Variable("y")), Tensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Comparison("<=", ConstantInt(0), Variable("x")),
+              Comparison(">", Variable("P"), Variable("x")),
+              Comparison("<=", ConstantInt(0), Variable("y")),
+              Comparison(">", ConstantInt(10000), Variable("y"))
+            )
+          )
+        )
+      )
+    )
+    val rules = Seq(rule1, rule2, rule3)
+
+    Utils.allVariables(rules) should contain theSameElementsAs Set(
+      "x",
+      "y",
+      "z",
+      "N",
+      "M",
+      "P"
+    )
+  }
+
+  it should "get bounded variables in a rule" in {
+    val rule = Seq(
+      Rule(
+        Access("T", Seq[Variable](Variable("x"), Variable("y")), Tensor),
+        SoP(
+          Seq(
+            Prod(
+              Seq(
+                Comparison("<=", ConstantInt(0), Variable("x")),
+                Comparison(">", Variable("N"), Variable("x")),
+                Comparison("<=", ConstantInt(0), Variable("y")),
+                Comparison(">", ConstantInt(100), Variable("y"))
+              )
+            )
+          )
+        )
+      )
+    )
+
+    Utils.boundVariables(rule) should contain theSameElementsAs Set("x", "y")
+  }
+
+  it should "get bounded variables in a sequence of rules" in {
+    val rule1 = Rule(
+      Access("T", Seq[Variable](Variable("x"), Variable("y")), Tensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Comparison("<=", ConstantInt(0), Variable("x")),
+              Comparison(">", Variable("N"), Variable("x")),
+              Comparison("<=", ConstantInt(0), Variable("y")),
+              Comparison(">", ConstantInt(100), Variable("y"))
+            )
+          )
+        )
+      )
+    )
+    val rule2 = Rule(
+      Access("V", Seq[Variable](Variable("x"), Variable("z")), Tensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Comparison("<=", ConstantInt(0), Variable("x")),
+              Comparison(">", Variable("M"), Variable("x")),
+              Comparison("<=", ConstantInt(0), Variable("z")),
+              Comparison(">", ConstantInt(1000), Variable("z"))
+            )
+          )
+        )
+      )
+    )
+    val rule3 = Rule(
+      Access("T", Seq[Variable](Variable("x"), Variable("y")), Tensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Comparison("<=", ConstantInt(0), Variable("x")),
+              Comparison(">", Variable("P"), Variable("x")),
+              Comparison("<=", ConstantInt(0), Variable("y")),
+              Comparison(">", ConstantInt(10000), Variable("y"))
+            )
+          )
+        )
+      )
+    )
+    val rules = Seq(rule1, rule2, rule3)
+
+    Utils.boundVariables(rules) should contain theSameElementsAs Set(
+      "x",
+      "y",
+      "z"
+    )
+  }
+
+  it should "get unbounded variables in a rule" in {
+    val rule = Seq(
+      Rule(
+        Access("T", Seq[Variable](Variable("x"), Variable("y")), Tensor),
+        SoP(
+          Seq(
+            Prod(
+              Seq(
+                Comparison("<=", ConstantInt(0), Variable("x")),
+                Comparison(">", Variable("N"), Variable("x")),
+                Comparison("<=", ConstantInt(0), Variable("y")),
+                Comparison(">", ConstantInt(100), Variable("y"))
+              )
+            )
+          )
+        )
+      )
+    )
+
+    Utils.unboundVariables(rule) should contain theSameElementsAs Set("N")
+  }
+
+  it should "get unbounded variables in a sequence of rules" in {
+    val rule1 = Rule(
+      Access("T", Seq[Variable](Variable("x"), Variable("y")), Tensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Comparison("<=", ConstantInt(0), Variable("x")),
+              Comparison(">", Variable("N"), Variable("x")),
+              Comparison("<=", ConstantInt(0), Variable("y")),
+              Comparison(">", ConstantInt(100), Variable("y"))
+            )
+          )
+        )
+      )
+    )
+    val rule2 = Rule(
+      Access("V", Seq[Variable](Variable("x"), Variable("z")), Tensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Comparison("<=", ConstantInt(0), Variable("x")),
+              Comparison(">", Variable("M"), Variable("x")),
+              Comparison("<=", ConstantInt(0), Variable("z")),
+              Comparison(">", ConstantInt(1000), Variable("z"))
+            )
+          )
+        )
+      )
+    )
+    val rule3 = Rule(
+      Access("T", Seq[Variable](Variable("x"), Variable("y")), Tensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Comparison("<=", ConstantInt(0), Variable("x")),
+              Comparison(">", Variable("P"), Variable("x")),
+              Comparison("<=", ConstantInt(0), Variable("y")),
+              Comparison(">", ConstantInt(10000), Variable("y"))
+            )
+          )
+        )
+      )
+    )
+    val rules = Seq(rule1, rule2, rule3)
+
+    Utils.unboundVariables(rules) should contain theSameElementsAs Set(
+      "N",
+      "M",
+      "P"
+    )
+  }
+
 }
