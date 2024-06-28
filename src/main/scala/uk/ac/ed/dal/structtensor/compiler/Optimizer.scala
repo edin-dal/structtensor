@@ -107,6 +107,7 @@ object Optimizer {
             )
         }
         .map(_._1)
+        .distinct
     )
   }
 
