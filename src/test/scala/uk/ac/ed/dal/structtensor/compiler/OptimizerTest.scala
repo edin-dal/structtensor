@@ -957,4 +957,23 @@ class OptimizerTest
     )
   }
 
+  it should "detect whether a binray product with constant bound is empty" in {}
+
+  it should "detect whether a binray product is empty" in {}
+
+  it should "detect whether a product is empty" in {}
+
+  it should "detect whether an expression is empty" in {}
+
+  it should "remove empty products" in {}
+
+  it should "get equal variables in a rule" in {}
+
+  it should "replace equal variables in an expression" in {}
+
+  it should "replace equal variables in a variable" in {}
+
+  it should "replace equal variables in an arithmetic" in {}
+
+  it should "replace equal variables in a rule" in {}
 }
