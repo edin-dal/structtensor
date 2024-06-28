@@ -192,335 +192,92 @@ class OptimizerTest
   }
 
   it should "denormalize a single SoP based on the denormalization map" in {
-    // Example based on:
+    // Example based on, only for it's CC:
     // symbols: N
     // T(i) := V(i, j)
     // A(i) := T(i) * T(i)
     // A:D(i) := (0 <= i < N)
     // T:D(i) := (0 <= i < N)
     // V:D(i, j) := (0 <= i < N) *(0 <= j < N)
-    val head = Access("A", Seq(Variable("i")), Tensor)
-    val ctx = Seq(
-      (
-        Rule(
-          Access("T_US", Seq(Variable("i")), UniqueSet),
-          SoP(
-            Seq(
-              Prod(
-                Seq(
-                  Comparison("<=", ConstantInt(0), Variable("i")),
-                  Comparison(">", Variable("N"), Variable("i"))
-                )
-              )
-            )
+
+    val body = SoP(
+      Seq(
+        Prod(
+          Seq(
+            Access("T_C", Seq(Variable("i")), CompressedTensor),
+            Access("T_C", Seq(Variable("i")), CompressedTensor)
           )
         ),
-        Rule(
-          Access("T_RM", Seq(Variable("i"), Variable("ip")), RedundancyMap),
-          SoP(Seq())
-        ),
-        Rule(
-          Access("T_C", Seq(Variable("i")), CompressedTensor),
-          SoP(
-            Seq(
-              Prod(
-                Seq(
-                  Comparison("<=", ConstantInt(0), Variable("i")),
-                  Comparison(">", Variable("N"), Variable("i")),
-                  Comparison("<=", ConstantInt(0), Variable("j")),
-                  Comparison(">", Variable("N"), Variable("j")),
-                  Access("V", Seq(Variable("i"), Variable("j")), Tensor)
-                )
-              )
-            )
+        Prod(
+          Seq(
+            Access("T_C", Seq(Variable("i")), CompressedTensor),
+            Access("T_RM", Seq(Variable("i"), Variable("ip")), RedundancyMap),
+            Access("T", Seq(Variable("ip")), Tensor)
           )
         ),
-        Rule(
-          Access("T", Seq(Variable("i")), Tensor),
-          SoP(Seq(Prod(Seq(Access("T", Seq(Variable("i")), Tensor)))))
-        )
-      ),
-      (
-        Rule(
-          Access("T_US", Seq(Variable("i")), UniqueSet),
-          SoP(
-            Seq(
-              Prod(
-                Seq(
-                  Comparison("<=", ConstantInt(0), Variable("i")),
-                  Comparison(">", Variable("N"), Variable("i"))
-                )
-              )
-            )
-          )
-        ),
-        Rule(
-          Access("T_RM", Seq(Variable("i"), Variable("ip")), RedundancyMap),
-          SoP(Seq())
-        ),
-        Rule(
-          Access("T_C", Seq(Variable("i")), CompressedTensor),
-          SoP(
-            Seq(
-              Prod(
-                Seq(
-                  Comparison("<=", ConstantInt(0), Variable("i")),
-                  Comparison(">", Variable("N"), Variable("i")),
-                  Comparison("<=", ConstantInt(0), Variable("j")),
-                  Comparison(">", Variable("N"), Variable("j")),
-                  Access("V", Seq(Variable("i"), Variable("j")), Tensor)
-                )
-              )
-            )
-          )
-        ),
-        Rule(
-          Access("T", Seq(Variable("i")), Tensor),
-          SoP(Seq(Prod(Seq(Access("T", Seq(Variable("i")), Tensor)))))
-        )
-      ),
-      (
-        Rule(
-          Access("T_US", Seq(Variable("i")), UniqueSet),
-          SoP(
-            Seq(
-              Prod(
-                Seq(
-                  Comparison("<=", ConstantInt(0), Variable("i")),
-                  Comparison(">", Variable("N"), Variable("i"))
-                )
-              )
-            )
-          )
-        ),
-        Rule(
-          Access("T_RM", Seq(Variable("i"), Variable("ip")), RedundancyMap),
-          SoP(Seq())
-        ),
-        Rule(
-          Access("T_C", Seq(Variable("i")), CompressedTensor),
-          SoP(
-            Seq(
-              Prod(
-                Seq(
-                  Comparison("<=", ConstantInt(0), Variable("i")),
-                  Comparison(">", Variable("N"), Variable("i")),
-                  Comparison("<=", ConstantInt(0), Variable("j")),
-                  Comparison(">", Variable("N"), Variable("j")),
-                  Access("V", Seq(Variable("i"), Variable("j")), Tensor)
-                )
-              )
-            )
-          )
-        ),
-        Rule(
-          Access("T", Seq(Variable("i")), Tensor),
-          SoP(Seq(Prod(Seq(Access("T", Seq(Variable("i")), Tensor)))))
-        )
-      ),
-      (
-        Rule(
-          Access("T_US", Seq(Variable("i")), UniqueSet),
-          SoP(
-            Seq(
-              Prod(
-                Seq(
-                  Comparison("<=", ConstantInt(0), Variable("i")),
-                  Comparison(">", Variable("N"), Variable("i"))
-                )
-              )
-            )
-          )
-        ),
-        Rule(
-          Access("T_RM", Seq(Variable("i"), Variable("ip")), RedundancyMap),
-          SoP(Seq())
-        ),
-        Rule(
-          Access("T_C", Seq(Variable("i")), CompressedTensor),
-          SoP(
-            Seq(
-              Prod(
-                Seq(
-                  Comparison("<=", ConstantInt(0), Variable("i")),
-                  Comparison(">", Variable("N"), Variable("i")),
-                  Comparison("<=", ConstantInt(0), Variable("j")),
-                  Comparison(">", Variable("N"), Variable("j")),
-                  Access("V", Seq(Variable("i"), Variable("j")), Tensor)
-                )
-              )
-            )
-          )
-        ),
-        Rule(
-          Access("T", Seq(Variable("i")), Tensor),
-          SoP(Seq(Prod(Seq(Access("T", Seq(Variable("i")), Tensor)))))
-        )
-      ),
-      (
-        Rule(
-          Access("A_US", Seq(Variable("i")), UniqueSet),
-          SoP(
-            Seq(
-              Prod(
-                Seq(
-                  Access("T_US", Seq(Variable("i")), UniqueSet),
-                  Access("T_US", Seq(Variable("i")), UniqueSet)
-                )
-              ),
-              Prod(
-                Seq(
-                  Access("T_US", Seq(Variable("i")), UniqueSet),
-                  Access(
-                    "T_RM",
-                    Seq(Variable("i"), Variable("ip")),
-                    RedundancyMap
-                  )
-                )
-              ),
-              Prod(
-                Seq(
-                  Access(
-                    "T_RM",
-                    Seq(Variable("i"), Variable("ip")),
-                    RedundancyMap
-                  ),
-                  Access("T_US", Seq(Variable("i")), UniqueSet)
-                )
-              )
-            )
-          )
-        ),
-        Rule(
-          Access("A_RM", Seq(Variable("i"), Variable("ip")), RedundancyMap),
-          SoP(
-            Seq(
-              Prod(
-                Seq(
-                  Access(
-                    "T_RM",
-                    Seq(Variable("i"), Variable("ip")),
-                    RedundancyMap
-                  ),
-                  Access(
-                    "T_RM",
-                    Seq(Variable("i"), Variable("ip")),
-                    RedundancyMap
-                  )
-                )
-              )
-            )
-          )
-        ),
-        Rule(
-          Access("A_C", Seq(Variable("i")), CompressedTensor),
-          SoP(
-            Seq(
-              Prod(
-                Seq(
-                  Access("T_C", Seq(Variable("i")), CompressedTensor),
-                  Access("T_C", Seq(Variable("i")), CompressedTensor)
-                )
-              ),
-              Prod(
-                Seq(
-                  Access("T_C", Seq(Variable("i")), CompressedTensor),
-                  Access(
-                    "T_RM",
-                    Seq(Variable("i"), Variable("ip")),
-                    RedundancyMap
-                  ),
-                  Access("T", Seq(Variable("ip")), Tensor)
-                )
-              ),
-              Prod(
-                Seq(
-                  Access(
-                    "T_RM",
-                    Seq(Variable("i"), Variable("ip")),
-                    RedundancyMap
-                  ),
-                  Access("T_C", Seq(Variable("i")), CompressedTensor),
-                  Access("T", Seq(Variable("ip")), Tensor)
-                )
-              )
-            )
-          )
-        ),
-        Rule(
-          Access("A", Seq(Variable("i")), Tensor),
-          SoP(
-            Seq(
-              Prod(
-                Seq(
-                  Access("T", Seq(Variable("i")), Tensor),
-                  Access("T", Seq(Variable("i")), Tensor)
-                )
-              )
-            )
+        Prod(
+          Seq(
+            Access("T_RM", Seq(Variable("i"), Variable("ip")), RedundancyMap),
+            Access("T_C", Seq(Variable("i")), CompressedTensor),
+            Access("T", Seq(Variable("ip")), Tensor)
           )
         )
       )
     )
+    val denormMap = Map(
+      Access("T_US", Seq(Variable("i")), UniqueSet) -> SoP(
+        Seq(
+          Prod(
+            Seq(
+              Comparison("<=", ConstantInt(0), Variable("i")),
+              Comparison(">", Variable("N"), Variable("i"))
+            )
+          )
+        )
+      ),
+      Access("T_RM", Seq(Variable("i"), Variable("ip")), RedundancyMap) -> SoP(
+        Seq()
+      ),
+      Access("T_C", Seq(Variable("i")), CompressedTensor) -> SoP(
+        Seq(
+          Prod(
+            Seq(
+              Comparison("<=", ConstantInt(0), Variable("i")),
+              Comparison(">", Variable("N"), Variable("i")),
+              Comparison("<=", ConstantInt(0), Variable("j")),
+              Comparison(">", Variable("N"), Variable("j")),
+              Access("V", Seq(Variable("i"), Variable("j")), Tensor)
+            )
+          )
+        )
+      ),
+      Access("T", Seq(Variable("i")), Tensor) -> SoP(
+        Seq(Prod(Seq(Access("T", Seq(Variable("i")), Tensor))))
+      )
+    )
 
     Utils.cnt = 0
-    val actual = Optimizer.denormalize(head, ctx)
-
-    val expected = (
-      Rule(
-        Access("A", Seq(Variable("i")), Tensor),
-        SoP(
+    val actual = Optimizer.denormalizeSingle(body, denormMap)
+    val expected = SoP(
+      Seq(
+        Prod(
           Seq(
-            Prod(
-              Seq(
-                Comparison("<=", ConstantInt(0), Variable("i")),
-                Comparison(">", Variable("N"), Variable("i")),
-                Comparison("<=", ConstantInt(0), Variable("i")),
-                Comparison(">", Variable("N"), Variable("i"))
-              )
-            )
-          )
-        )
-      ),
-      Rule(Access("A", Seq(Variable("i")), Tensor), SoP(Seq())),
-      Rule(
-        Access("A", Seq(Variable("i")), Tensor),
-        SoP(
-          Seq(
-            Prod(
-              Seq(
-                Comparison("<=", ConstantInt(0), Variable("i")),
-                Comparison(">", Variable("N"), Variable("i")),
-                Comparison("<=", ConstantInt(0), Variable("i2")),
-                Comparison(">", Variable("N"), Variable("i2")),
-                Access("V", Seq(Variable("i"), Variable("i2")), Tensor),
-                Comparison("<=", ConstantInt(0), Variable("i")),
-                Comparison(">", Variable("N"), Variable("i")),
-                Comparison("<=", ConstantInt(0), Variable("i3")),
-                Comparison(">", Variable("N"), Variable("i3")),
-                Access("V", Seq(Variable("i"), Variable("i3")), Tensor)
-              )
-            )
-          )
-        )
-      ),
-      Rule(
-        Access("A", Seq(Variable("i")), Tensor),
-        SoP(
-          Seq(
-            Prod(
-              Seq(
-                Access("T", Seq(Variable("i")), Tensor),
-                Access("T", Seq(Variable("i")), Tensor)
-              )
-            )
+            Comparison("<=", ConstantInt(0), Variable("i")),
+            Comparison(">", Variable("N"), Variable("i")),
+            Comparison("<=", ConstantInt(0), Variable("i1")),
+            Comparison(">", Variable("N"), Variable("i1")),
+            Access("V", Seq(Variable("i"), Variable("i1")), Tensor),
+            Comparison("<=", ConstantInt(0), Variable("i")),
+            Comparison(">", Variable("N"), Variable("i")),
+            Comparison("<=", ConstantInt(0), Variable("i2")),
+            Comparison(">", Variable("N"), Variable("i2")),
+            Access("V", Seq(Variable("i"), Variable("i2")), Tensor)
           )
         )
       )
     )
 
     actual shouldBe expected
-
   }
 
   it should "denormalize all rules given a head and context" in {
@@ -997,6 +754,207 @@ class OptimizerTest
     denormRM shouldBe expectedRM
     denormCC shouldBe expectedCC
     denormTC shouldBe expectedTC
-
   }
+
+  it should "detect equivalent comparisons 1" in {
+    val c1 = Comparison("<", Variable("i"), Variable("j"))
+    val c2 = Comparison("<", Variable("i"), Variable("j"))
+
+    Optimizer.isComparisonEquivalent(c1, c2) shouldBe true
+  }
+
+  it should "detect equivalent comparisons 2" in {
+    val c1 = Comparison("<", Variable("i"), Variable("j"))
+    val c2 = Comparison(">", Variable("j"), Variable("i"))
+
+    Optimizer.isComparisonEquivalent(c1, c2) shouldBe true
+  }
+
+  it should "detect equivalent comparisons 3" in {
+    val c1 = Comparison(">", Variable("j"), Variable("i"))
+    val c2 = Comparison("<", Variable("i"), Variable("j"))
+
+    Optimizer.isComparisonEquivalent(c1, c2) shouldBe true
+  }
+
+  it should "detect equivalent comparisons 4" in {
+    val c1 = Comparison("<=", Variable("i"), Variable("j"))
+    val c2 = Comparison(">=", Variable("j"), Variable("i"))
+
+    Optimizer.isComparisonEquivalent(c1, c2) shouldBe true
+  }
+
+  it should "detect equivalent comparisons 5" in {
+    val c1 = Comparison(">=", Variable("j"), Variable("i"))
+    val c2 = Comparison("<=", Variable("i"), Variable("j"))
+
+    Optimizer.isComparisonEquivalent(c1, c2) shouldBe true
+  }
+
+  it should "detect equivalent comparisons 6" in {
+    val c1 = Comparison("=", Variable("i"), Variable("j"))
+    val c2 = Comparison("=", Variable("j"), Variable("i"))
+
+    Optimizer.isComparisonEquivalent(c1, c2) shouldBe true
+  }
+
+  it should "remove equivalent comparisons in a single product" in {
+    // Keeps the last one only
+    val prod = Prod(
+      Seq(
+        Comparison(">", Variable("j"), Variable("i")),
+        Comparison("<", Variable("i"), Variable("j")),
+        Comparison("<", Variable("i"), Variable("j"))
+      )
+    )
+    Optimizer.removeEquivalentComparisonsOpt(prod) shouldBe Prod(
+      Seq(
+        Comparison("<", Variable("i"), Variable("j"))
+      )
+    )
+  }
+
+  it should "perform set idempotence optimization on a single product" in {
+    val prod = Prod(
+      Seq(
+        Comparison(">", Variable("j"), Variable("i")),
+        Comparison("<", Variable("i"), Variable("j")),
+        Comparison("<", Variable("i"), Variable("j")),
+        Access("A", Seq(Variable("i")), Tensor)
+      )
+    )
+    Optimizer.singleProdIdempotence(prod) shouldBe Prod(
+      Seq(
+        Comparison("<", Variable("i"), Variable("j")),
+        Access("A", Seq(Variable("i")), Tensor)
+      )
+    )
+  }
+
+  it should "perform set idempotence optimization only on products in a rule" in {
+    val rule = Rule(
+      Access("B", Seq(Variable("i")), Tensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Comparison(">", Variable("j"), Variable("i")),
+              Comparison("<", Variable("i"), Variable("j")),
+              Comparison("<", Variable("i"), Variable("j")),
+              Access("A", Seq(Variable("i")), Tensor)
+            )
+          ),
+          Prod(
+            Seq(
+              Comparison(">", Variable("j"), Variable("i")),
+              Comparison("<", Variable("i"), Variable("j")),
+              Comparison("<", Variable("i"), Variable("j")),
+              Access("A", Seq(Variable("i")), Tensor)
+            )
+          )
+        )
+      )
+    )
+    Optimizer.setIdempotentIntersectionOpt(rule) shouldBe Rule(
+      Access("B", Seq(Variable("i")), Tensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Comparison("<", Variable("i"), Variable("j")),
+              Access("A", Seq(Variable("i")), Tensor)
+            )
+          ),
+          Prod(
+            Seq(
+              Comparison("<", Variable("i"), Variable("j")),
+              Access("A", Seq(Variable("i")), Tensor)
+            )
+          )
+        )
+      )
+    )
+  }
+
+  it should "perform set idempotence optimization for intersection when there is both boolean and real domains" in {
+    val rule = Rule(
+      Access("B", Seq(Variable("i")), Tensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Comparison(">", Variable("j"), Variable("i")),
+              Comparison("<", Variable("i"), Variable("j")),
+              Comparison("<", Variable("i"), Variable("j")),
+              Access("A", Seq(Variable("i")), Tensor)
+            )
+          ),
+          Prod(
+            Seq(
+              Comparison(">", Variable("j"), Variable("i")),
+              Comparison("<", Variable("i"), Variable("j")),
+              Comparison("<", Variable("i"), Variable("j")),
+              Access("A", Seq(Variable("i")), Tensor)
+            )
+          )
+        )
+      )
+    )
+    Optimizer.setIdempotentOpt(rule) shouldBe Rule(
+      Access("B", Seq(Variable("i")), Tensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Comparison("<", Variable("i"), Variable("j")),
+              Access("A", Seq(Variable("i")), Tensor)
+            )
+          ),
+          Prod(
+            Seq(
+              Comparison("<", Variable("i"), Variable("j")),
+              Access("A", Seq(Variable("i")), Tensor)
+            )
+          )
+        )
+      )
+    )
+  }
+
+  it should "perform set idempotence for both intersection and union optimization when there is only boolean domain" in {
+    val rule = Rule(
+      Access("B", Seq(Variable("i")), Tensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Comparison(">", Variable("j"), Variable("i")),
+              Comparison("<", Variable("i"), Variable("j")),
+              Comparison("<", Variable("i"), Variable("j"))
+            )
+          ),
+          Prod(
+            Seq(
+              Comparison(">", Variable("j"), Variable("i")),
+              Comparison("<", Variable("i"), Variable("j")),
+              Comparison("<", Variable("i"), Variable("j"))
+            )
+          )
+        )
+      )
+    )
+    Optimizer.setIdempotentOpt(rule) shouldBe Rule(
+      Access("B", Seq(Variable("i")), Tensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Comparison("<", Variable("i"), Variable("j"))
+            )
+          )
+        )
+      )
+    )
+  }
+
 }
