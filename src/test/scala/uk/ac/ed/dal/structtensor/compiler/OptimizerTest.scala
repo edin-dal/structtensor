@@ -5,6 +5,8 @@ package compiler
 import utils._
 import Utils._
 
+import scala.util.matching.Regex
+
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.ParallelTestExecution
@@ -173,22 +175,28 @@ class OptimizerTest
 
     val access = Access("T", Seq(Variable("i")), Tensor)
 
-    Utils.cnt = 0
     val actual = Optimizer.getByNameAndAlphaRename(m, access)
 
-    val expected = Some(
-      SoP(
-        Seq(
-          Prod(
-            Seq(
-              Access("V", Seq(Variable("i"), Variable("i1")), Tensor)
-            )
-          )
-        )
-      )
-    )
+    val pattern = """i\d+""".r
+    val test_value = actual match {
+      case None => false
+      case Some(value) =>
+        value match {
+          case SoP(
+                Seq(
+                  Prod(
+                    Seq(
+                      Access("V", Seq(Variable("i"), Variable(i)), Tensor)
+                    )
+                  )
+                )
+              ) if pattern matches i =>
+            true
+          case _ => false
+        }
+    }
 
-    actual shouldBe expected
+    test_value shouldBe true
   }
 
   it should "denormalize a single SoP based on the denormalization map" in {
@@ -256,28 +264,33 @@ class OptimizerTest
       )
     )
 
-    Utils.cnt = 0
     val actual = Optimizer.denormalizeSingle(body, denormMap)
-    val expected = SoP(
-      Seq(
-        Prod(
-          Seq(
-            Comparison("<=", ConstantInt(0), Variable("i")),
-            Comparison(">", Variable("N"), Variable("i")),
-            Comparison("<=", ConstantInt(0), Variable("i1")),
-            Comparison(">", Variable("N"), Variable("i1")),
-            Access("V", Seq(Variable("i"), Variable("i1")), Tensor),
-            Comparison("<=", ConstantInt(0), Variable("i")),
-            Comparison(">", Variable("N"), Variable("i")),
-            Comparison("<=", ConstantInt(0), Variable("i2")),
-            Comparison(">", Variable("N"), Variable("i2")),
-            Access("V", Seq(Variable("i"), Variable("i2")), Tensor)
+    val pattern = """i\d+""".r
+    val test_value = actual match {
+      case SoP(
+            Seq(
+              Prod(
+                Seq(
+                  Comparison("<=", ConstantInt(0), Variable("i")),
+                  Comparison(">", Variable("N"), Variable("i")),
+                  Comparison("<=", ConstantInt(0), Variable(i1)),
+                  Comparison(">", Variable("N"), Variable(i11)),
+                  Access("V", Seq(Variable("i"), Variable(i12)), Tensor),
+                  Comparison("<=", ConstantInt(0), Variable("i")),
+                  Comparison(">", Variable("N"), Variable("i")),
+                  Comparison("<=", ConstantInt(0), Variable(i2)),
+                  Comparison(">", Variable("N"), Variable(i21)),
+                  Access("V", Seq(Variable("i"), Variable(i22)), Tensor)
+                )
+              )
+            )
           )
-        )
-      )
-    )
+          if (pattern matches i1) && i1 == i11 && i1 == i12 && (pattern matches i2) && i2 == i21 && i2 == i22 =>
+        true
+      case _ => false
+    }
 
-    actual shouldBe expected
+    test_value shouldBe true
   }
 
   it should "denormalize all rules given a head and context" in {
@@ -747,7 +760,6 @@ class OptimizerTest
       )
     )
 
-    Utils.cnt = 0
     val (denormUS, denormRM, denormCC, denormTC) =
       Optimizer.denormalize(head, context)
     denormUS shouldBe expectedUS

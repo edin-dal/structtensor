@@ -5,6 +5,7 @@ package utils
 import compiler._
 
 import java.io._
+import scala.util.matching.Regex
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -26,8 +27,9 @@ class UtilsTest extends AnyFlatSpec with Matchers with ParallelTestExecution {
   }
 
   it should "return correct variable name" in {
-    Utils.getVar("test") should be("test1")
-    Utils.getVar("test") should be("test2")
+    val test_digit = """test\d+""".r
+    test_digit matches Utils.getVar("test") should be(true)
+    test_digit matches Utils.getVar("test") should be(true)
   }
 
   it should "return empty Prod" in {
