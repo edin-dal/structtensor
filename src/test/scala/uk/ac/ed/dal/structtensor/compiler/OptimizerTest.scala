@@ -1032,7 +1032,41 @@ class OptimizerTest
     ) shouldBe true
   }
 
-  it should "detect whether a binray product is empty" in {}
+  it should "detect whether a binray product is empty 1" in {
+    Optimizer.isBinaryProductEmpty(
+      Comparison("<", Variable("i"), Variable("j")),
+      Comparison(">", Variable("i"), Variable("j"))
+    ) shouldBe true
+  }
+
+  it should "detect whether a binray product is empty 2" in {
+    Optimizer.isBinaryProductEmpty(
+      Comparison("<", Variable("i"), Variable("j")),
+      Comparison(">=", Variable("i"), Variable("j"))
+    ) shouldBe true
+  }
+
+  it should "detect whether a binray product is empty 3" in {
+    Optimizer.isBinaryProductEmpty(
+      Comparison(
+        "<",
+        Arithmetic("+", Variable("x"), Variable("y")),
+        Variable("j")
+      ),
+      Comparison(
+        ">",
+        Arithmetic("+", Variable("x"), Variable("y")),
+        Variable("j")
+      )
+    ) shouldBe true
+  }
+
+  it should "detect whether a binray product is empty 4" in {
+    Optimizer.isBinaryProductEmpty(
+      Comparison("<", Variable("i"), Variable("j")),
+      Comparison("<", Variable("j"), Variable("i"))
+    ) shouldBe true
+  }
 
   it should "detect whether a product is empty" in {}
 
