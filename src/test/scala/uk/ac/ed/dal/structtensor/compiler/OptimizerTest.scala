@@ -969,7 +969,68 @@ class OptimizerTest
     )
   }
 
-  it should "detect whether a binray product with constant bound is empty" in {}
+  it should "detect whether a binray product with constant bound is empty 1" in {
+    Optimizer.isBinaryProductWithConstantBoundsEmpty(
+      "<",
+      "=",
+      12.5,
+      12
+    ) shouldBe true
+  }
+
+  it should "detect whether a binray product with constant bound is empty 2" in {
+    Optimizer.isBinaryProductWithConstantBoundsEmpty(
+      "<",
+      ">=",
+      12.5,
+      12
+    ) shouldBe true
+  }
+
+  it should "detect whether a binray product with constant bound is empty 3" in {
+    Optimizer.isBinaryProductWithConstantBoundsEmpty(
+      "<=",
+      "=",
+      12.5,
+      12
+    ) shouldBe true
+  }
+
+  it should "detect whether a binray product with constant bound is empty 4" in {
+    Optimizer.isBinaryProductWithConstantBoundsEmpty(
+      "<=",
+      "=",
+      12.5,
+      12.5
+    ) shouldBe false
+  }
+
+  it should "detect whether a binray product with constant bound is empty 5" in {
+    Optimizer.isBinaryProductWithConstantBoundsEmpty(
+      ">=",
+      "<",
+      12,
+      12.5
+    ) shouldBe true
+  }
+
+  it should "detect whether a binray product with constant bound is empty 6" in {
+    Optimizer.isBinaryProductWithConstantBoundsEmpty(
+      ">=",
+      "<=",
+      12,
+      12.5
+    ) shouldBe true
+  }
+
+  it should "detect whether a binray product with constant bound is empty 7" in {
+    Optimizer.isBinaryProductWithConstantBoundsEmpty(
+      "=",
+      "=",
+      12.5,
+      12
+    ) shouldBe true
+  }
 
   it should "detect whether a binray product is empty" in {}
 
