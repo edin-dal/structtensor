@@ -1239,5 +1239,58 @@ class OptimizerTest
     ) shouldBe Arithmetic("+", Variable("i"), Variable("i"))
   }
 
-  it should "replace equal variables in a rule" in {}
+  it should "replace equal variables in a rule" in {
+    val rule = Rule(
+      Access("A", Seq(Variable("i")), Tensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access("B", Seq(Variable("i"), Variable("j")), Tensor),
+              Access("C", Seq(Variable("j"), Variable("l")), Tensor),
+              Access("D", Seq(Variable("p"), Variable("q")), Tensor),
+              Comparison("=", Variable("i"), Variable("j")),
+              Comparison("=", Variable("j"), Variable("l"))
+            )
+          ),
+          Prod(
+            Seq(
+              Access("B", Seq(Variable("i"), Variable("j")), Tensor),
+              Access("C", Seq(Variable("p"), Variable("l")), Tensor),
+              Comparison("=", Variable("i"), Variable("j")),
+              Comparison("=", Variable("p"), Variable("l"))
+            )
+          )
+        )
+      )
+    )
+
+    val actual = Optimizer.replaceEqualVariables(rule, Seq())
+
+    actual shouldBe Rule(
+      Access("A", Seq(Variable("i")), Tensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access("B", Seq(Variable("i"), Variable("i")), Tensor),
+              Access("C", Seq(Variable("i"), Variable("i")), Tensor),
+              Access("D", Seq(Variable("p"), Variable("q")), Tensor),
+              Comparison("=", Variable("i"), Variable("j")),
+              Comparison("=", Variable("i"), Variable("l")),
+              Comparison("=", Variable("j"), Variable("i"))
+            )
+          ),
+          Prod(
+            Seq(
+              Access("B", Seq(Variable("i"), Variable("i")), Tensor),
+              Access("C", Seq(Variable("p"), Variable("p")), Tensor),
+              Comparison("=", Variable("i"), Variable("j")),
+              Comparison("=", Variable("p"), Variable("l"))
+            )
+          )
+        )
+      )
+    )
+  }
 }
