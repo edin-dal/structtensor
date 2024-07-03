@@ -1203,7 +1203,25 @@ class OptimizerTest
     )
   }
 
-  it should "replace equal variables in an expression" in {}
+  it should "replace equal variables in an expression 1" in {
+    Optimizer.replaceEqualVariablesInExp(
+      Access("A", Seq(Variable("l")), Tensor),
+      Seq(
+        Seq(Variable("i"), Variable("j"), Variable("l")),
+        Seq(Variable("p"), Variable("l"))
+      )
+    ) shouldBe Seq(Access("A", Seq(Variable("i")), Tensor))
+  }
+
+  it should "replace equal variables in an expression 2" in {
+    Optimizer.replaceEqualVariablesInExp(
+      Comparison("<", Variable("l"), Variable("M")),
+      Seq(
+        Seq(Variable("i"), Variable("j"), Variable("l")),
+        Seq(Variable("p"), Variable("l"))
+      )
+    ) shouldBe Seq(Comparison("<", Variable("i"), Variable("M")))
+  }
 
   it should "replace equal variables in a variable" in {}
 
