@@ -1207,8 +1207,7 @@ class OptimizerTest
     Optimizer.replaceEqualVariablesInExp(
       Access("A", Seq(Variable("l")), Tensor),
       Seq(
-        Seq(Variable("i"), Variable("j"), Variable("l")),
-        Seq(Variable("p"), Variable("l"))
+        Seq(Variable("i"), Variable("j"), Variable("l"))
       )
     ) shouldBe Seq(Access("A", Seq(Variable("i")), Tensor))
   }
@@ -1217,15 +1216,28 @@ class OptimizerTest
     Optimizer.replaceEqualVariablesInExp(
       Comparison("<", Variable("l"), Variable("M")),
       Seq(
-        Seq(Variable("i"), Variable("j"), Variable("l")),
-        Seq(Variable("p"), Variable("l"))
+        Seq(Variable("i"), Variable("j"), Variable("l"))
       )
     ) shouldBe Seq(Comparison("<", Variable("i"), Variable("M")))
   }
 
-  it should "replace equal variables in a variable" in {}
+  it should "replace equal variables in a variable" in {
+    Optimizer.replaceEqualVariableInIndex(
+      Variable("l"),
+      Seq(
+        Seq(Variable("i"), Variable("j"), Variable("l"))
+      )
+    ) shouldBe Variable("i")
+  }
 
-  it should "replace equal variables in an arithmetic" in {}
+  it should "replace equal variables in an arithmetic" in {
+    Optimizer.replaceEqualVariableInIndex(
+      Arithmetic("+", Variable("l"), Variable("j")),
+      Seq(
+        Seq(Variable("i"), Variable("j"), Variable("l"))
+      )
+    ) shouldBe Arithmetic("+", Variable("i"), Variable("i"))
+  }
 
   it should "replace equal variables in a rule" in {}
 }
