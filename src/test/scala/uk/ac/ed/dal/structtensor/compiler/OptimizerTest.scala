@@ -1160,7 +1160,48 @@ class OptimizerTest
     )
   }
 
-  it should "get equal variables in a rule" in {}
+  it should "get equal variables in a rule" in {
+    val rule = Rule(
+      Access("A", Seq(Variable("i")), Tensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access("B", Seq(Variable("i"), Variable("j")), Tensor),
+              Access("C", Seq(Variable("j"), Variable("l")), Tensor),
+              Access("D", Seq(Variable("p"), Variable("q")), Tensor),
+              Comparison("=", Variable("i"), Variable("j")),
+              Comparison("=", Variable("j"), Variable("l"))
+            )
+          ),
+          Prod(
+            Seq(
+              Access("B", Seq(Variable("i"), Variable("j")), Tensor),
+              Access("C", Seq(Variable("p"), Variable("l")), Tensor),
+              Comparison("=", Variable("i"), Variable("j")),
+              Comparison("=", Variable("p"), Variable("l"))
+            )
+          )
+        )
+      )
+    )
+
+    val actual = Optimizer.getEqualVariables(rule)
+
+    actual.length shouldBe 2
+
+    actual(0).length shouldBe 1
+    actual(0)(0) should contain theSameElementsAs Seq(
+      Variable("i"),
+      Variable("j"),
+      Variable("l")
+    )
+    actual(1).length shouldBe 2
+    actual(1) should contain theSameElementsAs Seq(
+      Seq(Variable("i"), Variable("j")),
+      Seq(Variable("p"), Variable("l"))
+    )
+  }
 
   it should "replace equal variables in an expression" in {}
 
