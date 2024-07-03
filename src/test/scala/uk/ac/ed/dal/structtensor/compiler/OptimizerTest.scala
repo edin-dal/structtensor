@@ -1068,7 +1068,16 @@ class OptimizerTest
     ) shouldBe true
   }
 
-  it should "detect whether a product is empty" in {}
+  it should "detect whether a product is empty" in {
+    Optimizer.isProductEmpty(
+      Prod(
+        Seq(
+          Comparison("<", Variable("i"), Variable("j")),
+          Comparison(">", Variable("i"), Variable("j"))
+        )
+      )
+    ) shouldBe true
+  }
 
   it should "detect whether an expression is empty" in {}
 
