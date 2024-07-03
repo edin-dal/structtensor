@@ -1131,7 +1131,34 @@ class OptimizerTest
     ) shouldBe true
   }
 
-  it should "remove empty products" in {}
+  it should "remove empty products from a Rule" in {
+    Optimizer.removeEmptyProductsOpt(
+      Rule(
+        Access("A", Seq(Variable("i")), Tensor),
+        SoP(
+          Seq(
+            Prod(
+              Seq(
+                Comparison("<", Variable("i"), Variable("j")),
+                Comparison(">", Variable("i"), Variable("j"))
+              )
+            ),
+            Prod(
+              Seq(
+                Comparison("<", Variable("i"), Variable("j")),
+                Comparison("<", Variable("j"), Variable("i"))
+              )
+            )
+          )
+        )
+      )
+    ) shouldBe Rule(
+      Access("A", Seq(Variable("i")), Tensor),
+      SoP(
+        Seq()
+      )
+    )
+  }
 
   it should "get equal variables in a rule" in {}
 
