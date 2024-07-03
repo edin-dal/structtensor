@@ -1079,7 +1079,57 @@ class OptimizerTest
     ) shouldBe true
   }
 
-  it should "detect whether an expression is empty" in {}
+  it should "detect whether an expression is empty 1" in {
+    Optimizer.isExpEmpty(
+      Comparison("<", Variable("i"), Variable("i"))
+    ) shouldBe true
+  }
+
+  it should "detect whether an expression is empty 2" in {
+    Optimizer.isExpEmpty(
+      Comparison("<=", Variable("i"), Variable("i"))
+    ) shouldBe false
+  }
+
+  it should "detect whether an expression is empty 3" in {
+    Optimizer.isExpEmpty(
+      Comparison(
+        "=",
+        Arithmetic("+", Variable("i"), ConstantDouble(2.4)),
+        Variable("i")
+      )
+    ) shouldBe true
+  }
+
+  it should "detect whether an expression is empty 4" in {
+    Optimizer.isExpEmpty(
+      Comparison(
+        "=",
+        Arithmetic("+", Variable("i"), ConstantDouble(0)),
+        Variable("i")
+      )
+    ) shouldBe false
+  }
+
+  it should "detect whether an expression is empty 5" in {
+    Optimizer.isExpEmpty(
+      Comparison(
+        "<",
+        Arithmetic("+", Variable("i"), ConstantDouble(10)),
+        Variable("i")
+      )
+    ) shouldBe true
+  }
+
+  it should "detect whether an expression is empty 6" in {
+    Optimizer.isExpEmpty(
+      Comparison(
+        ">=",
+        Arithmetic("-", Variable("i"), ConstantDouble(10)),
+        Variable("i")
+      )
+    ) shouldBe true
+  }
 
   it should "remove empty products" in {}
 
