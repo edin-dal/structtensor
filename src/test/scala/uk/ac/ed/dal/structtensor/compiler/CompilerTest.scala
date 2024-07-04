@@ -6,9 +6,12 @@ import utils._
 import Utils._
 import Optimizer._
 
+import scala.util.matching.Regex
+
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.ParallelTestExecution
+import uk.ac.ed.dal.structtensor.compiler.Compiler.shift
 
 class CompilerTest
     extends AnyFlatSpec
@@ -83,7 +86,80 @@ class CompilerTest
     res shouldBe true
   }
 
-  it should "normalize a rule that only has one product" in {}
+  it should "normalize a rule that only has one product" in {
+    val rule = Rule(
+      Access("a", Seq(Variable("p"), Variable("q")), Tensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access("b", Seq(Variable("i"), Variable("j")), Tensor),
+              Comparison(
+                "=",
+                Arithmetic("-", Variable("p"), ConstantInt(5)),
+                Variable("i")
+              ),
+              Comparison(
+                "=",
+                Arithmetic("-", Variable("q"), Variable("N")),
+                Variable("j")
+              ),
+              Access("c", Seq(Variable("p"), Variable("q")), Tensor)
+            )
+          )
+        )
+      )
+    )
+    val res = Compiler.normalizeSingleProdRule(rule)
+    val pattern = """shiftHead\d+""".r
+    val test_value = res match {
+      case Seq(
+            Rule(
+              Access(sh_head1, Seq(Variable("p"), Variable("q")), Tensor),
+              SoP(
+                Seq(
+                  Prod(
+                    Seq(
+                      Access("b", Seq(Variable("i"), Variable("j")), Tensor),
+                      Comparison(
+                        "=",
+                        Arithmetic("-", Variable("p"), ConstantInt(5)),
+                        Variable("i")
+                      ),
+                      Comparison(
+                        "=",
+                        Arithmetic("-", Variable("q"), Variable("N")),
+                        Variable("j")
+                      )
+                    )
+                  )
+                )
+              )
+            ),
+            Rule(
+              Access("a", Seq(Variable("p"), Variable("q")), Tensor),
+              SoP(
+                Seq(
+                  Prod(
+                    Seq(
+                      Access(
+                        sh_head2,
+                        Seq(Variable("p"), Variable("q")),
+                        Tensor
+                      ),
+                      Access("c", Seq(Variable("p"), Variable("q")), Tensor)
+                    )
+                  )
+                )
+              )
+            )
+          )
+          if (pattern matches sh_head1) && (pattern matches sh_head2) && sh_head1 == sh_head2 =>
+        true
+      case _ => false
+    }
+    test_value shouldEqual true
+  }
 
   it should "normalize sum of accesses sequence" in {}
 
