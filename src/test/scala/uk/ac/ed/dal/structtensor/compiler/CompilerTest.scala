@@ -1096,7 +1096,238 @@ class CompilerTest
     )
   }
 
-  it should "infer the structure for self outer product" in {}
+  it should "infer the structure for self outer product" in {
+    val rule = Rule(
+      Access("a", Seq(Variable("i"), Variable("j"), Variable("k")), Tensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access("b", Seq(Variable("i")), Tensor),
+              Access("c", Seq(Variable("j")), Tensor),
+              Access("d", Seq(Variable("k")), Tensor)
+            )
+          )
+        )
+      )
+    )
+    val res = Compiler.selfOuterProduct(
+      rule.head,
+      rule.body.prods.head.exps
+    )
+    val (us, rm, cc) = res
+
+    us shouldBe Rule(
+      Access(
+        "a_US",
+        Seq(Variable("i"), Variable("j"), Variable("k")),
+        UniqueSet
+      ),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access("b_US", Seq(Variable("i")), UniqueSet),
+              Access("c_US", Seq(Variable("j")), UniqueSet),
+              Access("d_US", Seq(Variable("k")), UniqueSet),
+              Comparison("<=", Variable("i"), Variable("j")),
+              Comparison("<=", Variable("j"), Variable("k"))
+            )
+          )
+        )
+      )
+    )
+
+    rm shouldBe Rule(
+      Access(
+        "a_RM",
+        Seq(
+          Variable("i"),
+          Variable("j"),
+          Variable("k"),
+          Variable("ip"),
+          Variable("jp"),
+          Variable("kp")
+        ),
+        RedundancyMap
+      ),
+      SoP(
+        Vector(
+          Prod(
+            Seq(
+              Access(
+                "b_RM",
+                Seq(Variable("i"), Variable("ip")),
+                RedundancyMap
+              ),
+              Access(
+                "c_RM",
+                Seq(Variable("j"), Variable("jp")),
+                RedundancyMap
+              ),
+              Access("d_RM", Seq(Variable("k"), Variable("kp")), RedundancyMap)
+            )
+          ),
+          Prod(
+            Seq(
+              Comparison("=", Variable("i"), Variable("ip")),
+              Access("b_US", Seq(Variable("i")), UniqueSet),
+              Access(
+                "c_RM",
+                Seq(Variable("j"), Variable("jp")),
+                RedundancyMap
+              ),
+              Access("d_RM", Seq(Variable("k"), Variable("kp")), RedundancyMap)
+            )
+          ),
+          Prod(
+            Seq(
+              Access(
+                "b_RM",
+                Seq(Variable("i"), Variable("ip")),
+                RedundancyMap
+              ),
+              Comparison("=", Variable("j"), Variable("jp")),
+              Access("c_US", Seq(Variable("j")), UniqueSet),
+              Access("d_RM", Seq(Variable("k"), Variable("kp")), RedundancyMap)
+            )
+          ),
+          Prod(
+            Seq(
+              Access(
+                "b_RM",
+                Seq(Variable("i"), Variable("ip")),
+                RedundancyMap
+              ),
+              Access(
+                "c_RM",
+                Seq(Variable("j"), Variable("jp")),
+                RedundancyMap
+              ),
+              Comparison("=", Variable("k"), Variable("kp")),
+              Access("d_US", Seq(Variable("k")), UniqueSet)
+            )
+          ),
+          Prod(
+            Seq(
+              Comparison("=", Variable("i"), Variable("ip")),
+              Access("b_US", Seq(Variable("i")), UniqueSet),
+              Comparison("=", Variable("j"), Variable("jp")),
+              Access("c_US", Seq(Variable("j")), UniqueSet),
+              Access("d_RM", Seq(Variable("k"), Variable("kp")), RedundancyMap)
+            )
+          ),
+          Prod(
+            Seq(
+              Comparison("=", Variable("i"), Variable("ip")),
+              Access("b_US", Seq(Variable("i")), UniqueSet),
+              Access(
+                "c_RM",
+                Seq(Variable("j"), Variable("jp")),
+                RedundancyMap
+              ),
+              Comparison("=", Variable("k"), Variable("kp")),
+              Access("d_US", Seq(Variable("k")), UniqueSet)
+            )
+          ),
+          Prod(
+            Seq(
+              Access(
+                "b_RM",
+                Seq(Variable("i"), Variable("ip")),
+                RedundancyMap
+              ),
+              Comparison("=", Variable("j"), Variable("jp")),
+              Access("c_US", Seq(Variable("j")), UniqueSet),
+              Comparison("=", Variable("k"), Variable("kp")),
+              Access("d_US", Seq(Variable("k")), UniqueSet)
+            )
+          ),
+          Prod(
+            Vector(
+              Comparison("<=", Variable("i"), Variable("k")),
+              Comparison("<=", Variable("k"), Variable("j")),
+              Comparison("=", Variable("i"), Variable("ip")),
+              Comparison("=", Variable("j"), Variable("kp")),
+              Comparison("=", Variable("k"), Variable("jp")),
+              Access("b_US", Seq(Variable("i")), UniqueSet),
+              Access("c_US", Seq(Variable("j")), UniqueSet),
+              Access("d_US", Seq(Variable("k")), UniqueSet)
+            )
+          ),
+          Prod(
+            Vector(
+              Comparison("<=", Variable("j"), Variable("i")),
+              Comparison("<=", Variable("i"), Variable("k")),
+              Comparison("=", Variable("i"), Variable("jp")),
+              Comparison("=", Variable("j"), Variable("ip")),
+              Comparison("=", Variable("k"), Variable("kp")),
+              Access("b_US", Seq(Variable("i")), UniqueSet),
+              Access("c_US", Seq(Variable("j")), UniqueSet),
+              Access("d_US", Seq(Variable("k")), UniqueSet)
+            )
+          ),
+          Prod(
+            Vector(
+              Comparison("<=", Variable("j"), Variable("k")),
+              Comparison("<=", Variable("k"), Variable("i")),
+              Comparison("=", Variable("i"), Variable("jp")),
+              Comparison("=", Variable("j"), Variable("kp")),
+              Comparison("=", Variable("k"), Variable("ip")),
+              Access("b_US", Seq(Variable("i")), UniqueSet),
+              Access("c_US", Seq(Variable("j")), UniqueSet),
+              Access("d_US", Seq(Variable("k")), UniqueSet)
+            )
+          ),
+          Prod(
+            Vector(
+              Comparison("<=", Variable("k"), Variable("i")),
+              Comparison("<=", Variable("i"), Variable("j")),
+              Comparison("=", Variable("i"), Variable("kp")),
+              Comparison("=", Variable("j"), Variable("ip")),
+              Comparison("=", Variable("k"), Variable("jp")),
+              Access("b_US", Seq(Variable("i")), UniqueSet),
+              Access("c_US", Seq(Variable("j")), UniqueSet),
+              Access("d_US", Seq(Variable("k")), UniqueSet)
+            )
+          ),
+          Prod(
+            Vector(
+              Comparison("<=", Variable("k"), Variable("j")),
+              Comparison("<=", Variable("j"), Variable("i")),
+              Comparison("=", Variable("i"), Variable("kp")),
+              Comparison("=", Variable("j"), Variable("jp")),
+              Comparison("=", Variable("k"), Variable("ip")),
+              Access("b_US", Seq(Variable("i")), UniqueSet),
+              Access("c_US", Seq(Variable("j")), UniqueSet),
+              Access("d_US", Seq(Variable("k")), UniqueSet)
+            )
+          )
+        )
+      )
+    )
+
+    cc shouldBe Rule(
+      Access(
+        "a_C",
+        Seq(Variable("i"), Variable("j"), Variable("k")),
+        CompressedTensor
+      ),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access("b_C", Seq(Variable("i")), CompressedTensor),
+              Access("c_C", Seq(Variable("j")), CompressedTensor),
+              Access("d_C", Seq(Variable("k")), CompressedTensor),
+              Comparison("<=", Variable("i"), Variable("j")),
+              Comparison("<=", Variable("j"), Variable("k"))
+            )
+          )
+        )
+      )
+    )
+  }
 
   it should "detect whether to SoPs are equal" in {}
 
