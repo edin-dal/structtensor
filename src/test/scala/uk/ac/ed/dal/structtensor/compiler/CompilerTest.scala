@@ -56,7 +56,32 @@ class CompilerTest
     )
   }
 
-  it should "whether a rule is a shift rule" in {}
+  it should "whether a rule is a shift rule" in {
+    val rule = Rule(
+      Access("a", Seq(Variable("p"), Variable("q")), Tensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access("b", Seq(Variable("i"), Variable("j")), Tensor),
+              Comparison(
+                "=",
+                Arithmetic("-", Variable("p"), ConstantInt(5)),
+                Variable("i")
+              ),
+              Comparison(
+                "=",
+                Arithmetic("-", Variable("q"), Variable("N")),
+                Variable("j")
+              )
+            )
+          )
+        )
+      )
+    )
+    val res = Compiler.isShift(rule.head, rule.body.prods.head.exps)
+    res shouldBe true
+  }
 
   it should "normalize a rule that only has one product" in {}
 
