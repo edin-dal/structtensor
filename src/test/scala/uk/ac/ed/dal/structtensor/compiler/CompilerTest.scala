@@ -161,7 +161,72 @@ class CompilerTest
     test_value shouldEqual true
   }
 
-  it should "normalize sum of accesses sequence" in {}
+  it should "normalize sum of accesses sequence" in {
+    val head = Access("t", Seq(Variable("i"), Variable("j")), Tensor)
+    val accesses = Seq(
+      Access("a", Seq(Variable("i"), Variable("j")), Tensor),
+      Access("b", Seq(Variable("i"), Variable("j")), Tensor),
+      Access("c", Seq(Variable("i"), Variable("j")), Tensor)
+    )
+    val res = Compiler.normalizeSumOfAccessSeq(head, accesses)
+    val pattern = """sumHead\d+""".r
+    val test_value = res match {
+      case Seq(
+            Rule(
+              Access(sumHead1, Seq(Variable("i"), Variable("j")), Tensor),
+              SoP(
+                Seq(
+                  Prod(
+                    Seq(Access(a, Seq(Variable("i"), Variable("j")), Tensor))
+                  ),
+                  Prod(
+                    Seq(Access(b, Seq(Variable("i"), Variable("j")), Tensor))
+                  )
+                )
+              )
+            ),
+            Rule(
+              Access(sumHead2, Seq(Variable("i"), Variable("j")), Tensor),
+              SoP(
+                Seq(
+                  Prod(
+                    Seq(
+                      Access(
+                        sumHead11,
+                        Seq(Variable("i"), Variable("j")),
+                        Tensor
+                      )
+                    )
+                  ),
+                  Prod(
+                    Seq(Access(c, Seq(Variable("i"), Variable("j")), Tensor))
+                  )
+                )
+              )
+            ),
+            Rule(
+              Access(t, Seq(Variable("i"), Variable("j")), Tensor),
+              SoP(
+                Seq(
+                  Prod(
+                    Seq(
+                      Access(
+                        sumHead21,
+                        Seq(Variable("i"), Variable("j")),
+                        Tensor
+                      )
+                    )
+                  )
+                )
+              )
+            )
+          )
+          if (pattern matches sumHead1) && (pattern matches sumHead2) && sumHead1 == sumHead11 && sumHead2 == sumHead21 =>
+        true
+      case _ => false
+    }
+    test_value shouldEqual true
+  }
 
   it should "normalize a rule" in {}
 
