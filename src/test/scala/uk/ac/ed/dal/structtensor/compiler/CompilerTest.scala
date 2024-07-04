@@ -2466,7 +2466,151 @@ class CompilerTest
     )
   }
 
-  it should "infer the structure of tensor's head for a normalized rule given a context" in {}
+  it should "compile a a computation, given all inputs and symbols" in {
+    // first expression in PR2C.stur
+    val computation = Rule(
+      Access("A", Seq(Variable("i"), Variable("j")), Tensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access("f", Seq(Variable("i")), Tensor),
+              Access("f", Seq(Variable("j")), Tensor)
+            )
+          )
+        )
+      )
+    )
+    val inputs = Seq(
+      (
+        Rule(
+          Access("f_US", Seq(Variable("i")), UniqueSet),
+          SoP(
+            Seq(
+              Prod(
+                Seq(
+                  Comparison("<=", ConstantInt(0), Variable("i")),
+                  Comparison(">", Variable("N"), Variable("i"))
+                )
+              )
+            )
+          )
+        ),
+        Rule(
+          Access("f_RM", Seq(Variable("i"), Variable("ip")), RedundancyMap),
+          SoP(Seq())
+        ),
+        Rule(
+          Access("f_C", Seq(Variable("i")), CompressedTensor),
+          SoP(
+            Seq(
+              Prod(
+                Seq(
+                  Access("f", Seq(Variable("i")), Tensor),
+                  Comparison("<=", ConstantInt(0), Variable("i")),
+                  Comparison(">", Variable("N"), Variable("i"))
+                )
+              )
+            )
+          )
+        ),
+        Rule(
+          Access("f", Seq(Variable("i")), Tensor),
+          SoP(Seq(Prod(Seq(Access("f", Seq(Variable("i")), Tensor)))))
+        )
+      ),
+      (
+        Rule(
+          Access("f_US", Seq(Variable("j")), UniqueSet),
+          SoP(
+            Seq(
+              Prod(
+                Seq(
+                  Comparison("<=", ConstantInt(0), Variable("j")),
+                  Comparison(">", Variable("N"), Variable("j"))
+                )
+              )
+            )
+          )
+        ),
+        Rule(
+          Access("f_RM", Seq(Variable("j"), Variable("jp")), RedundancyMap),
+          SoP(Seq())
+        ),
+        Rule(
+          Access("f_C", Seq(Variable("j")), CompressedTensor),
+          SoP(
+            Seq(
+              Prod(
+                Seq(
+                  Access("f", Seq(Variable("j")), Tensor),
+                  Comparison("<=", ConstantInt(0), Variable("j")),
+                  Comparison(">", Variable("N"), Variable("j"))
+                )
+              )
+            )
+          )
+        ),
+        Rule(
+          Access("f", Seq(Variable("j")), Tensor),
+          SoP(Seq(Prod(Seq(Access("f", Seq(Variable("j")), Tensor)))))
+        )
+      )
+    )
+    val symbols = Seq(Variable("N"))
 
-  it should "compile a a computation, given all inputs and symbols" in {}
+    val res = Compiler.compile(computation, inputs, symbols)
+    val (us, rm, cc) = res
+
+    us shouldBe Rule(
+      Access("A", Seq(Variable("i"), Variable("j")), Tensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Comparison("<=", Variable("i"), Variable("j")),
+              Comparison("<=", ConstantInt(0), Variable("i")),
+              Comparison(">", Variable("N"), Variable("i")),
+              Comparison("<=", ConstantInt(0), Variable("j")),
+              Comparison(">", Variable("N"), Variable("j"))
+            )
+          )
+        )
+      )
+    )
+    rm shouldBe Rule(
+      Access("A", Seq(Variable("i"), Variable("j")), Tensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Comparison(">", Variable("i"), Variable("j")),
+              Comparison("<=", ConstantInt(0), Variable("i")),
+              Comparison(">", Variable("N"), Variable("i")),
+              Comparison("<=", ConstantInt(0), Variable("j")),
+              Comparison(">", Variable("N"), Variable("j"))
+            )
+          )
+        )
+      )
+    )
+    cc shouldBe Rule(
+      Access("A", Seq(Variable("i"), Variable("j")), Tensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Comparison("<=", Variable("i"), Variable("j")),
+              Comparison("<=", ConstantInt(0), Variable("i")),
+              Comparison(">", Variable("N"), Variable("i")),
+              Comparison("<=", ConstantInt(0), Variable("j")),
+              Comparison(">", Variable("N"), Variable("j")),
+              Access("f", Seq(Variable("i")), Tensor),
+              Access("f", Seq(Variable("j")), Tensor)
+            )
+          )
+        )
+      )
+    )
+  }
 }
