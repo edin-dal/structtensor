@@ -33,7 +33,12 @@ class CompilerTest
     vars should contain theSameElementsAs Seq(Variable("i"), Variable("j"))
   }
 
-  it should "check whether the pairwise intersection of a sequnece of sequences is empty" in {}
+  it should "check whether the pairwise intersection of a sequnece of sequences is empty" in {
+    val seq =
+      Seq(Seq(Variable("i"), Variable("j")), Seq(Variable("k"), Variable("l")))
+    val res = Compiler.isPairwiseIntersectEmpty(seq)
+    res shouldBe true
+  }
 
   it should "group expressions with the same name" in {}
 
