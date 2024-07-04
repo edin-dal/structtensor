@@ -1414,7 +1414,1057 @@ class CompilerTest
     Compiler.isSoPDisjoint(sop1, sop2) shouldBe true
   }
 
-  it should "infer the structure for binary addition" in {}
+  it should "infer the structure for binary addition where the unique set and redundancy map of both inputs are the same" in {
+    /* symbols: N
+      A(i, j) := B(i, j) + C(i, j)
+      A:D(i, j) := (0 <= i < N) * (0 <= j < N)
+      B:D(i, j) := (0 <= i < N) * (0 <= j < N)
+      C:D(i, j) := (0 <= i < N) * (0 <= j < N)
+      B:U(i, j) := (i <= j)
+      C:U(i, j) := (i <= j)
+     */
+    val rule = Rule(
+      Access("A", Seq(Variable("i"), Variable("j")), Tensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access("B", Seq(Variable("i"), Variable("j")), Tensor),
+              Access("C", Seq(Variable("i"), Variable("j")), Tensor)
+            )
+          )
+        )
+      )
+    )
+    val ctx = Seq(
+      (
+        Rule(
+          Access("B_US", Seq(Variable("i"), Variable("j")), UniqueSet),
+          SoP(
+            Seq(
+              Prod(
+                Seq(
+                  Comparison("<=", ConstantInt(0), Variable("i")),
+                  Comparison(">", Variable("N"), Variable("i")),
+                  Comparison("<=", ConstantInt(0), Variable("j")),
+                  Comparison(">", Variable("N"), Variable("j")),
+                  Comparison("<=", Variable("i"), Variable("j"))
+                )
+              )
+            )
+          )
+        ),
+        Rule(
+          Access(
+            "B_RM",
+            Seq(Variable("i"), Variable("j"), Variable("ip"), Variable("jp")),
+            RedundancyMap
+          ),
+          SoP(Seq())
+        ),
+        Rule(
+          Access("B_C", Seq(Variable("i"), Variable("j")), CompressedTensor),
+          SoP(
+            Seq(
+              Prod(
+                Seq(
+                  Access("B", Seq(Variable("i"), Variable("j")), Tensor),
+                  Comparison("<=", ConstantInt(0), Variable("i")),
+                  Comparison(">", Variable("N"), Variable("i")),
+                  Comparison("<=", ConstantInt(0), Variable("j")),
+                  Comparison(">", Variable("N"), Variable("j")),
+                  Comparison("<=", Variable("i"), Variable("j"))
+                )
+              )
+            )
+          )
+        ),
+        Rule(
+          Access("B", Seq(Variable("i"), Variable("j")), Tensor),
+          SoP(
+            Seq(
+              Prod(Seq(Access("B", Seq(Variable("i"), Variable("j")), Tensor)))
+            )
+          )
+        )
+      ),
+      (
+        Rule(
+          Access("C_US", Seq(Variable("i"), Variable("j")), UniqueSet),
+          SoP(
+            Seq(
+              Prod(
+                Seq(
+                  Comparison("<=", ConstantInt(0), Variable("i")),
+                  Comparison(">", Variable("N"), Variable("i")),
+                  Comparison("<=", ConstantInt(0), Variable("j")),
+                  Comparison(">", Variable("N"), Variable("j")),
+                  Comparison("<=", Variable("i"), Variable("j"))
+                )
+              )
+            )
+          )
+        ),
+        Rule(
+          Access(
+            "C_RM",
+            Seq(Variable("i"), Variable("j"), Variable("ip"), Variable("jp")),
+            RedundancyMap
+          ),
+          SoP(Seq())
+        ),
+        Rule(
+          Access("C_C", Seq(Variable("i"), Variable("j")), CompressedTensor),
+          SoP(
+            Seq(
+              Prod(
+                Seq(
+                  Access("C", Seq(Variable("i"), Variable("j")), Tensor),
+                  Comparison("<=", ConstantInt(0), Variable("i")),
+                  Comparison(">", Variable("N"), Variable("i")),
+                  Comparison("<=", ConstantInt(0), Variable("j")),
+                  Comparison(">", Variable("N"), Variable("j")),
+                  Comparison("<=", Variable("i"), Variable("j"))
+                )
+              )
+            )
+          )
+        ),
+        Rule(
+          Access("C", Seq(Variable("i"), Variable("j")), Tensor),
+          SoP(
+            Seq(
+              Prod(Seq(Access("C", Seq(Variable("i"), Variable("j")), Tensor)))
+            )
+          )
+        )
+      ),
+      (
+        Rule(
+          Access("interHead3_US", Seq(Variable("i"), Variable("j")), UniqueSet),
+          SoP(
+            Seq(
+              Prod(
+                Seq(
+                  Access("B_US", Seq(Variable("i"), Variable("j")), UniqueSet)
+                )
+              )
+            )
+          )
+        ),
+        Rule(
+          Access(
+            "interHead3_RM",
+            Seq(Variable("i"), Variable("j"), Variable("ip"), Variable("jp")),
+            RedundancyMap
+          ),
+          SoP(
+            Seq(
+              Prod(
+                Seq(
+                  Access(
+                    "B_RM",
+                    Seq(
+                      Variable("i"),
+                      Variable("j"),
+                      Variable("ip"),
+                      Variable("jp")
+                    ),
+                    RedundancyMap
+                  )
+                )
+              )
+            )
+          )
+        ),
+        Rule(
+          Access(
+            "interHead3_C",
+            Seq(Variable("i"), Variable("j")),
+            CompressedTensor
+          ),
+          SoP(
+            Seq(
+              Prod(
+                Seq(
+                  Access(
+                    "B_C",
+                    Seq(Variable("i"), Variable("j")),
+                    CompressedTensor
+                  )
+                )
+              )
+            )
+          )
+        ),
+        Rule(
+          Access("interHead3", Seq(Variable("i"), Variable("j")), Tensor),
+          SoP(
+            Seq(
+              Prod(Seq(Access("B", Seq(Variable("i"), Variable("j")), Tensor)))
+            )
+          )
+        )
+      ),
+      (
+        Rule(
+          Access("interHead4_US", Seq(Variable("i"), Variable("j")), UniqueSet),
+          SoP(
+            Seq(
+              Prod(
+                Seq(
+                  Access("C_US", Seq(Variable("i"), Variable("j")), UniqueSet)
+                )
+              )
+            )
+          )
+        ),
+        Rule(
+          Access(
+            "interHead4_RM",
+            Seq(Variable("i"), Variable("j"), Variable("ip"), Variable("jp")),
+            RedundancyMap
+          ),
+          SoP(
+            Seq(
+              Prod(
+                Seq(
+                  Access(
+                    "C_RM",
+                    Seq(
+                      Variable("i"),
+                      Variable("j"),
+                      Variable("ip"),
+                      Variable("jp")
+                    ),
+                    RedundancyMap
+                  )
+                )
+              )
+            )
+          )
+        ),
+        Rule(
+          Access(
+            "interHead4_C",
+            Seq(Variable("i"), Variable("j")),
+            CompressedTensor
+          ),
+          SoP(
+            Seq(
+              Prod(
+                Seq(
+                  Access(
+                    "C_C",
+                    Seq(Variable("i"), Variable("j")),
+                    CompressedTensor
+                  )
+                )
+              )
+            )
+          )
+        ),
+        Rule(
+          Access("interHead4", Seq(Variable("i"), Variable("j")), Tensor),
+          SoP(
+            Seq(
+              Prod(Seq(Access("C", Seq(Variable("i"), Variable("j")), Tensor)))
+            )
+          )
+        )
+      )
+    )
+
+    val res = Compiler.binAdd(
+      rule.head,
+      rule.body.prods.head.exps(0),
+      rule.body.prods.head.exps(1),
+      ctx
+    )
+    val (us, rm, cc) = res
+
+    us shouldBe Rule(
+      Access("A_US", Seq(Variable("i"), Variable("j")), UniqueSet),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access("B_US", Seq(Variable("i"), Variable("j")), UniqueSet)
+            )
+          )
+        )
+      )
+    )
+
+    rm shouldBe Rule(
+      Access(
+        "A_RM",
+        Seq(Variable("i"), Variable("j"), Variable("ip"), Variable("jp")),
+        RedundancyMap
+      ),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access(
+                "B_RM",
+                Seq(
+                  Variable("i"),
+                  Variable("j"),
+                  Variable("ip"),
+                  Variable("jp")
+                ),
+                RedundancyMap
+              )
+            )
+          )
+        )
+      )
+    )
+
+    cc shouldBe Rule(
+      Access("A_C", Seq(Variable("i"), Variable("j")), CompressedTensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access("B_C", Seq(Variable("i"), Variable("j")), CompressedTensor)
+            )
+          ),
+          Prod(
+            Seq(
+              Access("C_C", Seq(Variable("i"), Variable("j")), CompressedTensor)
+            )
+          )
+        )
+      )
+    )
+  }
+
+  it should "infer the structure for binary addition where the unique set and redundancy map of inputs are disjoint" in {
+    /* symbols: N
+      A(i, j) := B(i, j) + C(i, j)
+      A:D(i, j) := (0 <= i < N) * (0 <= j < N)
+      B:D(i, j) := (0 <= i < N) * (0 <= j < N)
+      C:D(i, j) := (0 <= i < N) * (0 <= j < N)
+      B:U(i, j) := (i <= j)
+      C:U(i, j) := (i > j)
+     */
+    val rule = Rule(
+      Access("A", Seq(Variable("i"), Variable("j")), Tensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access("B", Seq(Variable("i"), Variable("j")), Tensor),
+              Access("C", Seq(Variable("i"), Variable("j")), Tensor)
+            )
+          )
+        )
+      )
+    )
+    val ctx = Seq(
+      (
+        Rule(
+          Access("B_US", Seq(Variable("i"), Variable("j")), UniqueSet),
+          SoP(
+            Seq(
+              Prod(
+                Seq(
+                  Comparison("<=", ConstantInt(0), Variable("i")),
+                  Comparison(">", Variable("N"), Variable("i")),
+                  Comparison("<=", ConstantInt(0), Variable("j")),
+                  Comparison(">", Variable("N"), Variable("j")),
+                  Comparison("<=", Variable("i"), Variable("j"))
+                )
+              )
+            )
+          )
+        ),
+        Rule(
+          Access(
+            "B_RM",
+            Seq(Variable("i"), Variable("j"), Variable("ip"), Variable("jp")),
+            RedundancyMap
+          ),
+          SoP(Seq())
+        ),
+        Rule(
+          Access("B_C", Seq(Variable("i"), Variable("j")), CompressedTensor),
+          SoP(
+            Seq(
+              Prod(
+                Seq(
+                  Access("B", Seq(Variable("i"), Variable("j")), Tensor),
+                  Comparison("<=", ConstantInt(0), Variable("i")),
+                  Comparison(">", Variable("N"), Variable("i")),
+                  Comparison("<=", ConstantInt(0), Variable("j")),
+                  Comparison(">", Variable("N"), Variable("j")),
+                  Comparison("<=", Variable("i"), Variable("j"))
+                )
+              )
+            )
+          )
+        ),
+        Rule(
+          Access("B", Seq(Variable("i"), Variable("j")), Tensor),
+          SoP(
+            Seq(
+              Prod(Seq(Access("B", Seq(Variable("i"), Variable("j")), Tensor)))
+            )
+          )
+        )
+      ),
+      (
+        Rule(
+          Access("C_US", Seq(Variable("i"), Variable("j")), UniqueSet),
+          SoP(
+            Seq(
+              Prod(
+                Seq(
+                  Comparison("<=", ConstantInt(0), Variable("i")),
+                  Comparison(">", Variable("N"), Variable("i")),
+                  Comparison("<=", ConstantInt(0), Variable("j")),
+                  Comparison(">", Variable("N"), Variable("j")),
+                  Comparison(">", Variable("i"), Variable("j"))
+                )
+              )
+            )
+          )
+        ),
+        Rule(
+          Access(
+            "C_RM",
+            Seq(Variable("i"), Variable("j"), Variable("ip"), Variable("jp")),
+            RedundancyMap
+          ),
+          SoP(Seq())
+        ),
+        Rule(
+          Access("C_C", Seq(Variable("i"), Variable("j")), CompressedTensor),
+          SoP(
+            Seq(
+              Prod(
+                Seq(
+                  Access("C", Seq(Variable("i"), Variable("j")), Tensor),
+                  Comparison("<=", ConstantInt(0), Variable("i")),
+                  Comparison(">", Variable("N"), Variable("i")),
+                  Comparison("<=", ConstantInt(0), Variable("j")),
+                  Comparison(">", Variable("N"), Variable("j")),
+                  Comparison(">", Variable("i"), Variable("j"))
+                )
+              )
+            )
+          )
+        ),
+        Rule(
+          Access("C", Seq(Variable("i"), Variable("j")), Tensor),
+          SoP(
+            Seq(
+              Prod(Seq(Access("C", Seq(Variable("i"), Variable("j")), Tensor)))
+            )
+          )
+        )
+      ),
+      (
+        Rule(
+          Access("interHead3_US", Seq(Variable("i"), Variable("j")), UniqueSet),
+          SoP(
+            Seq(
+              Prod(
+                Seq(
+                  Access("B_US", Seq(Variable("i"), Variable("j")), UniqueSet)
+                )
+              )
+            )
+          )
+        ),
+        Rule(
+          Access(
+            "interHead3_RM",
+            Seq(Variable("i"), Variable("j"), Variable("ip"), Variable("jp")),
+            RedundancyMap
+          ),
+          SoP(
+            Seq(
+              Prod(
+                Seq(
+                  Access(
+                    "B_RM",
+                    Seq(
+                      Variable("i"),
+                      Variable("j"),
+                      Variable("ip"),
+                      Variable("jp")
+                    ),
+                    RedundancyMap
+                  )
+                )
+              )
+            )
+          )
+        ),
+        Rule(
+          Access(
+            "interHead3_C",
+            Seq(Variable("i"), Variable("j")),
+            CompressedTensor
+          ),
+          SoP(
+            Seq(
+              Prod(
+                Seq(
+                  Access(
+                    "B_C",
+                    Seq(Variable("i"), Variable("j")),
+                    CompressedTensor
+                  )
+                )
+              )
+            )
+          )
+        ),
+        Rule(
+          Access("interHead3", Seq(Variable("i"), Variable("j")), Tensor),
+          SoP(
+            Seq(
+              Prod(Seq(Access("B", Seq(Variable("i"), Variable("j")), Tensor)))
+            )
+          )
+        )
+      ),
+      (
+        Rule(
+          Access("interHead4_US", Seq(Variable("i"), Variable("j")), UniqueSet),
+          SoP(
+            Seq(
+              Prod(
+                Seq(
+                  Access("C_US", Seq(Variable("i"), Variable("j")), UniqueSet)
+                )
+              )
+            )
+          )
+        ),
+        Rule(
+          Access(
+            "interHead4_RM",
+            Seq(Variable("i"), Variable("j"), Variable("ip"), Variable("jp")),
+            RedundancyMap
+          ),
+          SoP(
+            Seq(
+              Prod(
+                Seq(
+                  Access(
+                    "C_RM",
+                    Seq(
+                      Variable("i"),
+                      Variable("j"),
+                      Variable("ip"),
+                      Variable("jp")
+                    ),
+                    RedundancyMap
+                  )
+                )
+              )
+            )
+          )
+        ),
+        Rule(
+          Access(
+            "interHead4_C",
+            Seq(Variable("i"), Variable("j")),
+            CompressedTensor
+          ),
+          SoP(
+            Seq(
+              Prod(
+                Seq(
+                  Access(
+                    "C_C",
+                    Seq(Variable("i"), Variable("j")),
+                    CompressedTensor
+                  )
+                )
+              )
+            )
+          )
+        ),
+        Rule(
+          Access("interHead4", Seq(Variable("i"), Variable("j")), Tensor),
+          SoP(
+            Seq(
+              Prod(Seq(Access("C", Seq(Variable("i"), Variable("j")), Tensor)))
+            )
+          )
+        )
+      )
+    )
+
+    val res = Compiler.binAdd(
+      rule.head,
+      rule.body.prods.head.exps(0),
+      rule.body.prods.head.exps(1),
+      ctx
+    )
+    val (us, rm, cc) = res
+
+    us shouldBe Rule(
+      Access("A_US", Seq(Variable("i"), Variable("j")), UniqueSet),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access("B_US", Seq(Variable("i"), Variable("j")), UniqueSet)
+            )
+          ),
+          Prod(
+            Seq(Access("C_US", Seq(Variable("i"), Variable("j")), UniqueSet))
+          )
+        )
+      )
+    )
+
+    rm shouldBe Rule(
+      Access(
+        "A_RM",
+        Seq(Variable("i"), Variable("j"), Variable("ip"), Variable("jp")),
+        RedundancyMap
+      ),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access(
+                "B_RM",
+                Seq(
+                  Variable("i"),
+                  Variable("j"),
+                  Variable("ip"),
+                  Variable("jp")
+                ),
+                RedundancyMap
+              )
+            )
+          ),
+          Prod(
+            Seq(
+              Access(
+                "C_RM",
+                Seq(
+                  Variable("i"),
+                  Variable("j"),
+                  Variable("ip"),
+                  Variable("jp")
+                ),
+                RedundancyMap
+              )
+            )
+          )
+        )
+      )
+    )
+
+    cc shouldBe Rule(
+      Access("A_C", Seq(Variable("i"), Variable("j")), CompressedTensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access("B_C", Seq(Variable("i"), Variable("j")), CompressedTensor)
+            )
+          ),
+          Prod(
+            Seq(
+              Access("C_C", Seq(Variable("i"), Variable("j")), CompressedTensor)
+            )
+          )
+        )
+      )
+    )
+  }
+
+  it should "infer the structure for binary addition where the unique set and redundancy map of inputs are neither disjoint nor the same" in {
+    /* symbols: N
+      A(i, j) := B(i, j) + C(i, j)
+      A:D(i, j) := (0 <= i < N) * (0 <= j < N)
+      B:D(i, j) := (0 <= i < N) * (0 <= j < N)
+      C:D(i, j) := (0 <= i < N) * (0 <= j < N)
+      B:U(i, j) := (i <= j)
+      C:U(i, j) := (i >= j)
+     */
+    val rule = Rule(
+      Access("A", Seq(Variable("i"), Variable("j")), Tensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access("B", Seq(Variable("i"), Variable("j")), Tensor),
+              Access("C", Seq(Variable("i"), Variable("j")), Tensor)
+            )
+          )
+        )
+      )
+    )
+    val ctx = Seq(
+      (
+        Rule(
+          Access("B_US", Seq(Variable("i"), Variable("j")), UniqueSet),
+          SoP(
+            Seq(
+              Prod(
+                Seq(
+                  Comparison("<=", ConstantInt(0), Variable("i")),
+                  Comparison(">", Variable("N"), Variable("i")),
+                  Comparison("<=", ConstantInt(0), Variable("j")),
+                  Comparison(">", Variable("N"), Variable("j")),
+                  Comparison("<=", Variable("i"), Variable("j"))
+                )
+              )
+            )
+          )
+        ),
+        Rule(
+          Access(
+            "B_RM",
+            Seq(Variable("i"), Variable("j"), Variable("ip"), Variable("jp")),
+            RedundancyMap
+          ),
+          SoP(Seq())
+        ),
+        Rule(
+          Access("B_C", Seq(Variable("i"), Variable("j")), CompressedTensor),
+          SoP(
+            Seq(
+              Prod(
+                Seq(
+                  Access("B", Seq(Variable("i"), Variable("j")), Tensor),
+                  Comparison("<=", ConstantInt(0), Variable("i")),
+                  Comparison(">", Variable("N"), Variable("i")),
+                  Comparison("<=", ConstantInt(0), Variable("j")),
+                  Comparison(">", Variable("N"), Variable("j")),
+                  Comparison("<=", Variable("i"), Variable("j"))
+                )
+              )
+            )
+          )
+        ),
+        Rule(
+          Access("B", Seq(Variable("i"), Variable("j")), Tensor),
+          SoP(
+            Seq(
+              Prod(Seq(Access("B", Seq(Variable("i"), Variable("j")), Tensor)))
+            )
+          )
+        )
+      ),
+      (
+        Rule(
+          Access("C_US", Seq(Variable("i"), Variable("j")), UniqueSet),
+          SoP(
+            Seq(
+              Prod(
+                Seq(
+                  Comparison("<=", ConstantInt(0), Variable("i")),
+                  Comparison(">", Variable("N"), Variable("i")),
+                  Comparison("<=", ConstantInt(0), Variable("j")),
+                  Comparison(">", Variable("N"), Variable("j")),
+                  Comparison(">=", Variable("i"), Variable("j"))
+                )
+              )
+            )
+          )
+        ),
+        Rule(
+          Access(
+            "C_RM",
+            Seq(Variable("i"), Variable("j"), Variable("ip"), Variable("jp")),
+            RedundancyMap
+          ),
+          SoP(Seq())
+        ),
+        Rule(
+          Access("C_C", Seq(Variable("i"), Variable("j")), CompressedTensor),
+          SoP(
+            Seq(
+              Prod(
+                Seq(
+                  Access("C", Seq(Variable("i"), Variable("j")), Tensor),
+                  Comparison("<=", ConstantInt(0), Variable("i")),
+                  Comparison(">", Variable("N"), Variable("i")),
+                  Comparison("<=", ConstantInt(0), Variable("j")),
+                  Comparison(">", Variable("N"), Variable("j")),
+                  Comparison(">=", Variable("i"), Variable("j"))
+                )
+              )
+            )
+          )
+        ),
+        Rule(
+          Access("C", Seq(Variable("i"), Variable("j")), Tensor),
+          SoP(
+            Seq(
+              Prod(Seq(Access("C", Seq(Variable("i"), Variable("j")), Tensor)))
+            )
+          )
+        )
+      ),
+      (
+        Rule(
+          Access("interHead3_US", Seq(Variable("i"), Variable("j")), UniqueSet),
+          SoP(
+            Seq(
+              Prod(
+                Seq(
+                  Access("B_US", Seq(Variable("i"), Variable("j")), UniqueSet)
+                )
+              )
+            )
+          )
+        ),
+        Rule(
+          Access(
+            "interHead3_RM",
+            Seq(Variable("i"), Variable("j"), Variable("ip"), Variable("jp")),
+            RedundancyMap
+          ),
+          SoP(
+            Seq(
+              Prod(
+                Seq(
+                  Access(
+                    "B_RM",
+                    Seq(
+                      Variable("i"),
+                      Variable("j"),
+                      Variable("ip"),
+                      Variable("jp")
+                    ),
+                    RedundancyMap
+                  )
+                )
+              )
+            )
+          )
+        ),
+        Rule(
+          Access(
+            "interHead3_C",
+            Seq(Variable("i"), Variable("j")),
+            CompressedTensor
+          ),
+          SoP(
+            Seq(
+              Prod(
+                Seq(
+                  Access(
+                    "B_C",
+                    Seq(Variable("i"), Variable("j")),
+                    CompressedTensor
+                  )
+                )
+              )
+            )
+          )
+        ),
+        Rule(
+          Access("interHead3", Seq(Variable("i"), Variable("j")), Tensor),
+          SoP(
+            Seq(
+              Prod(Seq(Access("B", Seq(Variable("i"), Variable("j")), Tensor)))
+            )
+          )
+        )
+      ),
+      (
+        Rule(
+          Access("interHead4_US", Seq(Variable("i"), Variable("j")), UniqueSet),
+          SoP(
+            Seq(
+              Prod(
+                Seq(
+                  Access("C_US", Seq(Variable("i"), Variable("j")), UniqueSet)
+                )
+              )
+            )
+          )
+        ),
+        Rule(
+          Access(
+            "interHead4_RM",
+            Seq(Variable("i"), Variable("j"), Variable("ip"), Variable("jp")),
+            RedundancyMap
+          ),
+          SoP(
+            Seq(
+              Prod(
+                Seq(
+                  Access(
+                    "C_RM",
+                    Seq(
+                      Variable("i"),
+                      Variable("j"),
+                      Variable("ip"),
+                      Variable("jp")
+                    ),
+                    RedundancyMap
+                  )
+                )
+              )
+            )
+          )
+        ),
+        Rule(
+          Access(
+            "interHead4_C",
+            Seq(Variable("i"), Variable("j")),
+            CompressedTensor
+          ),
+          SoP(
+            Seq(
+              Prod(
+                Seq(
+                  Access(
+                    "C_C",
+                    Seq(Variable("i"), Variable("j")),
+                    CompressedTensor
+                  )
+                )
+              )
+            )
+          )
+        ),
+        Rule(
+          Access("interHead4", Seq(Variable("i"), Variable("j")), Tensor),
+          SoP(
+            Seq(
+              Prod(Seq(Access("C", Seq(Variable("i"), Variable("j")), Tensor)))
+            )
+          )
+        )
+      )
+    )
+
+    val res = Compiler.binAdd(
+      rule.head,
+      rule.body.prods.head.exps(0),
+      rule.body.prods.head.exps(1),
+      ctx
+    )
+    val (us, rm, cc) = res
+
+    us shouldBe Rule(
+      Access("A_US", Seq(Variable("i"), Variable("j")), UniqueSet),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access("B_US", Seq(Variable("i"), Variable("j")), UniqueSet)
+            )
+          ),
+          Prod(
+            Seq(Access("C_US", Seq(Variable("i"), Variable("j")), UniqueSet))
+          ),
+          Prod(
+            Seq(
+              Access(
+                "B_RM",
+                Seq(
+                  Variable("i"),
+                  Variable("j"),
+                  Variable("ip"),
+                  Variable("jp")
+                ),
+                RedundancyMap
+              )
+            )
+          ),
+          Prod(
+            Seq(
+              Access(
+                "C_RM",
+                Seq(
+                  Variable("i"),
+                  Variable("j"),
+                  Variable("ip"),
+                  Variable("jp")
+                ),
+                RedundancyMap
+              )
+            )
+          )
+        )
+      )
+    )
+
+    rm shouldBe Rule(
+      Access(
+        "A_RM",
+        Seq(Variable("i"), Variable("j"), Variable("ip"), Variable("jp")),
+        RedundancyMap
+      ),
+      SoP(
+        Seq()
+      )
+    )
+
+    cc shouldBe Rule(
+      Access("A_C", Seq(Variable("i"), Variable("j")), CompressedTensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access(
+                "B_C",
+                Seq(Variable("i"), Variable("j")),
+                CompressedTensor
+              )
+            )
+          ),
+          Prod(
+            Seq(
+              Access(
+                "C_C",
+                Seq(Variable("i"), Variable("j")),
+                CompressedTensor
+              )
+            )
+          ),
+          Prod(
+            Seq(
+              Access(
+                "B_RM",
+                Seq(
+                  Variable("i"),
+                  Variable("j"),
+                  Variable("ip"),
+                  Variable("jp")
+                ),
+                RedundancyMap
+              ),
+              Access("B", Seq(Variable("ip"), Variable("jp")), Tensor)
+            )
+          ),
+          Prod(
+            Seq(
+              Access(
+                "C_RM",
+                Seq(
+                  Variable("i"),
+                  Variable("j"),
+                  Variable("ip"),
+                  Variable("jp")
+                ),
+                RedundancyMap
+              ),
+              Access("C", Seq(Variable("ip"), Variable("jp")), Tensor)
+            )
+          )
+        )
+      )
+    )
+  }
 
   it should "infer the structure of tensor's head for a normalized rule given a context" in {}
 
