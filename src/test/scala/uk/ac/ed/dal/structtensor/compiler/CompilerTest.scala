@@ -40,7 +40,21 @@ class CompilerTest
     res shouldBe true
   }
 
-  it should "group expressions with the same name" in {}
+  it should "group accesses with the same name" in {
+    val exprs = Seq(
+      Access("a", Seq(Variable("i"), Variable("j")), Tensor),
+      Access("a", Seq(Variable("k"), Variable("l")), Tensor),
+      Access("b", Seq(Variable("m"), Variable("n")), Tensor),
+      Access("b", Seq(Variable("o"), Variable("p")), Tensor),
+      Access("a", Seq(Variable("q"), Variable("r")), Tensor)
+    )
+    val res = Compiler.groupBySameName(exprs.head, exprs.tail)
+    res should contain theSameElementsAs Seq(
+      Access("a", Seq(Variable("i"), Variable("j")), Tensor),
+      Access("a", Seq(Variable("k"), Variable("l")), Tensor),
+      Access("a", Seq(Variable("q"), Variable("r")), Tensor)
+    )
+  }
 
   it should "whether a rule is a shift rule" in {}
 
