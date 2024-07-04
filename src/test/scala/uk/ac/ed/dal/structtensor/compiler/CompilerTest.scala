@@ -363,7 +363,129 @@ class CompilerTest
     test_value shouldBe true
   }
 
-  it should "infer the structure for shift" in {}
+  it should "infer the structure for shift" in {
+    val rule = Rule(
+      Access("a", Seq(Variable("p"), Variable("q")), Tensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access("b", Seq(Variable("i"), Variable("j")), Tensor),
+              Comparison(
+                "=",
+                Arithmetic("-", Variable("p"), ConstantInt(5)),
+                Variable("i")
+              ),
+              Comparison(
+                "=",
+                Arithmetic("-", Variable("q"), Variable("N")),
+                Variable("j")
+              )
+            )
+          )
+        )
+      )
+    )
+    val res = Compiler.shift(
+      rule.head,
+      rule.body.prods.head.exps.head.asInstanceOf[Access],
+      rule.body.prods.head.exps.tail
+    )
+    val (us, rm, cc) = res
+    us shouldBe Rule(
+      Access("a_US", Seq(Variable("p"), Variable("q")), UniqueSet),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access("b_US", Seq(Variable("i"), Variable("j")), UniqueSet),
+              Comparison(
+                "=",
+                Arithmetic("-", Variable("p"), ConstantInt(5)),
+                Variable("i")
+              ),
+              Comparison(
+                "=",
+                Arithmetic("-", Variable("q"), Variable("N")),
+                Variable("j")
+              )
+            )
+          )
+        )
+      )
+    )
+    rm shouldBe Rule(
+      Access(
+        "a_RM",
+        Seq(Variable("p"), Variable("q"), Variable("pp"), Variable("qp")),
+        RedundancyMap
+      ),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access(
+                "b_RM",
+                Seq(
+                  Variable("i"),
+                  Variable("j"),
+                  Variable("ip"),
+                  Variable("jp")
+                ),
+                RedundancyMap
+              ),
+              Comparison(
+                "=",
+                Arithmetic("-", Variable("p"), ConstantInt(5)),
+                Variable("i")
+              ),
+              Comparison(
+                "=",
+                Arithmetic("-", Variable("q"), Variable("N")),
+                Variable("j")
+              ),
+              Comparison(
+                "=",
+                Arithmetic("-", Variable("pp"), ConstantInt(5)),
+                Variable("ip")
+              ),
+              Comparison(
+                "=",
+                Arithmetic("-", Variable("qp"), Variable("N")),
+                Variable("jp")
+              )
+            )
+          )
+        )
+      )
+    )
+    cc shouldBe Rule(
+      Access("a_C", List(Variable("p"), Variable("q")), CompressedTensor),
+      SoP(
+        List(
+          Prod(
+            List(
+              Access(
+                "b_C",
+                List(Variable("i"), Variable("j")),
+                CompressedTensor
+              ),
+              Comparison(
+                "=",
+                Arithmetic("-", Variable("p"), ConstantInt(5)),
+                Variable("i")
+              ),
+              Comparison(
+                "=",
+                Arithmetic("-", Variable("q"), Variable("N")),
+                Variable("j")
+              )
+            )
+          )
+        )
+      )
+    )
+  }
 
   it should "infer the structure for project" in {}
 
