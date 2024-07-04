@@ -688,7 +688,17 @@ class CompilerTest
     }
   }
 
-  it should "be able to generate a vectorize comparison multiplication" in {}
+  it should "be able to generate a vectorize comparison multiplication" in {
+    Compiler.vectorizeComparisonMultiplication(
+      "<=",
+      Seq(Variable("i1"), Variable("i2"), Variable("i3")),
+      Seq(Variable("j1"), Variable("j2"), Variable("j3"))
+    ) shouldBe Seq(
+      Comparison("<=", Variable("i1"), Variable("j1")),
+      Comparison("<=", Variable("i2"), Variable("j2")),
+      Comparison("<=", Variable("i3"), Variable("j3"))
+    )
+  }
 
   it should "infer the structure for binary multiplication" in {}
 
