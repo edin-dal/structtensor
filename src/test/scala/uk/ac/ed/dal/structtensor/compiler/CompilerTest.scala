@@ -15,9 +15,23 @@ class CompilerTest
     with Matchers
     with ParallelTestExecution {
 
-  "Compiler" should "get all the variables in an expression" in {}
+  "Compiler" should "get all the variables in an access" in {
+    val access = Access("a", Seq(Variable("i"), Variable("j")), Tensor)
+    val vars = Compiler.getAllVariables(access)
+    vars should contain theSameElementsAs Seq(Variable("i"), Variable("j"))
+  }
 
-  it should "get all the variables in an index" in {}
+  it should "get all the variables in a comparison" in {
+    val comp = Comparison("<", Variable("i"), Variable("j"))
+    val vars = Compiler.getAllVariables(comp)
+    vars should contain theSameElementsAs Seq(Variable("i"), Variable("j"))
+  }
+
+  it should "get all the variables in an arithmetic" in {
+    val arithmetic = Arithmetic("+", Variable("i"), Variable("j"))
+    val vars = Compiler.getAllVariables(arithmetic)
+    vars should contain theSameElementsAs Seq(Variable("i"), Variable("j"))
+  }
 
   it should "check whether the pairwise intersection of a sequnece of sequences is empty" in {}
 
