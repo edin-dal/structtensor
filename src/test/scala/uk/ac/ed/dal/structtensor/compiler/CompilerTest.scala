@@ -460,14 +460,14 @@ class CompilerTest
       )
     )
     cc shouldBe Rule(
-      Access("a_C", List(Variable("p"), Variable("q")), CompressedTensor),
+      Access("a_C", Seq(Variable("p"), Variable("q")), CompressedTensor),
       SoP(
-        List(
+        Seq(
           Prod(
-            List(
+            Seq(
               Access(
                 "b_C",
-                List(Variable("i"), Variable("j")),
+                Seq(Variable("i"), Variable("j")),
                 CompressedTensor
               ),
               Comparison(
@@ -487,7 +487,206 @@ class CompilerTest
     )
   }
 
-  it should "infer the structure for project" in {}
+  it should "infer the structure for project when lhs and rhs have the same set of variables" in {
+    val rule = Rule(
+      Access("a", Seq(Variable("i"), Variable("j")), Tensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access("b", Seq(Variable("i"), Variable("j")), Tensor)
+            )
+          )
+        )
+      )
+    )
+    val res = Compiler.project(
+      rule.head,
+      rule.body.prods.head.exps.head.asInstanceOf[Access]
+    )
+    val (us, rm, cc) = res
+
+    us shouldBe Rule(
+      Access("a_US", Seq(Variable("i"), Variable("j")), UniqueSet),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access("b_US", Seq(Variable("i"), Variable("j")), UniqueSet)
+            )
+          )
+        )
+      )
+    )
+
+    rm shouldBe Rule(
+      Access(
+        "a_RM",
+        Seq(Variable("i"), Variable("j"), Variable("ip"), Variable("jp")),
+        RedundancyMap
+      ),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access(
+                "b_RM",
+                Seq(
+                  Variable("i"),
+                  Variable("j"),
+                  Variable("ip"),
+                  Variable("jp")
+                ),
+                RedundancyMap
+              )
+            )
+          )
+        )
+      )
+    )
+
+    cc shouldBe Rule(
+      Access("a_C", Seq(Variable("i"), Variable("j")), CompressedTensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access(
+                "b_C",
+                Seq(Variable("i"), Variable("j")),
+                CompressedTensor
+              )
+            )
+          )
+        )
+      )
+    )
+  }
+
+  it should "infer the structure for project when rhs has a superset of lhs variables" in {
+    val rule = Rule(
+      Access("a", Seq(Variable("i"), Variable("j")), Tensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access(
+                "b",
+                Seq(Variable("i"), Variable("j"), Variable("k")),
+                Tensor
+              )
+            )
+          )
+        )
+      )
+    )
+    val res = Compiler.project(
+      rule.head,
+      rule.body.prods.head.exps.head.asInstanceOf[Access]
+    )
+    val (us, rm, cc) = res
+
+    us shouldBe Rule(
+      Access("a_US", Seq(Variable("i"), Variable("j")), UniqueSet),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access(
+                "b_US",
+                Seq(Variable("i"), Variable("j"), Variable("k")),
+                UniqueSet
+              )
+            )
+          ),
+          Prod(
+            Seq(
+              Access(
+                "b_RM",
+                Seq(
+                  Variable("i"),
+                  Variable("j"),
+                  Variable("k"),
+                  Variable("ip"),
+                  Variable("jp"),
+                  Variable("kp")
+                ),
+                RedundancyMap
+              )
+            )
+          )
+        )
+      )
+    )
+
+    rm shouldBe Rule(
+      Access(
+        "a_RM",
+        Seq(Variable("i"), Variable("j"), Variable("ip"), Variable("jp")),
+        RedundancyMap
+      ),
+      emptySoP()
+    )
+
+    cc shouldBe Rule(
+      Access("a_C", Seq(Variable("i"), Variable("j")), CompressedTensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access(
+                "b_C",
+                Seq(Variable("i"), Variable("j"), Variable("k")),
+                CompressedTensor
+              )
+            )
+          ),
+          Prod(
+            Seq(
+              Access(
+                "b_RM",
+                Seq(
+                  Variable("i"),
+                  Variable("j"),
+                  Variable("k"),
+                  Variable("ip"),
+                  Variable("jp"),
+                  Variable("kp")
+                ),
+                RedundancyMap
+              ),
+              Access(
+                "b",
+                Seq(Variable("ip"), Variable("jp"), Variable("kp")),
+                Tensor
+              )
+            )
+          )
+        )
+      )
+    )
+  }
+
+  it should "throw an assertion error if the rhs variables are a subset of lhs" in {
+    val rule = Rule(
+      Access("a", Seq(Variable("i"), Variable("j")), Tensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access("b", Seq(Variable("i")), Tensor)
+            )
+          )
+        )
+      )
+    )
+    assertThrows[AssertionError] {
+      Compiler.project(
+        rule.head,
+        rule.body.prods.head.exps.head.asInstanceOf[Access]
+      )
+    }
+  }
 
   it should "be able to generate a vectorize comparison multiplication" in {}
 
