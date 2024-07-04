@@ -700,7 +700,401 @@ class CompilerTest
     )
   }
 
-  it should "infer the structure for binary multiplication" in {}
+  it should "infer the structure for binary multiplication when both rhs expressions are accesses with the same name and disjoint variables" in {
+    val rule = Rule(
+      Access("a", Seq(Variable("i"), Variable("j")), Tensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access("b", Seq(Variable("i")), Tensor),
+              Access("b", Seq(Variable("j")), Tensor)
+            )
+          )
+        )
+      )
+    )
+    val res = Compiler.binMult(
+      rule.head,
+      rule.body.prods.head.exps(0),
+      rule.body.prods.head.exps(1)
+    )
+    val (us, rm, cc) = res
+
+    us shouldBe Rule(
+      Access("a_US", Seq(Variable("i"), Variable("j")), UniqueSet),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access("b_US", Seq(Variable("i")), UniqueSet),
+              Access("b_US", Seq(Variable("j")), UniqueSet),
+              Comparison("<=", Variable("i"), Variable("j"))
+            )
+          )
+        )
+      )
+    )
+
+    rm shouldBe Rule(
+      Access(
+        "a_RM",
+        Seq(Variable("i"), Variable("j"), Variable("ip"), Variable("jp")),
+        RedundancyMap
+      ),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access("b_RM", Seq(Variable("i"), Variable("ip")), RedundancyMap),
+              Access("b_RM", Seq(Variable("j"), Variable("jp")), RedundancyMap)
+            )
+          ),
+          Prod(
+            Seq(
+              Access("b_US", Seq(Variable("i")), UniqueSet),
+              Access("b_RM", Seq(Variable("j"), Variable("jp")), RedundancyMap),
+              Comparison("=", Variable("i"), Variable("ip"))
+            )
+          ),
+          Prod(
+            Seq(
+              Access("b_RM", Seq(Variable("i"), Variable("ip")), RedundancyMap),
+              Access("b_US", Seq(Variable("j")), UniqueSet),
+              Comparison("=", Variable("j"), Variable("jp"))
+            )
+          ),
+          Prod(
+            Seq(
+              Access("b_US", Seq(Variable("i")), UniqueSet),
+              Access("b_US", Seq(Variable("j")), UniqueSet),
+              Comparison("=", Variable("i"), Variable("jp")),
+              Comparison("=", Variable("j"), Variable("ip")),
+              Comparison(">", Variable("i"), Variable("j"))
+            )
+          )
+        )
+      )
+    )
+
+    cc shouldBe Rule(
+      Access("a_C", Seq(Variable("i"), Variable("j")), CompressedTensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access("b_C", Seq(Variable("i")), CompressedTensor),
+              Access("b_C", Seq(Variable("j")), CompressedTensor),
+              Comparison("<=", Variable("i"), Variable("j"))
+            )
+          )
+        )
+      )
+    )
+  }
+
+  it should "infer the structure for binary multiplication when both rhs expressions are accesses with different name and disjoint variables" in {
+    val rule = Rule(
+      Access("a", Seq(Variable("i"), Variable("j")), Tensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access("b", Seq(Variable("i")), Tensor),
+              Access("c", Seq(Variable("j")), Tensor)
+            )
+          )
+        )
+      )
+    )
+    val res = Compiler.binMult(
+      rule.head,
+      rule.body.prods.head.exps(0),
+      rule.body.prods.head.exps(1)
+    )
+    val (us, rm, cc) = res
+
+    us shouldBe Rule(
+      Access("a_US", Seq(Variable("i"), Variable("j")), UniqueSet),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access("b_US", Seq(Variable("i")), UniqueSet),
+              Access("c_US", Seq(Variable("j")), UniqueSet)
+            )
+          )
+        )
+      )
+    )
+
+    rm shouldBe Rule(
+      Access(
+        "a_RM",
+        Seq(Variable("i"), Variable("j"), Variable("ip"), Variable("jp")),
+        RedundancyMap
+      ),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access("b_RM", Seq(Variable("i"), Variable("ip")), RedundancyMap),
+              Access("c_RM", Seq(Variable("j"), Variable("jp")), RedundancyMap)
+            )
+          ),
+          Prod(
+            Seq(
+              Access("b_US", Seq(Variable("i")), UniqueSet),
+              Access("c_RM", Seq(Variable("j"), Variable("jp")), RedundancyMap),
+              Comparison("=", Variable("i"), Variable("ip"))
+            )
+          ),
+          Prod(
+            Seq(
+              Access("b_RM", Seq(Variable("i"), Variable("ip")), RedundancyMap),
+              Access("c_US", Seq(Variable("j")), UniqueSet),
+              Comparison("=", Variable("j"), Variable("jp"))
+            )
+          )
+        )
+      )
+    )
+
+    cc shouldBe Rule(
+      Access("a_C", Seq(Variable("i"), Variable("j")), CompressedTensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access("b_C", Seq(Variable("i")), CompressedTensor),
+              Access("c_C", Seq(Variable("j")), CompressedTensor)
+            )
+          )
+        )
+      )
+    )
+  }
+
+  it should "infer the structure for binary multiplication when both rhs expressions are accesses with different name and non-disjoint variables" in {
+    val rule = Rule(
+      Access("a", Seq(Variable("i")), Tensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access("b", Seq(Variable("i")), Tensor),
+              Access("c", Seq(Variable("i")), Tensor)
+            )
+          )
+        )
+      )
+    )
+    val res = Compiler.binMult(
+      rule.head,
+      rule.body.prods.head.exps(0),
+      rule.body.prods.head.exps(1)
+    )
+    val (us, rm, cc) = res
+
+    us shouldBe Rule(
+      Access("a_US", Seq(Variable("i")), UniqueSet),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access("b_US", Seq(Variable("i")), UniqueSet),
+              Access("c_US", Seq(Variable("i")), UniqueSet)
+            )
+          ),
+          Prod(
+            Seq(
+              Access("b_US", Seq(Variable("i")), UniqueSet),
+              Access("c_RM", Seq(Variable("i"), Variable("ip")), RedundancyMap)
+            )
+          ),
+          Prod(
+            Seq(
+              Access("b_RM", Seq(Variable("i"), Variable("ip")), RedundancyMap),
+              Access("c_US", Seq(Variable("i")), UniqueSet)
+            )
+          )
+        )
+      )
+    )
+
+    rm shouldBe Rule(
+      Access("a_RM", Seq(Variable("i"), Variable("ip")), RedundancyMap),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access(
+                "b_RM",
+                Seq(Variable("i"), Variable("ip")),
+                RedundancyMap
+              ),
+              Access("c_RM", Seq(Variable("i"), Variable("ip")), RedundancyMap)
+            )
+          )
+        )
+      )
+    )
+
+    cc shouldBe Rule(
+      Access("a_C", Seq(Variable("i")), CompressedTensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access("b_C", Seq(Variable("i")), CompressedTensor),
+              Access("c_C", Seq(Variable("i")), CompressedTensor)
+            )
+          ),
+          Prod(
+            Seq(
+              Access("b_C", Seq(Variable("i")), CompressedTensor),
+              Access(
+                "c_RM",
+                Seq(Variable("i"), Variable("ip")),
+                RedundancyMap
+              ),
+              Access("c", Seq(Variable("ip")), Tensor)
+            )
+          ),
+          Prod(
+            Seq(
+              Access(
+                "b_RM",
+                Seq(Variable("i"), Variable("ip")),
+                RedundancyMap
+              ),
+              Access("c_C", Seq(Variable("i")), CompressedTensor),
+              Access("b", Seq(Variable("ip")), Tensor)
+            )
+          )
+        )
+      )
+    )
+  }
+
+  it should "infer the structure for binary multiplication when one of the rhs expressions is access and the other one is a comparison" in {
+    val rule = Rule(
+      Access("a", Seq(Variable("i")), Tensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access("b", Seq(Variable("i")), Tensor),
+              Comparison("<=", Variable("i"), Variable("N"))
+            )
+          )
+        )
+      )
+    )
+    val res = Compiler.binMult(
+      rule.head,
+      rule.body.prods.head.exps(0),
+      rule.body.prods.head.exps(1)
+    )
+    val (us, rm, cc) = res
+
+    us shouldBe Rule(
+      Access("a_US", Seq(Variable("i")), UniqueSet),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access("b_US", Seq(Variable("i")), UniqueSet),
+              Comparison("<=", Variable("i"), Variable("N"))
+            )
+          )
+        )
+      )
+    )
+
+    rm shouldBe Rule(
+      Access("a_RM", Seq(Variable("i"), Variable("ip")), RedundancyMap),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access("b_RM", Seq(Variable("i"), Variable("ip")), RedundancyMap),
+              Comparison("<=", Variable("i"), Variable("N"))
+            )
+          )
+        )
+      )
+    )
+
+    cc shouldBe Rule(
+      Access("a_C", Seq(Variable("i")), CompressedTensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access("b_C", Seq(Variable("i")), CompressedTensor),
+              Comparison("<=", Variable("i"), Variable("N"))
+            )
+          )
+        )
+      )
+    )
+  }
+
+  it should "infer the structure for binary multiplication when both of the rhs expressions are comparisons" in {
+    val rule = Rule(
+      Access("a", Seq(Variable("i")), Tensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Comparison("<=", Variable("i"), Variable("N")),
+              Comparison("<=", Variable("i"), Variable("M"))
+            )
+          )
+        )
+      )
+    )
+    val res = Compiler.binMult(
+      rule.head,
+      rule.body.prods.head.exps(0),
+      rule.body.prods.head.exps(1)
+    )
+    val (us, rm, cc) = res
+
+    us shouldBe Rule(
+      Access("a_US", Seq(Variable("i")), UniqueSet),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Comparison("<=", Variable("i"), Variable("N")),
+              Comparison("<=", Variable("i"), Variable("M"))
+            )
+          )
+        )
+      )
+    )
+
+    rm shouldBe Rule(
+      Access("a_RM", Seq(Variable("i"), Variable("ip")), RedundancyMap),
+      emptySoP()
+    )
+
+    cc shouldBe Rule(
+      Access("a_C", Seq(Variable("i")), CompressedTensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Comparison("<=", Variable("i"), Variable("N")),
+              Comparison("<=", Variable("i"), Variable("M"))
+            )
+          )
+        )
+      )
+    )
+  }
 
   it should "infer the structure for self outer product" in {}
 
