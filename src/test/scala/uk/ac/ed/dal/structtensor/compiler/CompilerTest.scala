@@ -1329,9 +1329,90 @@ class CompilerTest
     )
   }
 
-  it should "detect whether to SoPs are equal" in {}
+  it should "detect whether to SoPs are equal" in {
+    val sop1 = SoP(
+      Seq(
+        Prod(
+          Seq(
+            Comparison(">", Variable("i"), Variable("j")),
+            Access("b", Seq(Variable("i"), Variable("j")), Tensor)
+          )
+        ),
+        Prod(
+          Seq(
+            Access("a", Seq(Variable("i"), Variable("j")), Tensor),
+            Comparison("<=", Variable("i"), Variable("j"))
+          )
+        )
+      )
+    )
+    val sop2 = SoP(
+      Seq(
+        Prod(
+          Seq(
+            Comparison("<=", Variable("i"), Variable("j")),
+            Access("a", Seq(Variable("i"), Variable("j")), Tensor)
+          )
+        ),
+        Prod(
+          Seq(
+            Access("b", Seq(Variable("i"), Variable("j")), Tensor),
+            Comparison(">", Variable("i"), Variable("j"))
+          )
+        )
+      )
+    )
+    Compiler.isSoPEquals(sop1, sop2) shouldBe true
+  }
 
-  it should "detect whether two SoPs are disjoint" in {}
+  it should "detect whether two SoPs are disjoint" in {
+    val sop1 = SoP(
+      Seq(
+        Prod(
+          Seq(
+            Access("b", Seq(Variable("i"), Variable("j")), Tensor),
+            Comparison("<=", Variable("i"), Variable("j"))
+          )
+        )
+      )
+    )
+    val sop2 = SoP(
+      Seq(
+        Prod(
+          Seq(
+            Access("b", Seq(Variable("i"), Variable("j")), Tensor),
+            Comparison(">", Variable("i"), Variable("j"))
+          )
+        )
+      )
+    )
+    Compiler.isSoPDisjoint(sop1, sop2) shouldBe true
+  }
+
+  it should "detect whether two SoPs are disjoint when one of them is inferred to be empty at compile time" in {
+    val sop1 = SoP(
+      Seq(
+        Prod(
+          Seq(
+            Access("b", Seq(Variable("i"), Variable("j")), Tensor),
+            Comparison("<=", Variable("i"), Variable("j")),
+            Comparison(">", Variable("i"), Variable("j"))
+          )
+        )
+      )
+    )
+    val sop2 = SoP(
+      Seq(
+        Prod(
+          Seq(
+            Access("a", Seq(Variable("i"), Variable("j")), Tensor),
+            Comparison(">", Variable("i"), Variable("j"))
+          )
+        )
+      )
+    )
+    Compiler.isSoPDisjoint(sop1, sop2) shouldBe true
+  }
 
   it should "infer the structure for binary addition" in {}
 

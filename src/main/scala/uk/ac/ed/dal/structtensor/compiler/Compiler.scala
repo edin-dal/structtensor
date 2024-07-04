@@ -625,7 +625,7 @@ object Compiler {
 
   def isSoPDisjoint(sop1: SoP, sop2: SoP): Boolean = {
     val sop = SoPTimesSoP(sop1, sop2)
-    sop.prods.forall(isProductEmpty)
+    sop.prods.forall(isExpOrProductEmpty)
   }
 
   def binAdd(
