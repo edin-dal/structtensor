@@ -177,10 +177,10 @@ class CompilerTest
               SoP(
                 Seq(
                   Prod(
-                    Seq(Access(a, Seq(Variable("i"), Variable("j")), Tensor))
+                    Seq(Access("a", Seq(Variable("i"), Variable("j")), Tensor))
                   ),
                   Prod(
-                    Seq(Access(b, Seq(Variable("i"), Variable("j")), Tensor))
+                    Seq(Access("b", Seq(Variable("i"), Variable("j")), Tensor))
                   )
                 )
               )
@@ -199,13 +199,13 @@ class CompilerTest
                     )
                   ),
                   Prod(
-                    Seq(Access(c, Seq(Variable("i"), Variable("j")), Tensor))
+                    Seq(Access("c", Seq(Variable("i"), Variable("j")), Tensor))
                   )
                 )
               )
             ),
             Rule(
-              Access(t, Seq(Variable("i"), Variable("j")), Tensor),
+              Access("t", Seq(Variable("i"), Variable("j")), Tensor),
               SoP(
                 Seq(
                   Prod(
@@ -228,7 +228,140 @@ class CompilerTest
     test_value shouldEqual true
   }
 
-  it should "normalize a rule" in {}
+  it should "normalize a rule" in {
+    val rule = Rule(
+      Access("t", Seq(Variable("i"), Variable("j")), Tensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access("a", Seq(Variable("i"), Variable("j")), Tensor),
+              Comparison(
+                "=",
+                Arithmetic("-", Variable("i"), ConstantInt(5)),
+                Variable("j")
+              ),
+              Access("p", Seq(Variable("i"), Variable("j")), Tensor)
+            )
+          ),
+          Prod(
+            Seq(
+              Access("b", Seq(Variable("i"), Variable("j")), Tensor),
+              Comparison(
+                "=",
+                Arithmetic("-", Variable("i"), ConstantInt(5)),
+                Variable("j")
+              )
+            )
+          )
+        )
+      )
+    )
+    val res = Compiler.normalize(rule)
+    val sumPattern = """sumHead\d+""".r
+    val prodPattern = """prodHead\d+""".r
+    val interPattern = """interHead\d+""".r
+    val test_value = res match {
+      case Seq(
+            Rule(
+              Access(prodHead2, Seq(Variable("i"), Variable("j")), Tensor),
+              SoP(
+                Seq(
+                  Prod(
+                    Seq(
+                      Access("a", Seq(Variable("i"), Variable("j")), Tensor),
+                      Comparison(
+                        "=",
+                        Arithmetic("-", Variable("i"), ConstantInt(5)),
+                        Variable("j")
+                      )
+                    )
+                  )
+                )
+              )
+            ),
+            Rule(
+              Access(interHead1, Seq(Variable("i"), Variable("j")), Tensor),
+              SoP(
+                Seq(
+                  Prod(
+                    Seq(
+                      Access(
+                        prodHead21,
+                        Seq(Variable("i"), Variable("j")),
+                        Tensor
+                      ),
+                      Access("p", Seq(Variable("i"), Variable("j")), Tensor)
+                    )
+                  )
+                )
+              )
+            ),
+            Rule(
+              Access(interHead3, Seq(Variable("i"), Variable("j")), Tensor),
+              SoP(
+                Seq(
+                  Prod(
+                    Seq(
+                      Access("b", Seq(Variable("i"), Variable("j")), Tensor),
+                      Comparison(
+                        "=",
+                        Arithmetic("-", Variable("i"), ConstantInt(5)),
+                        Variable("j")
+                      )
+                    )
+                  )
+                )
+              )
+            ),
+            Rule(
+              Access(sumHead4, Seq(Variable("i"), Variable("j")), Tensor),
+              SoP(
+                Seq(
+                  Prod(
+                    Seq(
+                      Access(
+                        interHead11,
+                        Seq(Variable("i"), Variable("j")),
+                        Tensor
+                      )
+                    )
+                  ),
+                  Prod(
+                    Seq(
+                      Access(
+                        interHead31,
+                        Seq(Variable("i"), Variable("j")),
+                        Tensor
+                      )
+                    )
+                  )
+                )
+              )
+            ),
+            Rule(
+              Access("t", Seq(Variable("i"), Variable("j")), Tensor),
+              SoP(
+                Seq(
+                  Prod(
+                    Seq(
+                      Access(
+                        sumHead41,
+                        Seq(Variable("i"), Variable("j")),
+                        Tensor
+                      )
+                    )
+                  )
+                )
+              )
+            )
+          )
+          if (prodPattern matches prodHead2) && prodHead2 == prodHead21 && (interPattern matches interHead1) && (interPattern matches interHead3) && interHead1 == interHead11 && interHead3 == interHead31 && (sumPattern matches sumHead4) && sumHead4 == sumHead41 =>
+        true
+      case _ => false
+    }
+    test_value shouldBe true
+  }
 
   it should "infer the structure for shift" in {}
 
