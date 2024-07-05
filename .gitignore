@@ -16,4 +16,4 @@ scripts/
 .bloop/
 .bsp/
 .metals/
-test_outputs/
+src/test/resources/test_outputs/

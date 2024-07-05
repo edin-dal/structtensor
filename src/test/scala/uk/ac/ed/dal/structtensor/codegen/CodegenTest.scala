@@ -16,13 +16,17 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/SpMV_D.stur",
         "-o",
-        "test_outputs/SpMV_D_wo_body_test.cpp"
+        "src/test/resources/test_outputs/SpMV_D_wo_body_test.cpp"
       )
     )
 
     val file1 =
-      scala.io.Source.fromFile("correct_test_outputs/SpMV_D_wo_body.cpp")
-    val file2 = scala.io.Source.fromFile("test_outputs/SpMV_D_wo_body_test.cpp")
+      scala.io.Source.fromFile(
+        "src/test/resources/correct_test_outputs/SpMV_D_wo_body.cpp"
+      )
+    val file2 = scala.io.Source.fromFile(
+      "src/test/resources/test_outputs/SpMV_D_wo_body_test.cpp"
+    )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
@@ -34,14 +38,18 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/SpMV_D.stur",
         "-o",
-        "test_outputs/SpMV_D_w_body_test.cpp",
+        "src/test/resources/test_outputs/SpMV_D_w_body_test.cpp",
         "--init-tensors"
       )
     )
 
     val file1 =
-      scala.io.Source.fromFile("correct_test_outputs/SpMV_D_w_body.cpp")
-    val file2 = scala.io.Source.fromFile("test_outputs/SpMV_D_w_body_test.cpp")
+      scala.io.Source.fromFile(
+        "src/test/resources/correct_test_outputs/SpMV_D_w_body.cpp"
+      )
+    val file2 = scala.io.Source.fromFile(
+      "src/test/resources/test_outputs/SpMV_D_w_body_test.cpp"
+    )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
@@ -53,16 +61,16 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/SpMV_D_DataLayout.stur",
         "-o",
-        "test_outputs/SpMV_D_wo_body_DataLayout_test.cpp"
+        "src/test/resources/test_outputs/SpMV_D_wo_body_DataLayout_test.cpp"
       )
     )
 
     val file1 =
       scala.io.Source.fromFile(
-        "correct_test_outputs/SpMV_D_wo_body_DataLayout.cpp"
+        "src/test/resources/correct_test_outputs/SpMV_D_wo_body_DataLayout.cpp"
       )
     val file2 = scala.io.Source.fromFile(
-      "test_outputs/SpMV_D_wo_body_DataLayout_test.cpp"
+      "src/test/resources/test_outputs/SpMV_D_wo_body_DataLayout_test.cpp"
     )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
@@ -75,17 +83,19 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/SpMV_D_DataLayout.stur",
         "-o",
-        "test_outputs/SpMV_D_w_body_DataLayout_test.cpp",
+        "src/test/resources/test_outputs/SpMV_D_w_body_DataLayout_test.cpp",
         "--init-tensors"
       )
     )
 
     val file1 =
       scala.io.Source.fromFile(
-        "correct_test_outputs/SpMV_D_w_body_DataLayout.cpp"
+        "src/test/resources/correct_test_outputs/SpMV_D_w_body_DataLayout.cpp"
       )
     val file2 =
-      scala.io.Source.fromFile("test_outputs/SpMV_D_w_body_DataLayout_test.cpp")
+      scala.io.Source.fromFile(
+        "src/test/resources/test_outputs/SpMV_D_w_body_DataLayout_test.cpp"
+      )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
@@ -97,16 +107,18 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/SpMV_UT.stur",
         "-o",
-        "test_outputs/SpMV_UT_wo_body_test.cpp"
+        "src/test/resources/test_outputs/SpMV_UT_wo_body_test.cpp"
       )
     )
 
     val file1 =
       scala.io.Source.fromFile(
-        "correct_test_outputs/SpMV_D_w_body_DataLayout.cpp"
+        "src/test/resources/correct_test_outputs/SpMV_D_w_body_DataLayout.cpp"
       )
     val file2 =
-      scala.io.Source.fromFile("test_outputs/SpMV_D_w_body_DataLayout_test.cpp")
+      scala.io.Source.fromFile(
+        "src/test/resources/test_outputs/SpMV_D_w_body_DataLayout_test.cpp"
+      )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
@@ -118,14 +130,18 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/SpMV_UT.stur",
         "-o",
-        "test_outputs/SpMV_UT_w_body_test.cpp",
+        "src/test/resources/test_outputs/SpMV_UT_w_body_test.cpp",
         "--init-tensors"
       )
     )
 
     val file1 =
-      scala.io.Source.fromFile("correct_test_outputs/SpMV_UT_w_body.cpp")
-    val file2 = scala.io.Source.fromFile("test_outputs/SpMV_UT_w_body_test.cpp")
+      scala.io.Source.fromFile(
+        "src/test/resources/correct_test_outputs/SpMV_UT_w_body.cpp"
+      )
+    val file2 = scala.io.Source.fromFile(
+      "src/test/resources/test_outputs/SpMV_UT_w_body_test.cpp"
+    )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
@@ -137,16 +153,16 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/SpMV_UT_DataLayout.stur",
         "-o",
-        "test_outputs/SpMV_UT_wo_body_DataLayout_test.cpp"
+        "src/test/resources/test_outputs/SpMV_UT_wo_body_DataLayout_test.cpp"
       )
     )
 
     val file1 =
       scala.io.Source.fromFile(
-        "correct_test_outputs/SpMV_UT_wo_body_DataLayout.cpp"
+        "src/test/resources/correct_test_outputs/SpMV_UT_wo_body_DataLayout.cpp"
       )
     val file2 = scala.io.Source.fromFile(
-      "test_outputs/SpMV_UT_wo_body_DataLayout_test.cpp"
+      "src/test/resources/test_outputs/SpMV_UT_wo_body_DataLayout_test.cpp"
     )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
@@ -159,17 +175,17 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/SpMV_UT_DataLayout.stur",
         "-o",
-        "test_outputs/SpMV_UT_w_body_DataLayout_test.cpp",
+        "src/test/resources/test_outputs/SpMV_UT_w_body_DataLayout_test.cpp",
         "--init-tensors"
       )
     )
 
     val file1 =
       scala.io.Source.fromFile(
-        "correct_test_outputs/SpMV_UT_w_body_DataLayout.cpp"
+        "src/test/resources/correct_test_outputs/SpMV_UT_w_body_DataLayout.cpp"
       )
     val file2 = scala.io.Source.fromFile(
-      "test_outputs/SpMV_UT_w_body_DataLayout_test.cpp"
+      "src/test/resources/test_outputs/SpMV_UT_w_body_DataLayout_test.cpp"
     )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
@@ -182,13 +198,17 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/PGLM.stur",
         "-o",
-        "test_outputs/PGLM_wo_body_test.cpp"
+        "src/test/resources/test_outputs/PGLM_wo_body_test.cpp"
       )
     )
 
     val file1 =
-      scala.io.Source.fromFile("correct_test_outputs/PGLM_wo_body.cpp")
-    val file2 = scala.io.Source.fromFile("test_outputs/PGLM_wo_body_test.cpp")
+      scala.io.Source.fromFile(
+        "src/test/resources/correct_test_outputs/PGLM_wo_body.cpp"
+      )
+    val file2 = scala.io.Source.fromFile(
+      "src/test/resources/test_outputs/PGLM_wo_body_test.cpp"
+    )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
@@ -200,13 +220,17 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/PGLM.stur",
         "-o",
-        "test_outputs/PGLM_w_body_test.cpp",
+        "src/test/resources/test_outputs/PGLM_w_body_test.cpp",
         "--init-tensors"
       )
     )
 
-    val file1 = scala.io.Source.fromFile("correct_test_outputs/PGLM_w_body.cpp")
-    val file2 = scala.io.Source.fromFile("test_outputs/PGLM_w_body_test.cpp")
+    val file1 = scala.io.Source.fromFile(
+      "src/test/resources/correct_test_outputs/PGLM_w_body.cpp"
+    )
+    val file2 = scala.io.Source.fromFile(
+      "src/test/resources/test_outputs/PGLM_w_body_test.cpp"
+    )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
@@ -218,16 +242,18 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/PGLM_DataLayout.stur",
         "-o",
-        "test_outputs/PGLM_wo_body_DataLayout_test.cpp"
+        "src/test/resources/test_outputs/PGLM_wo_body_DataLayout_test.cpp"
       )
     )
 
     val file1 =
       scala.io.Source.fromFile(
-        "correct_test_outputs/PGLM_wo_body_DataLayout.cpp"
+        "src/test/resources/correct_test_outputs/PGLM_wo_body_DataLayout.cpp"
       )
     val file2 =
-      scala.io.Source.fromFile("test_outputs/PGLM_wo_body_DataLayout_test.cpp")
+      scala.io.Source.fromFile(
+        "src/test/resources/test_outputs/PGLM_wo_body_DataLayout_test.cpp"
+      )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
@@ -239,17 +265,19 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/PGLM_DataLayout.stur",
         "-o",
-        "test_outputs/PGLM_w_body_DataLayout_test.cpp",
+        "src/test/resources/test_outputs/PGLM_w_body_DataLayout_test.cpp",
         "--init-tensors"
       )
     )
 
     val file1 =
       scala.io.Source.fromFile(
-        "correct_test_outputs/PGLM_w_body_DataLayout.cpp"
+        "src/test/resources/correct_test_outputs/PGLM_w_body_DataLayout.cpp"
       )
     val file2 =
-      scala.io.Source.fromFile("test_outputs/PGLM_w_body_DataLayout_test.cpp")
+      scala.io.Source.fromFile(
+        "src/test/resources/test_outputs/PGLM_w_body_DataLayout_test.cpp"
+      )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
@@ -261,13 +289,17 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/THP_DP.stur",
         "-o",
-        "test_outputs/THP_DP_wo_body_test.cpp"
+        "src/test/resources/test_outputs/THP_DP_wo_body_test.cpp"
       )
     )
 
     val file1 =
-      scala.io.Source.fromFile("correct_test_outputs/THP_DP_wo_body.cpp")
-    val file2 = scala.io.Source.fromFile("test_outputs/THP_DP_wo_body_test.cpp")
+      scala.io.Source.fromFile(
+        "src/test/resources/correct_test_outputs/THP_DP_wo_body.cpp"
+      )
+    val file2 = scala.io.Source.fromFile(
+      "src/test/resources/test_outputs/THP_DP_wo_body_test.cpp"
+    )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
@@ -279,14 +311,18 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/THP_DP.stur",
         "-o",
-        "test_outputs/THP_DP_w_body_test.cpp",
+        "src/test/resources/test_outputs/THP_DP_w_body_test.cpp",
         "--init-tensors"
       )
     )
 
     val file1 =
-      scala.io.Source.fromFile("correct_test_outputs/THP_DP_w_body.cpp")
-    val file2 = scala.io.Source.fromFile("test_outputs/THP_DP_w_body_test.cpp")
+      scala.io.Source.fromFile(
+        "src/test/resources/correct_test_outputs/THP_DP_w_body.cpp"
+      )
+    val file2 = scala.io.Source.fromFile(
+      "src/test/resources/test_outputs/THP_DP_w_body_test.cpp"
+    )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
@@ -298,17 +334,17 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/THP_DP_DataLayout.stur",
         "-o",
-        "test_outputs/THP_DP_wo_body_DataLayout_test.cpp"
+        "src/test/resources/test_outputs/THP_DP_wo_body_DataLayout_test.cpp"
       )
     )
 
     val file1 =
       scala.io.Source.fromFile(
-        "correct_test_outputs/THP_DP_wo_body_DataLayout.cpp"
+        "src/test/resources/correct_test_outputs/THP_DP_wo_body_DataLayout.cpp"
       )
     val file2 =
       scala.io.Source.fromFile(
-        "test_outputs/THP_DP_wo_body_DataLayout_test.cpp"
+        "src/test/resources/test_outputs/THP_DP_wo_body_DataLayout_test.cpp"
       )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
@@ -321,17 +357,19 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/THP_DP_DataLayout.stur",
         "-o",
-        "test_outputs/THP_DP_w_body_DataLayout_test.cpp",
+        "src/test/resources/test_outputs/THP_DP_w_body_DataLayout_test.cpp",
         "--init-tensors"
       )
     )
 
     val file1 =
       scala.io.Source.fromFile(
-        "correct_test_outputs/THP_DP_w_body_DataLayout.cpp"
+        "src/test/resources/correct_test_outputs/THP_DP_w_body_DataLayout.cpp"
       )
     val file2 =
-      scala.io.Source.fromFile("test_outputs/THP_DP_w_body_DataLayout_test.cpp")
+      scala.io.Source.fromFile(
+        "src/test/resources/test_outputs/THP_DP_w_body_DataLayout_test.cpp"
+      )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
@@ -343,13 +381,17 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/THP_I.stur",
         "-o",
-        "test_outputs/THP_I_wo_body_test.cpp"
+        "src/test/resources/test_outputs/THP_I_wo_body_test.cpp"
       )
     )
 
     val file1 =
-      scala.io.Source.fromFile("correct_test_outputs/THP_I_wo_body.cpp")
-    val file2 = scala.io.Source.fromFile("test_outputs/THP_I_wo_body_test.cpp")
+      scala.io.Source.fromFile(
+        "src/test/resources/correct_test_outputs/THP_I_wo_body.cpp"
+      )
+    val file2 = scala.io.Source.fromFile(
+      "src/test/resources/test_outputs/THP_I_wo_body_test.cpp"
+    )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
@@ -361,14 +403,18 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/THP_I.stur",
         "-o",
-        "test_outputs/THP_I_w_body_test.cpp",
+        "src/test/resources/test_outputs/THP_I_w_body_test.cpp",
         "--init-tensors"
       )
     )
 
     val file1 =
-      scala.io.Source.fromFile("correct_test_outputs/THP_I_w_body.cpp")
-    val file2 = scala.io.Source.fromFile("test_outputs/THP_I_w_body_test.cpp")
+      scala.io.Source.fromFile(
+        "src/test/resources/correct_test_outputs/THP_I_w_body.cpp"
+      )
+    val file2 = scala.io.Source.fromFile(
+      "src/test/resources/test_outputs/THP_I_w_body_test.cpp"
+    )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
@@ -380,16 +426,18 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/THP_I_DataLayout.stur",
         "-o",
-        "test_outputs/THP_I_wo_body_DataLayout_test.cpp"
+        "src/test/resources/test_outputs/THP_I_wo_body_DataLayout_test.cpp"
       )
     )
 
     val file1 =
       scala.io.Source.fromFile(
-        "correct_test_outputs/THP_I_wo_body_DataLayout.cpp"
+        "src/test/resources/correct_test_outputs/THP_I_wo_body_DataLayout.cpp"
       )
     val file2 =
-      scala.io.Source.fromFile("test_outputs/THP_I_wo_body_DataLayout_test.cpp")
+      scala.io.Source.fromFile(
+        "src/test/resources/test_outputs/THP_I_wo_body_DataLayout_test.cpp"
+      )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
@@ -401,17 +449,19 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/THP_I_DataLayout.stur",
         "-o",
-        "test_outputs/THP_I_w_body_DataLayout_test.cpp",
+        "src/test/resources/test_outputs/THP_I_w_body_DataLayout_test.cpp",
         "--init-tensors"
       )
     )
 
     val file1 =
       scala.io.Source.fromFile(
-        "correct_test_outputs/THP_I_w_body_DataLayout.cpp"
+        "src/test/resources/correct_test_outputs/THP_I_w_body_DataLayout.cpp"
       )
     val file2 =
-      scala.io.Source.fromFile("test_outputs/THP_I_w_body_DataLayout_test.cpp")
+      scala.io.Source.fromFile(
+        "src/test/resources/test_outputs/THP_I_w_body_DataLayout_test.cpp"
+      )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
@@ -423,13 +473,17 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/THP_J.stur",
         "-o",
-        "test_outputs/THP_J_wo_body_test.cpp"
+        "src/test/resources/test_outputs/THP_J_wo_body_test.cpp"
       )
     )
 
     val file1 =
-      scala.io.Source.fromFile("correct_test_outputs/THP_J_wo_body.cpp")
-    val file2 = scala.io.Source.fromFile("test_outputs/THP_J_wo_body_test.cpp")
+      scala.io.Source.fromFile(
+        "src/test/resources/correct_test_outputs/THP_J_wo_body.cpp"
+      )
+    val file2 = scala.io.Source.fromFile(
+      "src/test/resources/test_outputs/THP_J_wo_body_test.cpp"
+    )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
@@ -441,14 +495,18 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/THP_J.stur",
         "-o",
-        "test_outputs/THP_J_w_body_test.cpp",
+        "src/test/resources/test_outputs/THP_J_w_body_test.cpp",
         "--init-tensors"
       )
     )
 
     val file1 =
-      scala.io.Source.fromFile("correct_test_outputs/THP_J_w_body.cpp")
-    val file2 = scala.io.Source.fromFile("test_outputs/THP_J_w_body_test.cpp")
+      scala.io.Source.fromFile(
+        "src/test/resources/correct_test_outputs/THP_J_w_body.cpp"
+      )
+    val file2 = scala.io.Source.fromFile(
+      "src/test/resources/test_outputs/THP_J_w_body_test.cpp"
+    )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
@@ -460,16 +518,18 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/THP_J_DataLayout.stur",
         "-o",
-        "test_outputs/THP_J_wo_body_DataLayout_test.cpp"
+        "src/test/resources/test_outputs/THP_J_wo_body_DataLayout_test.cpp"
       )
     )
 
     val file1 =
       scala.io.Source.fromFile(
-        "correct_test_outputs/THP_J_wo_body_DataLayout.cpp"
+        "src/test/resources/correct_test_outputs/THP_J_wo_body_DataLayout.cpp"
       )
     val file2 =
-      scala.io.Source.fromFile("test_outputs/THP_J_wo_body_DataLayout_test.cpp")
+      scala.io.Source.fromFile(
+        "src/test/resources/test_outputs/THP_J_wo_body_DataLayout_test.cpp"
+      )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
@@ -481,17 +541,19 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/THP_J_DataLayout.stur",
         "-o",
-        "test_outputs/THP_J_w_body_DataLayout_test.cpp",
+        "src/test/resources/test_outputs/THP_J_w_body_DataLayout_test.cpp",
         "--init-tensors"
       )
     )
 
     val file1 =
       scala.io.Source.fromFile(
-        "correct_test_outputs/THP_J_w_body_DataLayout.cpp"
+        "src/test/resources/correct_test_outputs/THP_J_w_body_DataLayout.cpp"
       )
     val file2 =
-      scala.io.Source.fromFile("test_outputs/THP_J_w_body_DataLayout_test.cpp")
+      scala.io.Source.fromFile(
+        "src/test/resources/test_outputs/THP_J_w_body_DataLayout_test.cpp"
+      )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
@@ -503,13 +565,17 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/TTM_UT.stur",
         "-o",
-        "test_outputs/TTM_UT_wo_body_test.cpp"
+        "src/test/resources/test_outputs/TTM_UT_wo_body_test.cpp"
       )
     )
 
     val file1 =
-      scala.io.Source.fromFile("correct_test_outputs/TTM_UT_wo_body.cpp")
-    val file2 = scala.io.Source.fromFile("test_outputs/TTM_UT_wo_body_test.cpp")
+      scala.io.Source.fromFile(
+        "src/test/resources/correct_test_outputs/TTM_UT_wo_body.cpp"
+      )
+    val file2 = scala.io.Source.fromFile(
+      "src/test/resources/test_outputs/TTM_UT_wo_body_test.cpp"
+    )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
@@ -521,14 +587,18 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/TTM_UT.stur",
         "-o",
-        "test_outputs/TTM_UT_w_body_test.cpp",
+        "src/test/resources/test_outputs/TTM_UT_w_body_test.cpp",
         "--init-tensors"
       )
     )
 
     val file1 =
-      scala.io.Source.fromFile("correct_test_outputs/TTM_UT_w_body.cpp")
-    val file2 = scala.io.Source.fromFile("test_outputs/TTM_UT_w_body_test.cpp")
+      scala.io.Source.fromFile(
+        "src/test/resources/correct_test_outputs/TTM_UT_w_body.cpp"
+      )
+    val file2 = scala.io.Source.fromFile(
+      "src/test/resources/test_outputs/TTM_UT_w_body_test.cpp"
+    )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
@@ -540,17 +610,17 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/TTM_UT_DataLayout.stur",
         "-o",
-        "test_outputs/TTM_UT_wo_body_DataLayout_test.cpp"
+        "src/test/resources/test_outputs/TTM_UT_wo_body_DataLayout_test.cpp"
       )
     )
 
     val file1 =
       scala.io.Source.fromFile(
-        "correct_test_outputs/TTM_UT_wo_body_DataLayout.cpp"
+        "src/test/resources/correct_test_outputs/TTM_UT_wo_body_DataLayout.cpp"
       )
     val file2 =
       scala.io.Source.fromFile(
-        "test_outputs/TTM_UT_wo_body_DataLayout_test.cpp"
+        "src/test/resources/test_outputs/TTM_UT_wo_body_DataLayout_test.cpp"
       )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
@@ -563,17 +633,19 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/TTM_UT_DataLayout.stur",
         "-o",
-        "test_outputs/TTM_UT_w_body_DataLayout_test.cpp",
+        "src/test/resources/test_outputs/TTM_UT_w_body_DataLayout_test.cpp",
         "--init-tensors"
       )
     )
 
     val file1 =
       scala.io.Source.fromFile(
-        "correct_test_outputs/TTM_UT_w_body_DataLayout.cpp"
+        "src/test/resources/correct_test_outputs/TTM_UT_w_body_DataLayout.cpp"
       )
     val file2 =
-      scala.io.Source.fromFile("test_outputs/TTM_UT_w_body_DataLayout_test.cpp")
+      scala.io.Source.fromFile(
+        "src/test/resources/test_outputs/TTM_UT_w_body_DataLayout_test.cpp"
+      )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
@@ -585,13 +657,17 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/TTM_DP.stur",
         "-o",
-        "test_outputs/TTM_DP_wo_body_test.cpp"
+        "src/test/resources/test_outputs/TTM_DP_wo_body_test.cpp"
       )
     )
 
     val file1 =
-      scala.io.Source.fromFile("correct_test_outputs/TTM_DP_wo_body.cpp")
-    val file2 = scala.io.Source.fromFile("test_outputs/TTM_DP_wo_body_test.cpp")
+      scala.io.Source.fromFile(
+        "src/test/resources/correct_test_outputs/TTM_DP_wo_body.cpp"
+      )
+    val file2 = scala.io.Source.fromFile(
+      "src/test/resources/test_outputs/TTM_DP_wo_body_test.cpp"
+    )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
@@ -603,14 +679,18 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/TTM_DP.stur",
         "-o",
-        "test_outputs/TTM_DP_w_body_test.cpp",
+        "src/test/resources/test_outputs/TTM_DP_w_body_test.cpp",
         "--init-tensors"
       )
     )
 
     val file1 =
-      scala.io.Source.fromFile("correct_test_outputs/TTM_DP_w_body.cpp")
-    val file2 = scala.io.Source.fromFile("test_outputs/TTM_DP_w_body_test.cpp")
+      scala.io.Source.fromFile(
+        "src/test/resources/correct_test_outputs/TTM_DP_w_body.cpp"
+      )
+    val file2 = scala.io.Source.fromFile(
+      "src/test/resources/test_outputs/TTM_DP_w_body_test.cpp"
+    )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
@@ -622,17 +702,17 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/TTM_DP_DataLayout.stur",
         "-o",
-        "test_outputs/TTM_DP_wo_body_DataLayout_test.cpp"
+        "src/test/resources/test_outputs/TTM_DP_wo_body_DataLayout_test.cpp"
       )
     )
 
     val file1 =
       scala.io.Source.fromFile(
-        "correct_test_outputs/TTM_DP_wo_body_DataLayout.cpp"
+        "src/test/resources/correct_test_outputs/TTM_DP_wo_body_DataLayout.cpp"
       )
     val file2 =
       scala.io.Source.fromFile(
-        "test_outputs/TTM_DP_wo_body_DataLayout_test.cpp"
+        "src/test/resources/test_outputs/TTM_DP_wo_body_DataLayout_test.cpp"
       )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
@@ -645,17 +725,19 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/TTM_DP_DataLayout.stur",
         "-o",
-        "test_outputs/TTM_DP_w_body_DataLayout_test.cpp",
+        "src/test/resources/test_outputs/TTM_DP_w_body_DataLayout_test.cpp",
         "--init-tensors"
       )
     )
 
     val file1 =
       scala.io.Source.fromFile(
-        "correct_test_outputs/TTM_DP_w_body_DataLayout.cpp"
+        "src/test/resources/correct_test_outputs/TTM_DP_w_body_DataLayout.cpp"
       )
     val file2 =
-      scala.io.Source.fromFile("test_outputs/TTM_DP_w_body_DataLayout_test.cpp")
+      scala.io.Source.fromFile(
+        "src/test/resources/test_outputs/TTM_DP_w_body_DataLayout_test.cpp"
+      )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
@@ -667,13 +749,17 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/TTM_J.stur",
         "-o",
-        "test_outputs/TTM_J_wo_body_test.cpp"
+        "src/test/resources/test_outputs/TTM_J_wo_body_test.cpp"
       )
     )
 
     val file1 =
-      scala.io.Source.fromFile("correct_test_outputs/TTM_J_wo_body.cpp")
-    val file2 = scala.io.Source.fromFile("test_outputs/TTM_J_wo_body_test.cpp")
+      scala.io.Source.fromFile(
+        "src/test/resources/correct_test_outputs/TTM_J_wo_body.cpp"
+      )
+    val file2 = scala.io.Source.fromFile(
+      "src/test/resources/test_outputs/TTM_J_wo_body_test.cpp"
+    )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
@@ -685,14 +771,18 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/TTM_J.stur",
         "-o",
-        "test_outputs/TTM_J_w_body_test.cpp",
+        "src/test/resources/test_outputs/TTM_J_w_body_test.cpp",
         "--init-tensors"
       )
     )
 
     val file1 =
-      scala.io.Source.fromFile("correct_test_outputs/TTM_J_w_body.cpp")
-    val file2 = scala.io.Source.fromFile("test_outputs/TTM_J_w_body_test.cpp")
+      scala.io.Source.fromFile(
+        "src/test/resources/correct_test_outputs/TTM_J_w_body.cpp"
+      )
+    val file2 = scala.io.Source.fromFile(
+      "src/test/resources/test_outputs/TTM_J_w_body_test.cpp"
+    )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
@@ -704,16 +794,18 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/TTM_J_DataLayout.stur",
         "-o",
-        "test_outputs/TTM_J_wo_body_DataLayout_test.cpp"
+        "src/test/resources/test_outputs/TTM_J_wo_body_DataLayout_test.cpp"
       )
     )
 
     val file1 =
       scala.io.Source.fromFile(
-        "correct_test_outputs/TTM_J_wo_body_DataLayout.cpp"
+        "src/test/resources/correct_test_outputs/TTM_J_wo_body_DataLayout.cpp"
       )
     val file2 =
-      scala.io.Source.fromFile("test_outputs/TTM_J_wo_body_DataLayout_test.cpp")
+      scala.io.Source.fromFile(
+        "src/test/resources/test_outputs/TTM_J_wo_body_DataLayout_test.cpp"
+      )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
@@ -725,17 +817,19 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/TTM_J_DataLayout.stur",
         "-o",
-        "test_outputs/TTM_J_w_body_DataLayout_test.cpp",
+        "src/test/resources/test_outputs/TTM_J_w_body_DataLayout_test.cpp",
         "--init-tensors"
       )
     )
 
     val file1 =
       scala.io.Source.fromFile(
-        "correct_test_outputs/TTM_J_w_body_DataLayout.cpp"
+        "src/test/resources/correct_test_outputs/TTM_J_w_body_DataLayout.cpp"
       )
     val file2 =
-      scala.io.Source.fromFile("test_outputs/TTM_J_w_body_DataLayout_test.cpp")
+      scala.io.Source.fromFile(
+        "src/test/resources/test_outputs/TTM_J_w_body_DataLayout_test.cpp"
+      )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
@@ -747,14 +841,18 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/MTTKRP_I.stur",
         "-o",
-        "test_outputs/MTTKRP_I_wo_body_test.cpp"
+        "src/test/resources/test_outputs/MTTKRP_I_wo_body_test.cpp"
       )
     )
 
     val file1 =
-      scala.io.Source.fromFile("correct_test_outputs/MTTKRP_I_wo_body.cpp")
+      scala.io.Source.fromFile(
+        "src/test/resources/correct_test_outputs/MTTKRP_I_wo_body.cpp"
+      )
     val file2 =
-      scala.io.Source.fromFile("test_outputs/MTTKRP_I_wo_body_test.cpp")
+      scala.io.Source.fromFile(
+        "src/test/resources/test_outputs/MTTKRP_I_wo_body_test.cpp"
+      )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
@@ -766,15 +864,19 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/MTTKRP_I.stur",
         "-o",
-        "test_outputs/MTTKRP_I_w_body_test.cpp",
+        "src/test/resources/test_outputs/MTTKRP_I_w_body_test.cpp",
         "--init-tensors"
       )
     )
 
     val file1 =
-      scala.io.Source.fromFile("correct_test_outputs/MTTKRP_I_w_body.cpp")
+      scala.io.Source.fromFile(
+        "src/test/resources/correct_test_outputs/MTTKRP_I_w_body.cpp"
+      )
     val file2 =
-      scala.io.Source.fromFile("test_outputs/MTTKRP_I_w_body_test.cpp")
+      scala.io.Source.fromFile(
+        "src/test/resources/test_outputs/MTTKRP_I_w_body_test.cpp"
+      )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
@@ -786,17 +888,17 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/MTTKRP_I_DataLayout.stur",
         "-o",
-        "test_outputs/MTTKRP_I_wo_body_DataLayout_test.cpp"
+        "src/test/resources/test_outputs/MTTKRP_I_wo_body_DataLayout_test.cpp"
       )
     )
 
     val file1 =
       scala.io.Source.fromFile(
-        "correct_test_outputs/MTTKRP_I_wo_body_DataLayout.cpp"
+        "src/test/resources/correct_test_outputs/MTTKRP_I_wo_body_DataLayout.cpp"
       )
     val file2 =
       scala.io.Source.fromFile(
-        "test_outputs/MTTKRP_I_wo_body_DataLayout_test.cpp"
+        "src/test/resources/test_outputs/MTTKRP_I_wo_body_DataLayout_test.cpp"
       )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
@@ -809,18 +911,18 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/MTTKRP_I_DataLayout.stur",
         "-o",
-        "test_outputs/MTTKRP_I_w_body_DataLayout_test.cpp",
+        "src/test/resources/test_outputs/MTTKRP_I_w_body_DataLayout_test.cpp",
         "--init-tensors"
       )
     )
 
     val file1 =
       scala.io.Source.fromFile(
-        "correct_test_outputs/MTTKRP_I_w_body_DataLayout.cpp"
+        "src/test/resources/correct_test_outputs/MTTKRP_I_w_body_DataLayout.cpp"
       )
     val file2 =
       scala.io.Source.fromFile(
-        "test_outputs/MTTKRP_I_w_body_DataLayout_test.cpp"
+        "src/test/resources/test_outputs/MTTKRP_I_w_body_DataLayout_test.cpp"
       )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
@@ -833,14 +935,18 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/MTTKRP_J.stur",
         "-o",
-        "test_outputs/MTTKRP_J_wo_body_test.cpp"
+        "src/test/resources/test_outputs/MTTKRP_J_wo_body_test.cpp"
       )
     )
 
     val file1 =
-      scala.io.Source.fromFile("correct_test_outputs/MTTKRP_J_wo_body.cpp")
+      scala.io.Source.fromFile(
+        "src/test/resources/correct_test_outputs/MTTKRP_J_wo_body.cpp"
+      )
     val file2 =
-      scala.io.Source.fromFile("test_outputs/MTTKRP_J_wo_body_test.cpp")
+      scala.io.Source.fromFile(
+        "src/test/resources/test_outputs/MTTKRP_J_wo_body_test.cpp"
+      )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
@@ -852,15 +958,19 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/MTTKRP_J.stur",
         "-o",
-        "test_outputs/MTTKRP_J_w_body_test.cpp",
+        "src/test/resources/test_outputs/MTTKRP_J_w_body_test.cpp",
         "--init-tensors"
       )
     )
 
     val file1 =
-      scala.io.Source.fromFile("correct_test_outputs/MTTKRP_J_w_body.cpp")
+      scala.io.Source.fromFile(
+        "src/test/resources/correct_test_outputs/MTTKRP_J_w_body.cpp"
+      )
     val file2 =
-      scala.io.Source.fromFile("test_outputs/MTTKRP_J_w_body_test.cpp")
+      scala.io.Source.fromFile(
+        "src/test/resources/test_outputs/MTTKRP_J_w_body_test.cpp"
+      )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
@@ -872,17 +982,17 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/MTTKRP_J_DataLayout.stur",
         "-o",
-        "test_outputs/MTTKRP_J_wo_body_DataLayout_test.cpp"
+        "src/test/resources/test_outputs/MTTKRP_J_wo_body_DataLayout_test.cpp"
       )
     )
 
     val file1 =
       scala.io.Source.fromFile(
-        "correct_test_outputs/MTTKRP_J_wo_body_DataLayout.cpp"
+        "src/test/resources/correct_test_outputs/MTTKRP_J_wo_body_DataLayout.cpp"
       )
     val file2 =
       scala.io.Source.fromFile(
-        "test_outputs/MTTKRP_J_wo_body_DataLayout_test.cpp"
+        "src/test/resources/test_outputs/MTTKRP_J_wo_body_DataLayout_test.cpp"
       )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
@@ -895,18 +1005,18 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/MTTKRP_J_DataLayout.stur",
         "-o",
-        "test_outputs/MTTKRP_J_w_body_DataLayout_test.cpp",
+        "src/test/resources/test_outputs/MTTKRP_J_w_body_DataLayout_test.cpp",
         "--init-tensors"
       )
     )
 
     val file1 =
       scala.io.Source.fromFile(
-        "correct_test_outputs/MTTKRP_J_w_body_DataLayout.cpp"
+        "src/test/resources/correct_test_outputs/MTTKRP_J_w_body_DataLayout.cpp"
       )
     val file2 =
       scala.io.Source.fromFile(
-        "test_outputs/MTTKRP_J_w_body_DataLayout_test.cpp"
+        "src/test/resources/test_outputs/MTTKRP_J_w_body_DataLayout_test.cpp"
       )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
@@ -919,14 +1029,18 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/MTTKRP_IJ.stur",
         "-o",
-        "test_outputs/MTTKRP_IJ_wo_body_test.cpp"
+        "src/test/resources/test_outputs/MTTKRP_IJ_wo_body_test.cpp"
       )
     )
 
     val file1 =
-      scala.io.Source.fromFile("correct_test_outputs/MTTKRP_IJ_wo_body.cpp")
+      scala.io.Source.fromFile(
+        "src/test/resources/correct_test_outputs/MTTKRP_IJ_wo_body.cpp"
+      )
     val file2 =
-      scala.io.Source.fromFile("test_outputs/MTTKRP_IJ_wo_body_test.cpp")
+      scala.io.Source.fromFile(
+        "src/test/resources/test_outputs/MTTKRP_IJ_wo_body_test.cpp"
+      )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
@@ -938,15 +1052,19 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/MTTKRP_IJ.stur",
         "-o",
-        "test_outputs/MTTKRP_IJ_w_body_test.cpp",
+        "src/test/resources/test_outputs/MTTKRP_IJ_w_body_test.cpp",
         "--init-tensors"
       )
     )
 
     val file1 =
-      scala.io.Source.fromFile("correct_test_outputs/MTTKRP_IJ_w_body.cpp")
+      scala.io.Source.fromFile(
+        "src/test/resources/correct_test_outputs/MTTKRP_IJ_w_body.cpp"
+      )
     val file2 =
-      scala.io.Source.fromFile("test_outputs/MTTKRP_IJ_w_body_test.cpp")
+      scala.io.Source.fromFile(
+        "src/test/resources/test_outputs/MTTKRP_IJ_w_body_test.cpp"
+      )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
@@ -958,17 +1076,17 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/MTTKRP_IJ_DataLayout.stur",
         "-o",
-        "test_outputs/MTTKRP_IJ_wo_body_DataLayout_test.cpp"
+        "src/test/resources/test_outputs/MTTKRP_IJ_wo_body_DataLayout_test.cpp"
       )
     )
 
     val file1 =
       scala.io.Source.fromFile(
-        "correct_test_outputs/MTTKRP_IJ_wo_body_DataLayout.cpp"
+        "src/test/resources/correct_test_outputs/MTTKRP_IJ_wo_body_DataLayout.cpp"
       )
     val file2 =
       scala.io.Source.fromFile(
-        "test_outputs/MTTKRP_IJ_wo_body_DataLayout_test.cpp"
+        "src/test/resources/test_outputs/MTTKRP_IJ_wo_body_DataLayout_test.cpp"
       )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
@@ -981,18 +1099,18 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/MTTKRP_IJ_DataLayout.stur",
         "-o",
-        "test_outputs/MTTKRP_IJ_w_body_DataLayout_test.cpp",
+        "src/test/resources/test_outputs/MTTKRP_IJ_w_body_DataLayout_test.cpp",
         "--init-tensors"
       )
     )
 
     val file1 =
       scala.io.Source.fromFile(
-        "correct_test_outputs/MTTKRP_IJ_w_body_DataLayout.cpp"
+        "src/test/resources/correct_test_outputs/MTTKRP_IJ_w_body_DataLayout.cpp"
       )
     val file2 =
       scala.io.Source.fromFile(
-        "test_outputs/MTTKRP_IJ_w_body_DataLayout_test.cpp"
+        "src/test/resources/test_outputs/MTTKRP_IJ_w_body_DataLayout_test.cpp"
       )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
@@ -1005,12 +1123,16 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/LRC.stur",
         "-o",
-        "test_outputs/LRC_wo_body_test.cpp"
+        "src/test/resources/test_outputs/LRC_wo_body_test.cpp"
       )
     )
 
-    val file1 = scala.io.Source.fromFile("correct_test_outputs/LRC_wo_body.cpp")
-    val file2 = scala.io.Source.fromFile("test_outputs/LRC_wo_body_test.cpp")
+    val file1 = scala.io.Source.fromFile(
+      "src/test/resources/correct_test_outputs/LRC_wo_body.cpp"
+    )
+    val file2 = scala.io.Source.fromFile(
+      "src/test/resources/test_outputs/LRC_wo_body_test.cpp"
+    )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
@@ -1022,13 +1144,17 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/LRC.stur",
         "-o",
-        "test_outputs/LRC_w_body_test.cpp",
+        "src/test/resources/test_outputs/LRC_w_body_test.cpp",
         "--init-tensors"
       )
     )
 
-    val file1 = scala.io.Source.fromFile("correct_test_outputs/LRC_w_body.cpp")
-    val file2 = scala.io.Source.fromFile("test_outputs/LRC_w_body_test.cpp")
+    val file1 = scala.io.Source.fromFile(
+      "src/test/resources/correct_test_outputs/LRC_w_body.cpp"
+    )
+    val file2 = scala.io.Source.fromFile(
+      "src/test/resources/test_outputs/LRC_w_body_test.cpp"
+    )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
@@ -1040,12 +1166,16 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/LRA.stur",
         "-o",
-        "test_outputs/LRA_wo_body_test.cpp"
+        "src/test/resources/test_outputs/LRA_wo_body_test.cpp"
       )
     )
 
-    val file1 = scala.io.Source.fromFile("correct_test_outputs/LRA_wo_body.cpp")
-    val file2 = scala.io.Source.fromFile("test_outputs/LRA_wo_body_test.cpp")
+    val file1 = scala.io.Source.fromFile(
+      "src/test/resources/correct_test_outputs/LRA_wo_body.cpp"
+    )
+    val file2 = scala.io.Source.fromFile(
+      "src/test/resources/test_outputs/LRA_wo_body_test.cpp"
+    )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
@@ -1057,13 +1187,17 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/LRA.stur",
         "-o",
-        "test_outputs/LRA_w_body_test.cpp",
+        "src/test/resources/test_outputs/LRA_w_body_test.cpp",
         "--init-tensors"
       )
     )
 
-    val file1 = scala.io.Source.fromFile("correct_test_outputs/LRA_w_body.cpp")
-    val file2 = scala.io.Source.fromFile("test_outputs/LRA_w_body_test.cpp")
+    val file1 = scala.io.Source.fromFile(
+      "src/test/resources/correct_test_outputs/LRA_w_body.cpp"
+    )
+    val file2 = scala.io.Source.fromFile(
+      "src/test/resources/test_outputs/LRA_w_body_test.cpp"
+    )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
@@ -1075,13 +1209,17 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/PR2C.stur",
         "-o",
-        "test_outputs/PR2C_wo_body_test.cpp"
+        "src/test/resources/test_outputs/PR2C_wo_body_test.cpp"
       )
     )
 
     val file1 =
-      scala.io.Source.fromFile("correct_test_outputs/PR2C_wo_body.cpp")
-    val file2 = scala.io.Source.fromFile("test_outputs/PR2C_wo_body_test.cpp")
+      scala.io.Source.fromFile(
+        "src/test/resources/correct_test_outputs/PR2C_wo_body.cpp"
+      )
+    val file2 = scala.io.Source.fromFile(
+      "src/test/resources/test_outputs/PR2C_wo_body_test.cpp"
+    )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
@@ -1093,13 +1231,17 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/PR2C.stur",
         "-o",
-        "test_outputs/PR2C_w_body_test.cpp",
+        "src/test/resources/test_outputs/PR2C_w_body_test.cpp",
         "--init-tensors"
       )
     )
 
-    val file1 = scala.io.Source.fromFile("correct_test_outputs/PR2C_w_body.cpp")
-    val file2 = scala.io.Source.fromFile("test_outputs/PR2C_w_body_test.cpp")
+    val file1 = scala.io.Source.fromFile(
+      "src/test/resources/correct_test_outputs/PR2C_w_body.cpp"
+    )
+    val file2 = scala.io.Source.fromFile(
+      "src/test/resources/test_outputs/PR2C_w_body_test.cpp"
+    )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
@@ -1111,13 +1253,17 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/PR2A.stur",
         "-o",
-        "test_outputs/PR2A_wo_body_test.cpp"
+        "src/test/resources/test_outputs/PR2A_wo_body_test.cpp"
       )
     )
 
     val file1 =
-      scala.io.Source.fromFile("correct_test_outputs/PR2A_wo_body.cpp")
-    val file2 = scala.io.Source.fromFile("test_outputs/PR2A_wo_body_test.cpp")
+      scala.io.Source.fromFile(
+        "src/test/resources/correct_test_outputs/PR2A_wo_body.cpp"
+      )
+    val file2 = scala.io.Source.fromFile(
+      "src/test/resources/test_outputs/PR2A_wo_body_test.cpp"
+    )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
@@ -1129,13 +1275,17 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/PR2A.stur",
         "-o",
-        "test_outputs/PR2A_w_body_test.cpp",
+        "src/test/resources/test_outputs/PR2A_w_body_test.cpp",
         "--init-tensors"
       )
     )
 
-    val file1 = scala.io.Source.fromFile("correct_test_outputs/PR2A_w_body.cpp")
-    val file2 = scala.io.Source.fromFile("test_outputs/PR2A_w_body_test.cpp")
+    val file1 = scala.io.Source.fromFile(
+      "src/test/resources/correct_test_outputs/PR2A_w_body.cpp"
+    )
+    val file2 = scala.io.Source.fromFile(
+      "src/test/resources/test_outputs/PR2A_w_body_test.cpp"
+    )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
@@ -1147,13 +1297,17 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/PR3C.stur",
         "-o",
-        "test_outputs/PR3C_wo_body_test.cpp"
+        "src/test/resources/test_outputs/PR3C_wo_body_test.cpp"
       )
     )
 
     val file1 =
-      scala.io.Source.fromFile("correct_test_outputs/PR3C_wo_body.cpp")
-    val file2 = scala.io.Source.fromFile("test_outputs/PR3C_wo_body_test.cpp")
+      scala.io.Source.fromFile(
+        "src/test/resources/correct_test_outputs/PR3C_wo_body.cpp"
+      )
+    val file2 = scala.io.Source.fromFile(
+      "src/test/resources/test_outputs/PR3C_wo_body_test.cpp"
+    )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
@@ -1165,13 +1319,17 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/PR3C.stur",
         "-o",
-        "test_outputs/PR3C_w_body_test.cpp",
+        "src/test/resources/test_outputs/PR3C_w_body_test.cpp",
         "--init-tensors"
       )
     )
 
-    val file1 = scala.io.Source.fromFile("correct_test_outputs/PR3C_w_body.cpp")
-    val file2 = scala.io.Source.fromFile("test_outputs/PR3C_w_body_test.cpp")
+    val file1 = scala.io.Source.fromFile(
+      "src/test/resources/correct_test_outputs/PR3C_w_body.cpp"
+    )
+    val file2 = scala.io.Source.fromFile(
+      "src/test/resources/test_outputs/PR3C_w_body_test.cpp"
+    )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
@@ -1183,13 +1341,17 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/PR3A.stur",
         "-o",
-        "test_outputs/PR3A_wo_body_test.cpp"
+        "src/test/resources/test_outputs/PR3A_wo_body_test.cpp"
       )
     )
 
     val file1 =
-      scala.io.Source.fromFile("correct_test_outputs/PR3A_wo_body.cpp")
-    val file2 = scala.io.Source.fromFile("test_outputs/PR3A_wo_body_test.cpp")
+      scala.io.Source.fromFile(
+        "src/test/resources/correct_test_outputs/PR3A_wo_body.cpp"
+      )
+    val file2 = scala.io.Source.fromFile(
+      "src/test/resources/test_outputs/PR3A_wo_body_test.cpp"
+    )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
@@ -1201,13 +1363,17 @@ class CodegenTest extends AnyFlatSpec with Matchers {
         "-i",
         "examples/PR3A.stur",
         "-o",
-        "test_outputs/PR3A_w_body_test.cpp",
+        "src/test/resources/test_outputs/PR3A_w_body_test.cpp",
         "--init-tensors"
       )
     )
 
-    val file1 = scala.io.Source.fromFile("correct_test_outputs/PR3A_w_body.cpp")
-    val file2 = scala.io.Source.fromFile("test_outputs/PR3A_w_body_test.cpp")
+    val file1 = scala.io.Source.fromFile(
+      "src/test/resources/correct_test_outputs/PR3A_w_body.cpp"
+    )
+    val file2 = scala.io.Source.fromFile(
+      "src/test/resources/test_outputs/PR3A_w_body_test.cpp"
+    )
     val lines1 = file1.getLines().toList
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
