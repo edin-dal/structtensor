@@ -16,3 +16,4 @@ scripts/
 .bloop/
 .bsp/
 .metals/
+test_outputs/
