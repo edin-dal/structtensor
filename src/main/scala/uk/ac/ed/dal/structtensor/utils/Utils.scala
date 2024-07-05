@@ -10,7 +10,7 @@ import java.nio.file.{Files, Paths}
 object Utils {
   def write2File(filename: String, s: String, append: Boolean = false): Unit = {
     val path = Paths.get(filename)
-    if (!Files.exists(path.getParent)) {
+    if (path.getParent != null && !Files.exists(path.getParent)) {
       Files.createDirectories(path.getParent)
     }
     val bw = new BufferedWriter(new FileWriter(new File(filename), append))
