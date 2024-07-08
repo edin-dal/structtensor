@@ -111,6 +111,8 @@ object Bodygen {
 
 using namespace std;
 using namespace std::chrono;
+
+extern "C"
 """
         val only_lhs_heads_not_in_output = outputs_names.isEmpty match {
           case true => Seq()
