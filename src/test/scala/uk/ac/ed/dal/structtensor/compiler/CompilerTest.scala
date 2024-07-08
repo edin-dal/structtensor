@@ -13,10 +13,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.ParallelTestExecution
 import uk.ac.ed.dal.structtensor.compiler.Compiler.shift
 
-class CompilerTest
-    extends AnyFlatSpec
-    with Matchers
-    with ParallelTestExecution {
+class CompilerTest extends AnyFlatSpec with Matchers {
 
   "Compiler" should "get all the variables in an access" in {
     val access = Access("a", Seq(Variable("i"), Variable("j")), Tensor)
