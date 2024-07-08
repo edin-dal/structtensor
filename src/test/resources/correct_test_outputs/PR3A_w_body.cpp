@@ -14,8 +14,8 @@ int main(int argc, char **argv){
 const int N = atoi(argv[1]);
 double *f = new double[N];
 for (size_t i = 0; i < N; ++i) {
-int flag325 = 0 <= i && N > i;
-if (flag325) {
+int flag1 = 0 <= i && N > i;
+if (flag1) {
 f[i] = (double) (rand() % 1000000) / 1e6;
 } else {
 f[i] = 0.0;
@@ -23,8 +23,8 @@ f[i] = 0.0;
 }
 double *g = new double[N];
 for (size_t i = 0; i < N; ++i) {
-int flag326 = 0 <= i && N > i;
-if (flag326) {
+int flag2 = 0 <= i && N > i;
+if (flag2) {
 g[i] = (double) (rand() % 1000000) / 1e6;
 } else {
 g[i] = 0.0;

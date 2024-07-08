@@ -17,8 +17,8 @@ for (size_t i = 0; i < W; ++i) {
 B[i] = new double[W];
 
 for (size_t j = 0; j < W; ++j) {
-int flag48 = 0 <= i && W > i && 0 <= j && W > j && 0 == i && 0 <= j && W > j || 0 <= i && W > i && 0 <= j && W > j && 1 <= i && W > i && (i - 1) == j;
-if (flag48) {
+int flag1 = 0 <= i && W > i && 0 <= j && W > j && 0 == i && 0 <= j && W > j || 0 <= i && W > i && 0 <= j && W > j && 1 <= i && W > i && (i - 1) == j;
+if (flag1) {
 B[i][j] = (double) (rand() % 1000000) / 1e6;
 } else {
 B[i][j] = 0.0;
@@ -27,8 +27,8 @@ B[i][j] = 0.0;
 }
 double *C = new double[W];
 for (size_t j = 0; j < W; ++j) {
-int flag49 = 0 <= j && W > j;
-if (flag49) {
+int flag2 = 0 <= j && W > j;
+if (flag2) {
 C[j] = (double) (rand() % 1000000) / 1e6;
 } else {
 C[j] = 0.0;

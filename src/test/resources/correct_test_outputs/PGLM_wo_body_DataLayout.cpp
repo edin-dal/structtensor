@@ -25,15 +25,15 @@ B2[j] += B[i][j];
 long time_computation = 0, start_computation, end_computation;
 start_computation = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
 int i = 0;
-for (int i78 = 0; i78 < W; ++i78) {
+for (int i28 = 0; i28 < W; ++i28) {
 
-A[i] += (B1[i78] * C[i78]);
+A[i] += (B1[i28] * C[i28]);
 }
 for (int i = 1; i < W; ++i) {
 
-int i79 = (i - 1);
-if (i79 >= 0 && i79 < min({(W - 1), W})) {
-A[i] += (B2[i79] * C[i79]);
+int i29 = (i - 1);
+if (i29 >= 0 && i29 < min({(W - 1), W})) {
+A[i] += (B2[i29] * C[i29]);
 }
 }
 end_computation = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();

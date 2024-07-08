@@ -10,9 +10,8 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.ParallelTestExecution
 
 class CodegenTest extends AnyFlatSpec with Matchers {
-  Utils.cnt = 0
-
   "Codegen" should "generate code for SpMV_D without the body" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -35,6 +34,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for SpMV_D with the body" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -58,6 +58,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for SpMV_D without the body with data layout compression" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -80,6 +81,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for SpMV_D with the body with data layout compression" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -104,6 +106,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for SpMV_UT without the body" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -127,6 +130,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for SpMV_UT with the body" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -150,6 +154,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for SpMV_UT without the body with data layout compression" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -172,6 +177,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for SpMV_UT with the body with data layout compression" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -195,6 +201,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for PGLM without the body" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -217,6 +224,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for PGLM with the body" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -239,6 +247,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for PGLM without the body with data layout compression" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -262,6 +271,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for PGLM with the body with data layout compression" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -286,6 +296,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for THP_DP without the body" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -308,6 +319,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for THP_DP with the body" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -331,6 +343,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for THP_DP without the body with data layout compression" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -354,6 +367,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for THP_DP with the body with data layout compression" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -378,6 +392,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for THP_I without the body" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -400,6 +415,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for THP_I with the body" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -423,6 +439,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for THP_I without the body with data layout compression" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -446,6 +463,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for THP_I with the body with data layout compression" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -470,6 +488,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for THP_J without the body" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -492,6 +511,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for THP_J with the body" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -515,6 +535,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for THP_J without the body with data layout compression" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -538,6 +559,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for THP_J with the body with data layout compression" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -562,6 +584,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for TTM_UT without the body" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -584,6 +607,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for TTM_UT with the body" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -607,6 +631,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for TTM_UT without the body with data layout compression" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -630,6 +655,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for TTM_UT with the body with data layout compression" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -654,6 +680,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for TTM_DP without the body" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -676,6 +703,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for TTM_DP with the body" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -699,6 +727,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for TTM_DP without the body with data layout compression" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -722,6 +751,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for TTM_DP with the body with data layout compression" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -746,6 +776,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for TTM_J without the body" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -768,6 +799,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for TTM_J with the body" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -791,6 +823,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for TTM_J without the body with data layout compression" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -814,6 +847,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for TTM_J with the body with data layout compression" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -838,6 +872,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for MTTKRP_I without the body" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -861,6 +896,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for MTTKRP_I with the body" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -885,6 +921,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for MTTKRP_I without the body with data layout compression" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -908,6 +945,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for MTTKRP_I with the body with data layout compression" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -932,6 +970,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for MTTKRP_J without the body" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -955,6 +994,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for MTTKRP_J with the body" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -979,6 +1019,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for MTTKRP_J without the body with data layout compression" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -1002,6 +1043,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for MTTKRP_J with the body with data layout compression" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -1026,6 +1068,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for MTTKRP_IJ without the body" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -1049,6 +1092,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for MTTKRP_IJ with the body" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -1073,6 +1117,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for MTTKRP_IJ without the body with data layout compression" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -1096,6 +1141,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for MTTKRP_IJ with the body with data layout compression" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -1120,6 +1166,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for LRC without the body" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -1141,6 +1188,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for LRC with the body" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -1163,6 +1211,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for LRA without the body" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -1184,6 +1233,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for LRA with the body" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -1206,6 +1256,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for PR2C without the body" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -1228,6 +1279,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for PR2C with the body" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -1250,6 +1302,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for PR2A without the body" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -1272,6 +1325,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for PR2A with the body" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -1294,6 +1348,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for PR3C without the body" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -1316,6 +1371,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for PR3C with the body" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -1338,6 +1394,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for PR3A without the body" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
@@ -1360,6 +1417,7 @@ class CodegenTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate code for PR3A with the body" in {
+    Utils.cnt = 0
     Main.main(
       Array(
         "-i",
