@@ -12,3 +12,10 @@ prev_outputs/
 stur_output/ex.stur
 results/
 scripts/
+.scalafmt.conf
+.bloop/
+.bsp/
+.metals/
+src/test/resources/test_outputs/
+project/*
+!project/build.properties
