@@ -6,6 +6,8 @@
 
 using namespace std;
 using namespace std::chrono;
+
+extern "C"
 void fn(double ** A, double * f, double *** B, double **** C, double ***** D, double ****** E, double ** F, double * g, double *** G, double **** H, double ***** I, double ****** J, double ** K, double *** L, double **** M, double ***** P, double ****** O, int N) {
 
 
