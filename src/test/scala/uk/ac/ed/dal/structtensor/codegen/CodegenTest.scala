@@ -10,6 +10,8 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.ParallelTestExecution
 
 class CodegenTest extends AnyFlatSpec with Matchers {
+  Utils.cnt = 0
+
   "Codegen" should "generate code for SpMV_D without the body" in {
     Main.main(
       Array(
