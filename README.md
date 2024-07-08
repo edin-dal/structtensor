@@ -1,6 +1,6 @@
 # StructTensor: Compiling Structured Tensor Algebra
 
-[![CI](https://github.com/edin-dal/structtensor/actions/workflows/compile_and_test.yml/badge.svg?branch=dev-tests)](https://github.com/edin-dal/structtensor/actions/workflows/compile_and_test.yml)
+[![CI](https://github.com/edin-dal/structtensor/actions/workflows/compile_and_test.yml/badge.svg)](https://github.com/edin-dal/structtensor/actions/workflows/compile_and_test.yml)
 
 StructTensor is the first framework that supports structured computation for tensor algebra on variable-sized tensors. It uses program reasoning and compiler techniques to generate a high-performance structure-aware code that can achieve up to 6 orders of magnitude performance boost over well-known dense tensor frameworks such as NumPy, PyTorch, and TensorFlow over structured computation. The  StructTensor compiler is written in Scala and will output a C++ code that can be later compiled through C++ compilers such as Clang or GCC.
 
