@@ -77,7 +77,7 @@ cerr << B[0][0] << endl;
 cerr << A[0] << endl;
 cerr << C[0] << endl;
 delete[] B2;
-for (size_t i0 = 0; i0 < N; ++i0) {delete[] B[i0];
+for (size_t i0 = 0; i0 < M; ++i0) {delete[] B[i0];
 }delete[] B;
 delete[] A;
 delete[] C;
