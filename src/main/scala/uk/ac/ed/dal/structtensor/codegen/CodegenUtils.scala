@@ -529,7 +529,7 @@ $last = "memref.load"(%${access.name}${", %const_val_0" * access.vars.length}) :
 
   def CPP_free(var_name: String, dims: Seq[Dim]) = {
     val dimensions = dims.map(C_convert_index(_))
-    val c0 = dimensions.tail.zipWithIndex
+    val c0 = dimensions.init.zipWithIndex
       .map { case (dim, i) => s"for (size_t i$i = 0; i$i < $dim; ++i$i) {" }
       .mkString("\n")
     val iter_seq: Seq[String] = dimensions.tail.zipWithIndex.map {
