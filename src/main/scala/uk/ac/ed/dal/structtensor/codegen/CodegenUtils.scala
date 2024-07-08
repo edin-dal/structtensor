@@ -55,29 +55,6 @@ object CodegenUtils {
   def CPP_printerr(var_name: String, dimensions: Seq[String]) =
     s"cerr << $var_name[${dimensions.map(e => s"$e - 1").mkString("][")}] << endl;"
 
-  def CPP_free(
-      var_name: String,
-      dimensions: Seq[String],
-      is_sparse: Boolean
-  ) = {
-    if (is_sparse) s"delete[] $var_name;"
-    else {
-      val c0 = dimensions.tail.zipWithIndex
-        .map { case (dim, i) => s"for (size_t i$i = 0; i$i < $dim; ++i$i) {" }
-        .mkString("\n")
-      val iter_seq = dimensions.tail.zipWithIndex.map { case (dim, id) =>
-        s"i$id"
-      }
-      val c1 = iter_seq.zipWithIndex
-        .map { case (iter, i) =>
-          s"delete[] $var_name[${iter_seq.slice(0, iter_seq.length - i).mkString("][")}];\n}"
-        }
-        .mkString("\n")
-      val c2 = s"delete[] $var_name;"
-      s"$c0$c1$c2"
-    }
-  }
-
   def CPP_return(): String = "return 0;\n}"
 
   def C_init_code(): String = s"""
