@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/edin-dal/structtensor/actions/workflows/compile_and_test.yml/badge.svg)](https://github.com/edin-dal/structtensor/actions/workflows/compile_and_test.yml)
 
-StructTensor is the first framework that supports structured computation for tensor algebra on variable-sized tensors. It uses program reasoning and compiler techniques to generate a high-performance structure-aware code that can achieve up to 6 orders of magnitude performance boost over well-known dense tensor frameworks such as NumPy, PyTorch, and TensorFlow over structured computation in several applications such as machine learning (linear- and polynomial-regression) and computing convolution kernels. The  StructTensor compiler is written in Scala and will output a C++ code that can be later compiled through C++ compilers such as Clang or GCC.
+StructTensor is the first framework that supports structured computation for tensor algebra on variable-sized tensors. It uses program reasoning and compiler techniques to generate a high-performance structure-aware code that can achieve **up to 6 orders of magnitude** performance boost over well-known dense tensor frameworks such as NumPy, PyTorch, and TensorFlow over structured computation in several applications such as machine learning (linear- and polynomial-regression) and computing convolution kernels. The  StructTensor compiler is written in Scala and will output a C++ code that can be later compiled through C++ compilers such as Clang or GCC.
 
 To learn more about StructTensor, please read [our paper published in OOPSLA'23](https://dl.acm.org/doi/pdf/10.1145/3622804).
 
@@ -27,7 +27,17 @@ B:U(i, j) := (i = j)
 A:D(i) := (0 <= i) * (i < N)
 ```
 
-Here, `N` is the symbol and will be provided through the command line to the generated code. The line after provides the computation expression. `A:D(i)`, `B:D(i, j)`, and `C:D(j)` indicate the dimensions of tensors `A`, `B`, and `C`, respectively. `B:U(i, j)` indicates the unique set of the non-zero and unique elements for matrix `B`.
+Here, `N` is the symbol and will be provided through the command line to the generated code. The line after provides the computation expression. `A:D(i)`, `B:D(i, j)`, and `C:D(j)` indicate the dimensions of tensors `A`, `B`, and `C`, respectively. `B:U(i, j)` indicates the unique set of the non-zero and unique elements for matrix `B`. The following C++ code will be generated after being processed by StructTensor:
+
+```c++
+void fn(double * A, double ** B, double * C, int N) {
+  for (int i = 0; i < N; ++i) {
+    A[i] += (B[i][i] * C[i]);
+  }
+}
+```
+
+Instructions on how to generate C++ code from STUR files are provided in a [later section](#generating-c-code).
 
 In this example, if matrix `B` is symmetric instead of diagonal, then the STUR expression would be as follows:
 
