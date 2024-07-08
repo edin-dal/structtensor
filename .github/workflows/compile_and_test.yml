@@ -37,4 +37,6 @@ jobs:
           cache: 'sbt'
 
       - name: Test
-        run: sbt test
+        run: |
+          sbt "testOnly *CodegenTest"
+          sbt "test-no-codegen"

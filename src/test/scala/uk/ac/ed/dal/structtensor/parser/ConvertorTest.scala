@@ -12,7 +12,10 @@ import utils._
 import scala.collection.mutable.LinkedHashMap
 import utils.Utils.emptySoP
 
-class ConvertorTest extends AnyFlatSpec with Matchers {
+class ConvertorTest
+    extends AnyFlatSpec
+    with Matchers
+    with ParallelTestExecution {
 
   "Convertor" should "group rules" in {
     val rules = Seq(
