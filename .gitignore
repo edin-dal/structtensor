@@ -18,5 +18,4 @@ scripts/
 .metals/
 src/test/resources/test_outputs/
 project/*
-!project/
 !project/build.properties
