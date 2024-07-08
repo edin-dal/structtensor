@@ -73,6 +73,8 @@ C:D(j) := (0 <= j) * (j < N)
 A:D(i) := (0 <= i) * (i < N)
 ```
 
+This way, first, the diagonal of matrix `B` is compressed in a dense vector `B2`. Then, the computation uses the dense vector `B2` to perform the multiplication.
+
 ### Generating C++ Code
 
 To generate code for one of the existing `.stur` codes in the `examples/` directory, use the following command:
