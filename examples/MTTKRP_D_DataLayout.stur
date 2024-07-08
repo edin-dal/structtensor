@@ -1,0 +1,16 @@
+symbols: M, N, P, Q
+@preprocess_start
+D2(l) := D(l, j) * (l = j)
+B2(i) := B(i, k, l) * (i = k) * (i = l)
+D:D(l, j) := (0 <= l) * (l < P) * (0 <= j) * (j < Q)
+D:U(l, j) := (l = j)
+D2:D(l) := (0 <= l) * (l < P)
+B:D(i, k, l) := (0 <= i) * (i < M) * (0 <= k) * (k < N) * (0 <= l) * (l < P)
+B:U(i, k, l) := (i = k) * (i = l)
+B2:D(i) := (0 <= i) * (i < P)
+@preprocess_end
+A(i, j) := B2(i) * C(k, j) * D2(l) * (i = k) * (i = l) * (i = j)
+C:D(k, j) := (0 <= k) * (k < N) * (0 <= j) * (j < Q)
+A:D(i, j) := (0 <= i) * (i < M) * (0 <= j) * (j < Q)
+D2:D(l) := (0 <= l) * (l < P)
+B2:D(i) := (0 <= i) * (i < P)
