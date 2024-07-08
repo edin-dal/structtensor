@@ -24,8 +24,8 @@ for (size_t k = 0; k < N; ++k) {
 B[i][k] = new double[P];
 
 for (size_t l = 0; l < P; ++l) {
-int flag204 = 0 <= i && M > i && 0 <= k && N > k && 0 <= l && P > l && i == I;
-if (flag204) {
+int flag1 = 0 <= i && M > i && 0 <= k && N > k && 0 <= l && P > l && i == I;
+if (flag1) {
 B[i][k][l] = (double) (rand() % 1000000) / 1e6;
 } else {
 B[i][k][l] = 0.0;
@@ -38,8 +38,8 @@ for (size_t k = 0; k < N; ++k) {
 C[k] = new double[Q];
 
 for (size_t j = 0; j < Q; ++j) {
-int flag205 = 0 <= k && N > k && 0 <= j && Q > j;
-if (flag205) {
+int flag2 = 0 <= k && N > k && 0 <= j && Q > j;
+if (flag2) {
 C[k][j] = (double) (rand() % 1000000) / 1e6;
 } else {
 C[k][j] = 0.0;
@@ -51,8 +51,8 @@ for (size_t l = 0; l < P; ++l) {
 D[l] = new double[Q];
 
 for (size_t j = 0; j < Q; ++j) {
-int flag206 = 0 <= l && P > l && 0 <= j && Q > j;
-if (flag206) {
+int flag3 = 0 <= l && P > l && 0 <= j && Q > j;
+if (flag3) {
 D[l][j] = (double) (rand() % 1000000) / 1e6;
 } else {
 D[l][j] = 0.0;

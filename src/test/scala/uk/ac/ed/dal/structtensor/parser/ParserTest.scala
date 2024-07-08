@@ -11,7 +11,7 @@ import compiler._
 import fastparse._
 import fastparse.SingleLineWhitespace._
 
-class ParserTest extends AnyFlatSpec with Matchers with ParallelTestExecution {
+class ParserTest extends AnyFlatSpec with Matchers {
   "Parser" should "parse a variable" in {
     val input = "xA_0Tz"
     val result = fastparse.parse(input, Parser.variable(_))

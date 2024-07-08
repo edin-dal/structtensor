@@ -12,10 +12,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.ParallelTestExecution
 import scala.collection.immutable.Map.Map3
 
-class OptimizerTest
-    extends AnyFlatSpec
-    with Matchers
-    with ParallelTestExecution {
+class OptimizerTest extends AnyFlatSpec with Matchers {
 
   "Optimizer" should "find an access in a map only by name" in {
     val map = Map(

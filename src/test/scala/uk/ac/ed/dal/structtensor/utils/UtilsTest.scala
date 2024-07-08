@@ -13,7 +13,7 @@ import org.scalatest.ParallelTestExecution
 import uk.ac.ed.dal.structtensor.utils.Utils.DimInfoOps
 import uk.ac.ed.dal.structtensor.utils.Utils.SeqDimInfoOps
 
-class UtilsTest extends AnyFlatSpec with Matchers with ParallelTestExecution {
+class UtilsTest extends AnyFlatSpec with Matchers {
   "Utils" should "write correct values to file" in {
     Utils.write2File("test.txt", "test", append = false)
     val file = new File("test.txt")
