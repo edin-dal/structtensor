@@ -108,16 +108,16 @@ cerr << A[0][0] << endl;
 cerr << B[0][0][0] << endl;
 cerr << C[0][0] << endl;
 delete[] D2;
-for (size_t i0 = 0; i0 < Q; ++i0) {delete[] D[i0];
+for (size_t i0 = 0; i0 < P; ++i0) {delete[] D[i0];
 }delete[] D;
-for (size_t i0 = 0; i0 < Q; ++i0) {delete[] A[i0];
+for (size_t i0 = 0; i0 < M; ++i0) {delete[] A[i0];
 }delete[] A;
-for (size_t i0 = 0; i0 < N; ++i0) {
-for (size_t i1 = 0; i1 < P; ++i1) {delete[] B[i0][i1];
+for (size_t i0 = 0; i0 < M; ++i0) {
+for (size_t i1 = 0; i1 < N; ++i1) {delete[] B[i0][i1];
 }
 delete[] B[i0];
 }delete[] B;
-for (size_t i0 = 0; i0 < Q; ++i0) {delete[] C[i0];
+for (size_t i0 = 0; i0 < N; ++i0) {delete[] C[i0];
 }delete[] C;
 return 0;
 }
