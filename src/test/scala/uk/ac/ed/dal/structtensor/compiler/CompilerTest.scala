@@ -2579,11 +2579,17 @@ class CompilerTest
       )
     )
     rm shouldBe Rule(
-      Access("A", Seq(Variable("i"), Variable("j")), Tensor),
+      Access(
+        "A",
+        List(Variable("i"), Variable("j"), Variable("ip"), Variable("jp")),
+        Tensor
+      ),
       SoP(
-        Seq(
+        List(
           Prod(
-            Seq(
+            List(
+              Comparison("=", Variable("i"), Variable("jp")),
+              Comparison("=", Variable("j"), Variable("ip")),
               Comparison(">", Variable("i"), Variable("j")),
               Comparison("<=", ConstantInt(0), Variable("i")),
               Comparison(">", Variable("N"), Variable("i")),

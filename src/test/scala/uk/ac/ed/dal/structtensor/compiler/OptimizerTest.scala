@@ -654,7 +654,7 @@ class OptimizerTest
     )
 
     val expectedRM = Rule(
-      Access("A", Seq(Variable("i")), Tensor),
+      Access("A", Seq(Variable("i"), Variable("ip")), Tensor),
       SoP(Seq())
     )
 
