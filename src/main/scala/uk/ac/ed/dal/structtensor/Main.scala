@@ -20,19 +20,47 @@ object Main extends App {
       rmMap: Map[Access, Rule],
       ccMap: Map[Access, Rule]
   ): Seq[(Rule, Rule, Rule, Rule)] = {
+    // println(s"tc: {${tc.prettyFormat()}")
+    // usMap.foreach { case (k, v) =>
+    //   println(s"usMap: {${k.prettyFormat()}} -> {${v.prettyFormat()}}")
+    // }
+    // rmMap.foreach { case (k, v) =>
+    //   println(s"rmMap: {${k.prettyFormat()}} -> {${v.prettyFormat()}}")
+    // }
+    // ccMap.foreach { case (k, v) =>
+    //   println(s"ccMap: {${k.prettyFormat()}} -> {${v.prettyFormat()}}")
+    // }
     tc.body.prods.flatMap(prod =>
       prod.exps.map(e => {
         e match {
           case access: Access => {
-            val us = Rule(usMap(access).head.uniqueHead, usMap(access).body)
-            val rm = Rule(rmMap(access).head.redundancyHead, rmMap(access).body)
-            val cc = if (ccMap.contains(access)) {
-              Rule(ccMap(access).head.compressedHead, ccMap(access).body)
-            } else
+            val usRule =
+              usMap.getByAccessNameAndReplaceVars(access)
+            val us = Rule(
+              usRule.get.head,
+              usRule.get.body
+            )
+            val rmRule =
+              rmMap.getByAccessNameAndReplaceVars(access)
+            val rm =
               Rule(
-                usMap(access).head.compressedHead,
-                SoPTimesSoP(SoP(Seq(Prod(Seq(e)))), usMap(access).body)
+                rmRule.get.head,
+                rmRule.get.body
               )
+            val ccRule = ccMap.getByAccessNameAndReplaceVarsOrElse(
+              access,
+              Rule(
+                us.head,
+                SoPTimesSoP(
+                  SoP(Seq(Prod(Seq(e)))),
+                  us.body
+                )
+              )
+            )
+            val cc = Rule(
+              ccRule.head,
+              ccRule.body
+            )
             val t = Rule(access, SoP(Seq(Prod(Seq(e)))))
             (us, rm, cc, t)
           }
