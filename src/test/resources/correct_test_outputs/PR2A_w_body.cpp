@@ -217,13 +217,6 @@ H[i][j] += (g[i] * g[j]);
 }
 for (int i = 0; i < N; ++i) {
 
-for (int j = 0; j < min({i, N}); ++j) {
-
-H[i][j] += A[j][i];
-}
-}
-for (int i = 0; i < N; ++i) {
-
 for (int j = 0; j < N; ++j) {
 
 for (int k = max({j, 0}); k < min({(i) + 1, N}); ++k) {
@@ -1203,7 +1196,15 @@ F[i][j][k][l] += F[ip][jp][kp][lp];
 }
 }
 }
+for (int i = 0; i < N; ++i) {
 
+int jp = i;
+for (int j = 0; j < min({i, N}); ++j) {
+
+int ip = j;
+H[i][j] += H[ip][jp];
+}
+}
 for (int i = 0; i < N; ++i) {
 
 int kp = i;
