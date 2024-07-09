@@ -399,36 +399,6 @@ object Optimizer {
   def getNonDimensionVariables(rule: Rule): Seq[Variable] =
     (rule.head.vars ++ getNonDimensionVariables(rule.body)).distinct
 
-  def alphaRename(
-      index: Index,
-      alphaRenameMap: Map[Variable, Variable]
-  ): Index = index match {
-    case v: Variable => alphaRenameMap.getOrElse(v, v)
-    case Arithmetic(op, i1, i2) =>
-      Arithmetic(
-        op,
-        alphaRename(i1, alphaRenameMap),
-        alphaRename(i2, alphaRenameMap)
-      )
-    case _ => index
-  }
-
-  def alphaRename(sop: SoP, alphaRenameMap: Map[Variable, Variable]): SoP = {
-    SoP(sop.prods.map(p => {
-      Prod(p.exps.map {
-        case Access(n, v, k) =>
-          Access(n, v.map(v2 => alphaRenameMap.getOrElse(v2, v2)), k)
-        case Comparison(op, i, v) =>
-          Comparison(
-            op,
-            alphaRename(i, alphaRenameMap),
-            alphaRenameMap.getOrElse(v, v)
-          )
-        case _ => throw new Exception("Unknown expression")
-      })
-    }))
-  }
-
   def containsByName(m: Map[Access, SoP], access: Access): Boolean = m.exists {
     case (key, _) if key.name == access.name => true
     case _                                   => false
