@@ -27,20 +27,20 @@ object Main extends App {
             val usRule =
               usMap.getByAccessNameAndReplaceVars(access)
             val us = Rule(
-              usRule.get.head,
+              usRule.get.head.uniqueHead(),
               usRule.get.body
             )
             val rmRule =
               rmMap.getByAccessNameAndReplaceVars(access)
             val rm =
               Rule(
-                rmRule.get.head,
+                rmRule.get.head.redundancyHead(),
                 rmRule.get.body
               )
             val ccRule = ccMap.getByAccessNameAndReplaceVarsOrElse(
               access,
               Rule(
-                us.head,
+                usMap.getByAccessNameAndReplaceVars(access).get.head,
                 SoPTimesSoP(
                   SoP(Seq(Prod(Seq(e)))),
                   us.body
@@ -48,7 +48,7 @@ object Main extends App {
               )
             )
             val cc = Rule(
-              ccRule.head,
+              ccRule.head.compressedHead(),
               ccRule.body
             )
             val t = Rule(access, SoP(Seq(Prod(Seq(e)))))
