@@ -55,7 +55,7 @@ object Convertor {
       headToTensorMap: LinkedHashMap[Access, Rule],
       headToDimensionMap: Map[Access, Rule]
   ): Boolean = getHeadsThatRequireDim(headToTensorMap).forall(head =>
-    headToDimensionMap.contains(head)
+    headToDimensionMap.containsByName(head.name)
   )
 
   def findUpperBound(v: Variable, sop: SoP): Dim = {
