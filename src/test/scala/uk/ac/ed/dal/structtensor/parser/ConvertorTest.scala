@@ -82,8 +82,11 @@ class ConvertorTest
     )
     val heads = Convertor.getHeadsThatRequireDim(headToTensorMap)
     heads should contain theSameElementsAs Seq(
-      Access("bar", Seq(Variable("y")), Tensor),
-      Access("baz", Seq(Variable("z")), Tensor)
+      Access("bar", List(Variable("y")), Tensor),
+      Access("baz", List(Variable("z")), Tensor),
+      Access("foo", List(Variable("z"), Variable("y")), Tensor),
+      Access("foo", List(Variable("z"), Variable("y")), Tensor),
+      Access("qux", List(Variable("y")), Tensor)
     )
   }
 
