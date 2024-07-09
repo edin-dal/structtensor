@@ -7,6 +7,8 @@ import Utils._
 import compiler._
 import CodegenUtils._
 
+import scala.util.matching.Regex
+
 object Bodygen {
   def apply(
       codeLang: String,
@@ -127,9 +129,11 @@ extern "C"
               .distinctBy(_.name)
               .filterNot(e => outputs_names.contains(e.name))
         }
+        val decimal_pattern = """-?\d+(\.\d+)?""".r
         val tensor_to_str = all_tensors
           .filterNot(only_lhs_heads_not_in_output.contains)
           .distinctBy(_.name)
+          .filterNot(decimal_pattern matches _.name)
           .map(t =>
             "double " + (if (t.vars.isEmpty) "&"
                          else "*" * t.vars.length) + " " + t.name
