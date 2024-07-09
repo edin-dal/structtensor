@@ -122,9 +122,13 @@ object Parser {
     P(access.rep(exactly = 1)) | P(comparison) | P("(" ~ exp ~ ")")
 
   def exp_or_const[$: P]: P[Seq[Exp]] =
-    P(exp) | P(decimal)
-      .map(d => Access(d.value.toString(), Seq(), Tensor))
-      .map(Seq(_))
+    P(exp) |
+      P(decimal)
+        .map(d => Access(d.value.toString(), Seq(), Tensor))
+        .map(Seq(_)) |
+      P(integer)
+        .map(d => Access(d.value.toString(), Seq(), Tensor))
+        .map(Seq(_))
 
   def factor[$: P]: P[Prod] = P(exp_or_const ~ ("*" ~ exp_or_const).rep).map {
     case (e, se) =>
