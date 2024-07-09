@@ -20,16 +20,6 @@ object Main extends App {
       rmMap: Map[Access, Rule],
       ccMap: Map[Access, Rule]
   ): Seq[(Rule, Rule, Rule, Rule)] = {
-    // println(s"tc: {${tc.prettyFormat()}")
-    // usMap.foreach { case (k, v) =>
-    //   println(s"usMap: {${k.prettyFormat()}} -> {${v.prettyFormat()}}")
-    // }
-    // rmMap.foreach { case (k, v) =>
-    //   println(s"rmMap: {${k.prettyFormat()}} -> {${v.prettyFormat()}}")
-    // }
-    // ccMap.foreach { case (k, v) =>
-    //   println(s"ccMap: {${k.prettyFormat()}} -> {${v.prettyFormat()}}")
-    // }
     tc.body.prods.flatMap(prod =>
       prod.exps.map(e => {
         e match {
