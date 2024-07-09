@@ -67,7 +67,7 @@ object Parser {
 
   def access[$: P]: P[Access] = P(name.! ~ "(" ~ variableSeq ~ ")").map {
     case (n, v) => parseAccess(n, v)
-  } | P(name.!).map { case n => parseAccess(n, Seq()) } | P("(" ~ access ~ ")")
+  } | P("(" ~ access ~ ")")
 
   def integer[$: P]: P[ConstantInt] =
     P(CharIn("0-9").rep(1).!.map(_.toInt)).map(ConstantInt(_))
