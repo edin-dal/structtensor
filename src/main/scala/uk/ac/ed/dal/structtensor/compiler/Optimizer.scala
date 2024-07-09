@@ -19,7 +19,7 @@ object Optimizer {
       }
 
     body.prods.foldLeft(emptySoP())((acc1, prod) => {
-      val (epxsInMap, epxsNotInMap): (Seq[Exp], Seq[Exp]) =
+      val (epxsInMap, expsNotInMap): (Seq[Exp], Seq[Exp]) =
         prod.exps.partition(extractAccessesInDenormalizationMapByName)
       val denormalizedSoPSeq = epxsInMap.map(exp =>
         exp match {
@@ -28,27 +28,41 @@ object Optimizer {
         }
       )
       val processedExpNotInMap = kind match {
-        case UniqueSet | RedundancyMap =>
-          epxsNotInMap.filter(exp =>
+        case UniqueSet =>
+          expsNotInMap.filter(exp =>
             exp match {
               case acc @ Access(_, v, _) if v.isEmpty => false
               case _                                  => true
             }
           )
+        case RedundancyMap =>
+          expsNotInMap.exists(e =>
+            e match {
+              case Access(_, v, _) => v.isEmpty
+              case _               => false
+            }
+          ) match {
+            case true  => Seq()
+            case false => expsNotInMap
+          }
         case CompressedTensor =>
-          epxsNotInMap.map(exp =>
+          expsNotInMap.map(exp =>
             exp match {
-              case acc @ Access(n, v, k) if v.isEmpty =>
-                Access(n.substring(0, n.length() - 2), v, CompressedTensor)
+              case acc @ Access(n, v, k) if v.isEmpty && n.endsWith("_C") =>
+                Access(n.substring(0, n.length() - 2), v, k)
               case comp: Comparison => comp
               case _                => exp
             }
           )
-        case _ => epxsNotInMap
+        case _ => expsNotInMap
       }
       val singleAllExpSoP = SoP(Seq(Prod(processedExpNotInMap)))
       val allExpSoP =
-        if (processedExpNotInMap.length == 0) multSoP(denormalizedSoPSeq)
+        if (
+          expsNotInMap.length > 0 && processedExpNotInMap.length == 0 && kind == RedundancyMap
+        )
+          emptySoP()
+        else if (processedExpNotInMap.length == 0) multSoP(denormalizedSoPSeq)
         else if (epxsInMap.length == 0) singleAllExpSoP
         else multSoP(singleAllExpSoP +: denormalizedSoPSeq)
       concatSoP(Seq(acc1, allExpSoP))
@@ -581,6 +595,7 @@ object Optimizer {
       )
     }))
 
-    Rule(rule.head, finalBody)
+    if (rule.head.vars.isEmpty) Rule(rule.head, newBody)
+    else Rule(rule.head, finalBody)
   }
 }
