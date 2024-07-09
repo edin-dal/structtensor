@@ -59,7 +59,11 @@ object Bodygen {
           })
           .toSeq
         val argv_names =
-          (dim_names ++ unboundVariables(rules).toSeq.diff(dim_names)).distinct
+          if (symbols.nonEmpty) symbols.map(_.name)
+          else
+            (dim_names ++ unboundVariables(rules).toSeq.diff(
+              dim_names
+            )).distinct
         val only_lhs_heads =
           rules.map(_.head).filter(_.kind == Tensor).distinctBy(_.name)
         val all_vars = allVariables(rules).toSeq
