@@ -95,6 +95,56 @@ object Utils {
     def redundancyVarsInplace = v ++ v.redundancyVars
   }
 
+  def alphaRename(
+      index: Index,
+      alphaRenameMap: Map[Variable, Variable]
+  ): Index = index match {
+    case v: Variable => alphaRenameMap.getOrElse(v, v)
+    case Arithmetic(op, i1, i2) =>
+      Arithmetic(
+        op,
+        alphaRename(i1, alphaRenameMap),
+        alphaRename(i2, alphaRenameMap)
+      )
+    case _ => index
+  }
+
+  def alphaRename(sop: SoP, alphaRenameMap: Map[Variable, Variable]): SoP = {
+    SoP(sop.prods.map(p => {
+      Prod(p.exps.map {
+        case Access(n, v, k) =>
+          Access(n, v.map(v2 => alphaRenameMap.getOrElse(v2, v2)), k)
+        case Comparison(op, i, v) =>
+          Comparison(
+            op,
+            alphaRename(i, alphaRenameMap),
+            alphaRenameMap.getOrElse(v, v)
+          )
+        case _ => throw new Exception("Unknown expression")
+      })
+    }))
+  }
+
+  implicit class MapOps(m: Map[Access, Rule]) {
+    def getByName(name: String): Option[Rule] =
+      m.keys.find(_.name == name).map(m)
+    def getByNameOrElse(name: String, default: Rule): Rule =
+      getByName(name).getOrElse(default)
+    def containsByName(name: String): Boolean = m.keys.exists(_.name == name)
+    def getByAccessNameAndReplaceVars(access: Access): Option[Rule] =
+      m.keys.find(_.name == access.name).map { key =>
+        m(key) match {
+          case Rule(head, body) =>
+            Rule(access, alphaRename(body, access.vars.zip(key.vars).toMap))
+        }
+      }
+    def getByAccessNameAndReplaceVarsOrElse(
+        access: Access,
+        default: Rule
+    ): Rule =
+      getByAccessNameAndReplaceVars(access).getOrElse(default)
+  }
+
   def concatSoP(sops: Seq[SoP]): SoP = SoP(sops.flatMap(_.prods))
 
   def MLIR_start_timer_code(postfix: String = ""): String = s"""
