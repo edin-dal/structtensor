@@ -70,11 +70,16 @@ object Parser {
   } | P("(" ~ access ~ ")")
 
   def integer[$: P]: P[ConstantInt] =
-    P(CharIn("0-9").rep(1).!.map(_.toInt)).map(ConstantInt(_))
+    P("-".?.! ~ CharIn("0-9").rep(1).!.map(_.toInt))
+      .map({ case (neg, a) =>
+        (neg + a).toInt
+      })
+      .map(ConstantInt(_))
 
   def decimal[$: P]: P[ConstantDouble] = P(
-    CharIn("0-9").rep(1).! ~ "." ~ CharIn("0-9").rep(1).!
-  ).map({ case (a, b) => (a + "." + b).toDouble }).map(ConstantDouble(_))
+    "-".?.! ~ CharIn("0-9").rep(1).! ~ "." ~ CharIn("0-9").rep(1).!
+  ).map({ case (neg, a, b) => (neg + a + "." + b).toDouble })
+    .map(ConstantDouble(_))
 
   def arith_op[$: P]: P[String] = P("+" | "-" | "*" | "/" | "%").!
 
