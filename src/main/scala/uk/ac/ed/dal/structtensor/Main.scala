@@ -144,12 +144,6 @@ object Main extends App {
           dimInfo_preprocess,
           uniqueSets_preprocess,
           redundancyMaps_preprocess
-        ): (
-            Seq[Access],
-            Seq[Rule],
-            Seq[DimInfo],
-            Map[Access, Rule],
-            Map[Access, Rule]
         ) = convertRules(parsedPreprocess)
         val (
           all_tensors_computation,
@@ -157,12 +151,6 @@ object Main extends App {
           dimInfo_computation,
           uniqueSets_computation,
           redundancyMaps_computation
-        ): (
-            Seq[Access],
-            Seq[Rule],
-            Seq[DimInfo],
-            Map[Access, Rule],
-            Map[Access, Rule]
         ) = convertRules(parsedComputation)
         val (init_str, end_str) = Bodygen(
           config.codeLang,
