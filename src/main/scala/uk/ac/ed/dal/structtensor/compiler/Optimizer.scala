@@ -7,7 +7,11 @@ import utils._
 object Optimizer {
   import Utils._
 
-  def denormalizeSingle(body: SoP, denormMap: Map[Access, SoP]): SoP = {
+  def denormalizeSingle(
+      body: SoP,
+      denormMap: Map[Access, SoP],
+      kind: AccessType
+  ): SoP = {
     def extractAccessesInDenormalizationMapByName(exp: Exp): Boolean =
       exp match {
         case acc: Access => containsByName(denormMap, acc)
@@ -23,9 +27,28 @@ object Optimizer {
           case _           => throw new Exception("Unknown expression")
         }
       )
-      val singleAllExpSoP = SoP(Seq(Prod(epxsNotInMap)))
+      val processedExpNotInMap = kind match {
+        case UniqueSet | RedundancyMap =>
+          epxsNotInMap.filter(exp =>
+            exp match {
+              case acc @ Access(_, v, _) if v.isEmpty => false
+              case _                                  => true
+            }
+          )
+        case CompressedTensor =>
+          epxsNotInMap.map(exp =>
+            exp match {
+              case acc @ Access(n, v, k) if v.isEmpty =>
+                Access(n.substring(0, n.length() - 2), v, CompressedTensor)
+              case comp: Comparison => comp
+              case _                => exp
+            }
+          )
+        case _ => epxsNotInMap
+      }
+      val singleAllExpSoP = SoP(Seq(Prod(processedExpNotInMap)))
       val allExpSoP =
-        if (epxsNotInMap.length == 0) multSoP(denormalizedSoPSeq)
+        if (processedExpNotInMap.length == 0) multSoP(denormalizedSoPSeq)
         else if (epxsInMap.length == 0) singleAllExpSoP
         else multSoP(singleAllExpSoP +: denormalizedSoPSeq)
       concatSoP(Seq(acc1, allExpSoP))
@@ -39,10 +62,10 @@ object Optimizer {
     val denormMap = ctx.foldLeft(Map[Access, SoP]())((acc, cur) => {
       val (us, rm, cc, tc) = cur
       val (usBody, rmBody, ccBody, tcBody) = (
-        denormalizeSingle(us.body, acc),
-        denormalizeSingle(rm.body, acc),
-        denormalizeSingle(cc.body, acc),
-        denormalizeSingle(tc.body, acc)
+        denormalizeSingle(us.body, acc, UniqueSet),
+        denormalizeSingle(rm.body, acc, RedundancyMap),
+        denormalizeSingle(cc.body, acc, CompressedTensor),
+        denormalizeSingle(tc.body, acc, Tensor)
       )
       acc + (us.head -> usBody) + (rm.head -> rmBody) + (cc.head -> ccBody) + (tc.head -> tcBody)
     })
