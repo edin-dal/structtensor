@@ -48,7 +48,10 @@ object Optimizer {
     })
 
     val denormUS = Rule(head, denormMap(head.uniqueHead))
-    val denormRM = Rule(head, denormMap(head.redundancyHead))
+    val denormRM = Rule(
+      Access(head.name, head.vars.redundancyVarsInplace, head.kind),
+      denormMap(head.redundancyHead)
+    )
     val denormCC = Rule(head, denormMap(head.compressedHead))
     val denormTC = Rule(head, denormMap(head))
 
