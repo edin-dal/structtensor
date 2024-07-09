@@ -609,7 +609,7 @@ object Compiler {
         )
     }
     val denormMap = requiredCtx.foldLeft(Map[Access, SoP]())((acc, cur) => {
-      val body = Optimizer.denormalizeSingle(cur.body, acc)
+      val body = Optimizer.denormalizeSingle(cur.body, acc, UniqueSet)
       acc + (cur.head -> body)
     })
     denormMap(access)
