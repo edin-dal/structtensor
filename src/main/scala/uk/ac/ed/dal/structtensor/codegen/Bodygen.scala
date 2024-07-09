@@ -70,10 +70,12 @@ object Bodygen {
           rules.map(_.head).filter(_.kind == Tensor).distinctBy(_.name)
         val all_vars = allVariables(rules).toSeq
         val c2 = read_argv(codeLang, argv_names)
+        val decimal_pattern = """-?\d+(\.\d+)?""".r
         val c3 = all_tensors
           .distinctBy(_.name)
           .filter(_.kind == Tensor)
           .filterNot(only_lhs_heads.contains)
+          .filterNot(decimal_pattern matches _.name)
           .map(t =>
             alloc_and_gen_random_number(
               codeLang,
