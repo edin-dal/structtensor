@@ -21,10 +21,10 @@ We describe the STUR files using examples. The expression corresponding to matri
 ```
 symbols: N
 A(i) := B(i, j) * C(j)
-B:D(i, j) := (0 <= i) * (i < N) * (0 <= j) * (j < N)
-C:D(j) := (0 <= j) * (j < N)
+B:D(i, j) := (0 <= i < N) * (0 <= j < N)
+C:D(j) := (0 <= j < N)
 B:U(i, j) := (i = j)
-A:D(i) := (0 <= i) * (i < N)
+A:D(i) := (0 <= i < N)
 ```
 
 Here, `N` is the symbol and will be provided through the command line to the generated code. The line after provides the computation expression. `A:D(i)`, `B:D(i, j)`, and `C:D(j)` indicate the dimensions of tensors `A`, `B`, and `C`, respectively. `B:U(i, j)` indicates the unique set of the non-zero and unique elements for matrix `B`. The following C++ code will be generated after being processed by StructTensor:
@@ -44,11 +44,11 @@ In this example, if matrix `B` is symmetric instead of diagonal, then the STUR e
 ```
 symbols: N
 A(i) := B(i, j) * C(j)
-B:D(i, j) := (0 <= i) * (i < N) * (0 <= j) * (j < N)
-C:D(j) := (0 <= j) * (j < N)
+B:D(i, j) := (0 <= i < N) * (0 <= j < N)
+C:D(j) := (0 <= j < N)
 B:U(i, j) := (i <= j)
 B:R(i, j, ip, jp) := (i > j) * (ip = j) * (jp = i)
-A:D(i) := (0 <= i) * (i < N)
+A:D(i) := (0 <= i < N)
 ```
 
 Here, `B:R(i, j, ip, jp)` provides the mapping for redundant elements of matrix `B`.
@@ -65,14 +65,14 @@ If you wish to do some preprocessing on the tensors (e.g., provide data layout f
 symbols: N
 @preprocess_start
 B2(i) := B(i, j) * (i = j)
-B:D(i, j) := (0 <= i) * (i < N) * (0 <= j) * (j < N)
+B:D(i, j) := (0 <= i < N) * (0 <= j < N)
 B:U(i, j) := (i = j)
-B2:D(i) := (0 <= i) * (i < N)
+B2:D(i) := (0 <= i < N)
 @preprocess_end
 A(i) := B2(i) * C(j) * (i = j)
-B2:D(i) := (0 <= i) * (i < N)
-C:D(j) := (0 <= j) * (j < N)
-A:D(i) := (0 <= i) * (i < N)
+B2:D(i) := (0 <= i < N)
+C:D(j) := (0 <= j < N)
+A:D(i) := (0 <= i < N)
 ```
 
 This way, first, the diagonal of matrix `B` is compressed in a dense vector `B2`. Then, the computation uses the dense vector `B2` to perform the multiplication.
