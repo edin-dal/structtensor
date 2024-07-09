@@ -27,41 +27,54 @@ object Optimizer {
           case _           => throw new Exception("Unknown expression")
         }
       )
-      val processedExpNotInMap = kind match {
-        case UniqueSet =>
-          expsNotInMap.filter(exp =>
-            exp match {
-              case acc @ Access(_, v, _) if v.isEmpty => false
-              case _                                  => true
-            }
-          )
-        case RedundancyMap =>
+      val (processedExpNotInMap, multEmptySetFlag) = kind match {
+        case UniqueSet | RedundancyMap =>
           expsNotInMap.exists(e =>
             e match {
-              case Access(_, v, _) => v.isEmpty
-              case _               => false
+              case Access(_, v, k) if k == RedundancyMap => v.isEmpty
+              case _                                     => false
             }
           ) match {
-            case true  => Seq()
-            case false => expsNotInMap
+            case true => (Seq(), true)
+            case false =>
+              (
+                expsNotInMap.filter(exp =>
+                  exp match {
+                    case acc @ Access(_, v, _) if v.isEmpty => false
+                    case _                                  => true
+                  }
+                ),
+                false
+              )
           }
         case CompressedTensor =>
-          expsNotInMap.map(exp =>
-            exp match {
-              case acc @ Access(n, v, k) if v.isEmpty && n.endsWith("_C") =>
-                Access(n.substring(0, n.length() - 2), v, k)
-              case comp: Comparison => comp
-              case _                => exp
+          expsNotInMap.exists(e =>
+            e match {
+              case Access(_, v, k) if k == RedundancyMap => v.isEmpty
+              case _                                     => false
             }
-          )
-        case _ => expsNotInMap
+          ) match {
+            case true => (Seq(), true)
+            case false =>
+              (
+                expsNotInMap.map(exp =>
+                  exp match {
+                    case acc @ Access(n, v, k)
+                        if v.isEmpty && n.endsWith("_C") =>
+                      Access(n.substring(0, n.length() - 2), v, k)
+                    case comp: Comparison => comp
+                    case _                => exp
+                  }
+                ),
+                false
+              )
+          }
+
+        case _ => (expsNotInMap, false)
       }
       val singleAllExpSoP = SoP(Seq(Prod(processedExpNotInMap)))
       val allExpSoP =
-        if (
-          expsNotInMap.length > 0 && processedExpNotInMap.length == 0 && kind == RedundancyMap
-        )
-          emptySoP()
+        if (multEmptySetFlag) emptySoP()
         else if (processedExpNotInMap.length == 0) multSoP(denormalizedSoPSeq)
         else if (epxsInMap.length == 0) singleAllExpSoP
         else multSoP(singleAllExpSoP +: denormalizedSoPSeq)
