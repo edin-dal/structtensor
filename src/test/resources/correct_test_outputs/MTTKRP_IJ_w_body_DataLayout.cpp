@@ -12,11 +12,11 @@ int main(int argc, char **argv){
 
 
 const int M = atoi(argv[1]);
-const int Q = atoi(argv[2]);
+const int N = atoi(argv[2]);
 const int P = atoi(argv[3]);
-const int N = atoi(argv[4]);
-const int J = atoi(argv[5]);
-const int I = atoi(argv[6]);
+const int Q = atoi(argv[4]);
+const int I = atoi(argv[5]);
+const int J = atoi(argv[6]);
 double **D = new double*[P];
 for (size_t l = 0; l < P; ++l) {
 D[l] = new double[Q];

@@ -48,28 +48,28 @@ long time_reconstruction = 0, start_reconstruction, end_reconstruction;
 start_reconstruction = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
 for (int i = 0; i < N; ++i) {
 
+int jp = i;
 for (int j = 0; j < min({i, N}); ++j) {
 
-
-
+int ip = j;
 A[i][j] += A[ip][jp];
 }
 }
 for (int i = 0; i < N; ++i) {
 
+int jp = i;
 for (int j = 0; j < min({i, N}); ++j) {
 
-
-
+int ip = j;
 B[i][j] += B[ip][jp];
 }
 }
 for (int i = 0; i < N; ++i) {
 
+int jp = i;
 for (int j = 0; j < min({i, N}); ++j) {
 
-
-
+int ip = j;
 C[i][j] += C[ip][jp];
 }
 }

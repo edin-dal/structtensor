@@ -582,4 +582,71 @@ class UtilsTest extends AnyFlatSpec with Matchers with ParallelTestExecution {
     )
   }
 
+  it should "alpha rename the variables in a SoP based on an alpha rename map" in {
+    val sop = SoP(
+      Seq(
+        Prod(
+          Seq(
+            Access("B", Seq(Variable("i"), Variable("j")), Tensor),
+            Access("C", Seq(Variable("j"), Variable("l")), Tensor),
+            Comparison("<=", ConstantInt(0), Variable("p")),
+            Comparison("<", Variable("p"), Variable("l"))
+          )
+        ),
+        Prod(
+          Seq(
+            Access("B", Seq(Variable("i"), Variable("k")), Tensor),
+            Access("C", Seq(Variable("k"), Variable("l")), Tensor),
+            Comparison("<=", ConstantInt(0), Variable("p")),
+            Comparison(
+              "<",
+              Arithmetic("+", Variable("p"), Variable("i")),
+              Variable("l")
+            )
+          )
+        )
+      )
+    )
+    val alphaRenameMap = Map(
+      Variable("i") -> Variable("i2"),
+      Variable("k") -> Variable("k2"),
+      Variable("l") -> Variable("l2")
+    )
+    val expectedSop = SoP(
+      Seq(
+        Prod(
+          Seq(
+            Access("B", Seq(Variable("i2"), Variable("j")), Tensor),
+            Access("C", Seq(Variable("j"), Variable("l2")), Tensor),
+            Comparison("<=", ConstantInt(0), Variable("p")),
+            Comparison("<", Variable("p"), Variable("l2"))
+          )
+        ),
+        Prod(
+          Seq(
+            Access("B", Seq(Variable("i2"), Variable("k2")), Tensor),
+            Access("C", Seq(Variable("k2"), Variable("l2")), Tensor),
+            Comparison("<=", ConstantInt(0), Variable("p")),
+            Comparison(
+              "<",
+              Arithmetic("+", Variable("p"), Variable("i2")),
+              Variable("l2")
+            )
+          )
+        )
+      )
+    )
+    Utils.alphaRename(sop, alphaRenameMap) shouldBe expectedSop
+  }
+
+  it should "alpha rename an arithmetic based on the alpha rename map" in {
+    val arithmetic = Arithmetic("+", Variable("i"), Variable("j"))
+    val alphaRenameMap = Map(Variable("i") -> Variable("i2"))
+    val expectedArithmetic = Arithmetic("+", Variable("i2"), Variable("j"))
+    Utils.alphaRename(
+      arithmetic,
+      alphaRenameMap
+    ) shouldBe expectedArithmetic
+  }
+
 }

@@ -29,6 +29,14 @@ for (size_t j = 0; j < N; ++j) {
 A[i][j] = 0.0;
 }
 }
+double **B = new double*[N];
+for (size_t i = 0; i < N; ++i) {
+B[i] = new double[N];
+
+for (size_t j = 0; j < N; ++j) {
+B[i][j] = 0.0;
+}
+}
 
 long time_computation = 0, start_computation, end_computation;
 start_computation = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
@@ -37,6 +45,13 @@ for (int i = 0; i < N; ++i) {
 for (int j = max({i, 0}); j < N; ++j) {
 
 A[i][j] += (f[i] * f[j]);
+}
+}
+for (int i = 0; i < N; ++i) {
+
+for (int j = 0; j < min({(i) + 1, N}); ++j) {
+
+B[i][j] += (f[j] * f[i]);
 }
 }
 end_computation = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
@@ -53,14 +68,27 @@ int ip = j;
 A[i][j] += A[ip][jp];
 }
 }
+for (int i = 0; i < N; ++i) {
+
+int jp = i;
+for (int j = max({(i) + 1, 0}); j < N; ++j) {
+
+int ip = j;
+B[i][j] += B[ip][jp];
+}
+}
 end_reconstruction = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
 time_reconstruction = end_reconstruction - start_reconstruction;
 cout << time_reconstruction << endl;
 cerr << A[0][0] << endl;
 cerr << f[0] << endl;
 cerr << f[0] << endl;
+cerr << B[0][0] << endl;
+cerr << A[0][0] << endl;
 for (size_t i0 = 0; i0 < N; ++i0) {delete[] A[i0];
 }delete[] A;
 delete[] f;
+for (size_t i0 = 0; i0 < N; ++i0) {delete[] B[i0];
+}delete[] B;
 return 0;
 }

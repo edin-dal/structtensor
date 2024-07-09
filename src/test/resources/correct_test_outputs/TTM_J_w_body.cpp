@@ -11,10 +11,10 @@ int main(int argc, char **argv){
     srand(0);
 
 
-const int M = atoi(argv[1]);
-const int N = atoi(argv[2]);
-const int Q = atoi(argv[3]);
-const int P = atoi(argv[4]);
+const int N = atoi(argv[1]);
+const int M = atoi(argv[2]);
+const int P = atoi(argv[3]);
+const int Q = atoi(argv[4]);
 const int J = atoi(argv[5]);
 double ***B = new double**[M];
 for (size_t i = 0; i < M; ++i) {

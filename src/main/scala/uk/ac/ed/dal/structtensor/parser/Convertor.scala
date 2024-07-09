@@ -48,15 +48,8 @@ object Convertor {
         case _               => Seq[Access]()
       }
       .toSeq
-    rhs.distinct.diff(lhs.distinct).toSeq
+    (rhs.distinct ++ lhs.distinct).toSeq
   }
-
-  def checkDimsAvailable(
-      headToTensorMap: LinkedHashMap[Access, Rule],
-      headToDimensionMap: Map[Access, Rule]
-  ): Boolean = getHeadsThatRequireDim(headToTensorMap).forall(head =>
-    headToDimensionMap.contains(head)
-  )
 
   def findUpperBound(v: Variable, sop: SoP): Dim = {
     val upperBounds: Seq[Dim] = sop.prods.flatMap(_.exps.flatMap {
@@ -96,9 +89,18 @@ object Convertor {
   }
 
   def extractDims(
-      dimSeqAsRuleSeq: Seq[Rule]
+      headToTensorMap: LinkedHashMap[Access, Rule],
+      headToDimensionMap: Map[Access, Rule]
   ): (Seq[DimInfo], Map[Access, DimInfo]) = {
-    val (dimInfos, headToDimInfoMap) = dimSeqAsRuleSeq.map { r =>
+    val headsRequiringDim = getHeadsThatRequireDim(headToTensorMap)
+    val dimsAvailable = headsRequiringDim.forall(head =>
+      headToDimensionMap.containsByName(head.name)
+    )
+    if (!dimsAvailable)
+      throw new Exception("Dimensions not available for all tensors")
+
+    val (dimInfos, headToDimInfoMap) = headsRequiringDim.map { a =>
+      val r = headToDimensionMap.getByAccessNameAndReplaceVars(a).get
       val oldHead = r.head
       val name =
         if (r.head.name.contains("_D"))
@@ -123,12 +125,14 @@ object Convertor {
       val body = dimInfo.toSoP
       val newBody =
         if (kind == UniqueSet)
-          headToSetMap.get(Access(old_head.name, old_head.vars, Tensor)) match {
+          headToSetMap.getByAccessNameAndReplaceVars(
+            Access(old_head.name, old_head.vars, Tensor)
+          ) match {
             case Some(r) => SoPTimesSoP(body, r.body)
             case None    => body
           }
         else {
-          headToSetMap.get(
+          headToSetMap.getByAccessNameAndReplaceVars(
             Access(old_head.name, old_head.vars.redundancyVarsInplace, Tensor)
           ) match {
             case Some(r) => SoPTimesSoP(body, r.body)
@@ -160,12 +164,8 @@ object Convertor {
     ) = groupRules(rules)
     val tensorComputations = headToTensorMap.values.toSeq
 
-    val dimsAvailable = checkDimsAvailable(headToTensorMap, headToDimensionMap)
-    if (!dimsAvailable)
-      throw new Exception("Dimensions not available for all tensors")
-
     val (dimInfo, dimInfoMap): (Seq[DimInfo], Map[Access, DimInfo]) =
-      extractDims(headToDimensionMap.values.toSeq)
+      extractDims(headToTensorMap, headToDimensionMap)
     val uniqueSets: Map[Access, Rule] =
       extractSet(headToUniqueSetMap, dimInfoMap, UniqueSet)
     val redundancyMaps: Map[Access, Rule] =

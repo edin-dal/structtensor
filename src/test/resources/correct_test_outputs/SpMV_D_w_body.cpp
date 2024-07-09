@@ -11,8 +11,8 @@ int main(int argc, char **argv){
     srand(0);
 
 
-const int M = atoi(argv[1]);
-const int N = atoi(argv[2]);
+const int N = atoi(argv[1]);
+const int M = atoi(argv[2]);
 double **B = new double*[M];
 for (size_t i = 0; i < M; ++i) {
 B[i] = new double[N];

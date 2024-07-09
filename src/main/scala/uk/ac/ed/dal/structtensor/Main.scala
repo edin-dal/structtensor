@@ -24,15 +24,33 @@ object Main extends App {
       prod.exps.map(e => {
         e match {
           case access: Access => {
-            val us = Rule(usMap(access).head.uniqueHead, usMap(access).body)
-            val rm = Rule(rmMap(access).head.redundancyHead, rmMap(access).body)
-            val cc = if (ccMap.contains(access)) {
-              Rule(ccMap(access).head.compressedHead, ccMap(access).body)
-            } else
+            val usRule =
+              usMap.getByAccessNameAndReplaceVars(access)
+            val us = Rule(
+              usRule.get.head.uniqueHead(),
+              usRule.get.body
+            )
+            val rmRule =
+              rmMap.getByAccessNameAndReplaceVars(access)
+            val rm =
               Rule(
-                usMap(access).head.compressedHead,
-                SoPTimesSoP(SoP(Seq(Prod(Seq(e)))), usMap(access).body)
+                rmRule.get.head.redundancyHead(),
+                rmRule.get.body
               )
+            val ccRule = ccMap.getByAccessNameAndReplaceVarsOrElse(
+              access,
+              Rule(
+                usMap.getByAccessNameAndReplaceVars(access).get.head,
+                SoPTimesSoP(
+                  SoP(Seq(Prod(Seq(e)))),
+                  us.body
+                )
+              )
+            )
+            val cc = Rule(
+              ccRule.head.compressedHead(),
+              ccRule.body
+            )
             val t = Rule(access, SoP(Seq(Prod(Seq(e)))))
             (us, rm, cc, t)
           }
@@ -144,12 +162,6 @@ object Main extends App {
           dimInfo_preprocess,
           uniqueSets_preprocess,
           redundancyMaps_preprocess
-        ): (
-            Seq[Access],
-            Seq[Rule],
-            Seq[DimInfo],
-            Map[Access, Rule],
-            Map[Access, Rule]
         ) = convertRules(parsedPreprocess)
         val (
           all_tensors_computation,
@@ -157,12 +169,6 @@ object Main extends App {
           dimInfo_computation,
           uniqueSets_computation,
           redundancyMaps_computation
-        ): (
-            Seq[Access],
-            Seq[Rule],
-            Seq[DimInfo],
-            Map[Access, Rule],
-            Map[Access, Rule]
         ) = convertRules(parsedComputation)
         val (init_str, end_str) = Bodygen(
           config.codeLang,
@@ -196,7 +202,11 @@ object Main extends App {
             )
             (
               acc._1 + (usRule.head -> usRule),
-              acc._2 + (rmRule.head -> rmRule),
+              acc._2 + (Access(
+                rmRule.head.name,
+                usRule.head.vars,
+                rmRule.head.kind
+              ) -> rmRule),
               acc._3 + (ccRule.head -> ccRule),
               acc._4 :+ ccRule,
               acc._5 :+ rcRule
