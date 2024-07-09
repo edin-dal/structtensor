@@ -128,7 +128,8 @@ object Parser {
         .map(Seq(_)) |
       P(integer)
         .map(d => Access(d.value.toString(), Seq(), Tensor))
-        .map(Seq(_))
+        .map(Seq(_)) |
+      P("(" ~ exp_or_const ~ ")")
 
   def factor[$: P]: P[Prod] = P(exp_or_const ~ ("*" ~ exp_or_const).rep).map {
     case (e, se) =>
