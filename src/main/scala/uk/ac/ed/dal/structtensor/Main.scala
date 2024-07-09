@@ -185,9 +185,6 @@ object Main extends App {
           )((acc, tc) => {
             val inps = getInputs(tc, acc._1, acc._2, acc._3)
             val (usRule, rmRule, ccRule) = compile(tc, inps, symbols)
-            // println(s"usRule: ${usRule.prettyFormat()}")
-            // println(s"rmRule: ${rmRule.prettyFormat()}")
-            // println(s"ccRule: ${ccRule.prettyFormat()}")
             val rcRule = Rule(
               ccRule.head,
               SoPTimesSoP(
