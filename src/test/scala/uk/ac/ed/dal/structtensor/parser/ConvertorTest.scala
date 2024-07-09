@@ -106,7 +106,7 @@ class ConvertorTest
         Access("qux", Seq(Variable("y")), Tensor),
         SoP(
           Seq(
-            Prod(Seq(Access("foo", Seq(Variable("z"), Variable("y")), Tensor)))
+            Prod(Seq(Access("foo", Seq(Variable("y"), Variable("z")), Tensor)))
           )
         )
       )
@@ -119,11 +119,18 @@ class ConvertorTest
       Access("baz", Seq(Variable("z")), Tensor) -> Rule(
         Access("baz", Seq(Variable("z")), Tensor),
         emptySoP()
+      ),
+      Access("foo", Seq(Variable("z"), Variable("y")), Tensor) -> Rule(
+        Access("foo", Seq(Variable("z"), Variable("y")), Tensor),
+        emptySoP()
+      ),
+      Access("qux", Seq(Variable("y")), Tensor) -> Rule(
+        Access("qux", Seq(Variable("y")), Tensor),
+        emptySoP()
       )
     )
     val result =
-      Convertor.checkDimsAvailable(headToTensorMap, headToDimensionMap)
-    result shouldBe true
+      Convertor.extractDims(headToTensorMap, headToDimensionMap)
   }
 
   it should "detect when dimension is not available" in {
@@ -156,9 +163,9 @@ class ConvertorTest
         emptySoP()
       )
     )
-    val result =
-      Convertor.checkDimsAvailable(headToTensorMap, headToDimensionMap)
-    result should not be true
+    assertThrows[Exception] {
+      Convertor.extractDims(headToTensorMap, headToDimensionMap)
+    }
   }
 
   it should "find upper bound of a variable" in {
