@@ -1,3 +1,0 @@
-symbols: N
-A(i, j) := A(j, i)
-A:D(i, j) := (0 <= i < N) * (0 <= j < N)
