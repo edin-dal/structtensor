@@ -197,7 +197,7 @@ class OptimizerTest
       )
     )
 
-    val actual = Optimizer.denormalizeSingle(body, denormMap)
+    val actual = Optimizer.denormalizeSingle(body, denormMap, UniqueSet)
     val pattern = """i\d+""".r
     val test_value = actual match {
       case SoP(
