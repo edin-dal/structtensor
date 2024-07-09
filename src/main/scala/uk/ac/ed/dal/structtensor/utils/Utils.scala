@@ -135,7 +135,7 @@ object Utils {
       m.keys.find(_.name == access.name).map { key =>
         m(key) match {
           case Rule(head, body) =>
-            Rule(access, alphaRename(body, access.vars.zip(key.vars).toMap))
+            Rule(access, alphaRename(body, key.vars.zip(access.vars).toMap))
         }
       }
     def getByAccessNameAndReplaceVarsOrElse(
