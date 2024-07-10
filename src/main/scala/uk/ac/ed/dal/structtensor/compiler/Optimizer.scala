@@ -108,23 +108,34 @@ object Optimizer {
     (denormUS, denormRM, denormCC, denormTC)
   }
 
-  def singleProdIdempotence(p: Prod): Prod = {
-    def extractBooleanDomainComputation(exp: Exp): Boolean = {
-      exp match {
-        case Access(_, _, kind)
-            if (kind == UniqueSet || kind == RedundancyMap) =>
-          true
-        case Comparison(_, _, _) => true
-        case _                   => false
-      }
+  def extractBooleanDomainComputation(exp: Exp): Boolean = {
+    exp match {
+      case Access(_, _, kind) if (kind == UniqueSet || kind == RedundancyMap) =>
+        true
+      case Comparison(_, _, _) => true
+      case _                   => false
     }
+  }
 
-    val (boolDomainExps, realDomainExps) = removeEquivalentComparisonsOpt(
-      p
-    ).exps.partition(extractBooleanDomainComputation)
-    val distinctBoolDomainExps = boolDomainExps.distinct
-
-    Prod(distinctBoolDomainExps ++ realDomainExps)
+  def singleProdIdempotence(prod: Prod): Prod = {
+    val p = Prod(
+      prod.exps.zipWithIndex
+        .filterNot { case (e1, i) =>
+          prod.exps
+            .slice(i + 1, prod.exps.length)
+            .exists(e2 =>
+              e1 != e2 && ((e1, e2) match {
+                case (c1: Comparison, c2: Comparison) =>
+                  isComparisonEquivalent(c1, c2)
+                case _ => false
+              })
+            )
+        }
+        .map(_._1)
+    )
+    val (booleanDomain, realDomain) =
+      p.exps.partition(extractBooleanDomainComputation)
+    Prod(booleanDomain.distinct ++ realDomain)
   }
 
   def setIdempotentIntersectionOpt(r: Rule): Rule =
@@ -145,25 +156,6 @@ object Optimizer {
     }
   }
 
-  def removeEquivalentComparisonsOpt(prod: Prod): Prod = {
-    Prod(
-      prod.exps.zipWithIndex
-        .filterNot { case (e1, i) =>
-          prod.exps
-            .slice(i, prod.exps.length)
-            .exists(e2 =>
-              e1 != e2 && ((e1, e2) match {
-                case (c1: Comparison, c2: Comparison) =>
-                  isComparisonEquivalent(c1, c2)
-                case _ => false
-              })
-            )
-        }
-        .map(_._1)
-        .distinct
-    )
-  }
-
   def setIdempotentOpt(r: Rule): Rule = {
     val areAllComparison = r.body.prods.forall(p =>
       p.exps.forall(e =>
@@ -177,7 +169,7 @@ object Optimizer {
     areAllComparison match {
       case true => {
         val prodSetOfExpSet = r.body.prods
-          .map(p => removeEquivalentComparisonsOpt(p).exps.distinct)
+          .map(p => singleProdIdempotence(p).exps.distinct)
           .distinct
         Rule(r.head, SoP(prodSetOfExpSet.map(p => Prod(p.toSeq)).toSeq))
       }

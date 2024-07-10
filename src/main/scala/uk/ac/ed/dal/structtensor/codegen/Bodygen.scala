@@ -142,7 +142,10 @@ extern "C"
           )
           .mkString(", ")
         val symbols_to_str = symbols.map(v => "int " + v.name).mkString(", ")
-        val c2 = s"void fn($tensor_to_str, $symbols_to_str) {\n"
+        val c2 =
+          if (symbols_to_str.length() > 0)
+            s"void fn($tensor_to_str, $symbols_to_str) {\n"
+          else s"void fn($tensor_to_str) {\n"
         c1 + c2
       }
     }
