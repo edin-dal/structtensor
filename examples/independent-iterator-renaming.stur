@@ -1,0 +1,10 @@
+symbols: N
+outputs: C
+A(i, j) := f(i) * f(j)
+B(i, j) := t(i) * t(j)
+C(i, j, k, l) := A(i, j) * B(k, l)
+C:D(i, j, k, l) := (0 <= i < N) * (0 <= j < N) * (0 <= k < N) * (0 <= l < N)
+A:D(i, j) := (0 <= i < N) * (0 <= j < N)
+B:D(i, j) := (0 <= i < N) * (0 <= j < N)
+f:D(i) := (0 <= i < N)
+t:D(i) := (0 <= i < N)
