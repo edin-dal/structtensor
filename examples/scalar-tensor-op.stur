@@ -1,0 +1,6 @@
+symbols: N
+p() := t(i)
+A(i, j) := f(i) * f(j) * p()
+A:D(i, j) := (0 <= i < N) * (0 <= j < N)
+f:D(i) := (0 <= i < N)
+t:D(i) := (0 <= i < N)

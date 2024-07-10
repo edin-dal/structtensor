@@ -1,0 +1,5 @@
+symbols: N
+A(i) := f(i) + (-1) * p(i)
+A:D(i) := (0 <= i < N)
+f:D(i) := (0 <= i < N)
+p:D(i) := (0 <= i < N)

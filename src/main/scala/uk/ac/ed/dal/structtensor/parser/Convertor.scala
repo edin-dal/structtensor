@@ -40,12 +40,12 @@ object Convertor {
   def getHeadsThatRequireDim(
       headToTensorMap: LinkedHashMap[Access, Rule]
   ): Seq[Access] = {
-    val lhs = headToTensorMap.keySet.toSeq
+    val lhs = headToTensorMap.keySet.toSeq.filterNot(_.vars.isEmpty)
     val rhs = headToTensorMap.values
       .flatMap(_.body.prods.flatMap(_.exps))
       .flatMap {
-        case Access(n, v, _) => Seq(Access(n, v, Tensor))
-        case _               => Seq[Access]()
+        case Access(n, v, _) if v.nonEmpty => Seq(Access(n, v, Tensor))
+        case _                             => Seq[Access]()
       }
       .toSeq
     (rhs.distinct ++ lhs.distinct).toSeq

@@ -65,16 +65,21 @@ object Parser {
     CharIn("A-Za-z") ~ CharIn("A-Za-z0-9._").rep ~ (":" ~ CharIn("DUR")).?
   ).!
 
-  def access[$: P]: P[Access] = P(name.! ~ "(" ~ variableSeq ~ ")").map({
+  def access[$: P]: P[Access] = P(name.! ~ "(" ~ variableSeq ~ ")").map {
     case (n, v) => parseAccess(n, v)
-  }) | P("(" ~ access ~ ")")
+  } | P("(" ~ access ~ ")")
 
   def integer[$: P]: P[ConstantInt] =
-    P(CharIn("0-9").rep(1).!.map(_.toInt)).map(ConstantInt(_))
+    P("-".?.! ~ CharIn("0-9").rep(1).!.map(_.toInt))
+      .map({ case (neg, a) =>
+        (neg + a).toInt
+      })
+      .map(ConstantInt(_))
 
   def decimal[$: P]: P[ConstantDouble] = P(
-    CharIn("0-9").rep(1).! ~ "." ~ CharIn("0-9").rep(1).!
-  ).map({ case (a, b) => (a + "." + b).toDouble }).map(ConstantDouble(_))
+    "-".?.! ~ CharIn("0-9").rep(1).! ~ "." ~ CharIn("0-9").rep(1).!
+  ).map({ case (neg, a, b) => (neg + a + "." + b).toDouble })
+    .map(ConstantDouble(_))
 
   def arith_op[$: P]: P[String] = P("+" | "-" | "*" | "/" | "%").!
 
@@ -116,8 +121,19 @@ object Parser {
   def exp[$: P]: P[Seq[Exp]] =
     P(access.rep(exactly = 1)) | P(comparison) | P("(" ~ exp ~ ")")
 
-  def factor[$: P]: P[Prod] = P(exp ~ ("*" ~ exp).rep).map { case (e, se) =>
-    parseProd(e, se)
+  def exp_or_const[$: P]: P[Seq[Exp]] =
+    P(exp) |
+      P(decimal)
+        .map(d => Access(d.value.toString(), Seq(), Tensor))
+        .map(Seq(_)) |
+      P(integer)
+        .map(d => Access(d.value.toString(), Seq(), Tensor))
+        .map(Seq(_)) |
+      P("(" ~ exp_or_const ~ ")")
+
+  def factor[$: P]: P[Prod] = P(exp_or_const ~ ("*" ~ exp_or_const).rep).map {
+    case (e, se) =>
+      parseProd(e, se)
   } | P("(" ~ factor ~ ")")
 
   def sop[$: P]: P[SoP] = P(factor ~ ("+" ~ factor).rep).map { case (f, sf) =>

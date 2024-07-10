@@ -21,9 +21,9 @@ object Main extends App {
       ccMap: Map[Access, Rule]
   ): Seq[(Rule, Rule, Rule, Rule)] = {
     tc.body.prods.flatMap(prod =>
-      prod.exps.map(e => {
+      prod.exps.collect(e => {
         e match {
-          case access: Access => {
+          case access @ Access(n, v, _) if usMap.containsByName(n) => {
             val usRule =
               usMap.getByAccessNameAndReplaceVars(access)
             val us = Rule(
@@ -52,14 +52,6 @@ object Main extends App {
               ccRule.body
             )
             val t = Rule(access, SoP(Seq(Prod(Seq(e)))))
-            (us, rm, cc, t)
-          }
-          case _ => {
-            val h = Access("", Seq(), Tensor)
-            val us = Rule(h.uniqueHead, SoP(Seq(Prod(Seq(e)))))
-            val rm = Rule(h.redundancyHead, SoP(Seq(Prod(Seq(e)))))
-            val cc = Rule(h.compressedHead, SoP(Seq(Prod(Seq(e)))))
-            val t = Rule(h, SoP(Seq(Prod(Seq(e)))))
             (us, rm, cc, t)
           }
         }

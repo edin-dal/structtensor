@@ -7,7 +7,11 @@ import utils._
 object Optimizer {
   import Utils._
 
-  def denormalizeSingle(body: SoP, denormMap: Map[Access, SoP]): SoP = {
+  def denormalizeSingle(
+      body: SoP,
+      denormMap: Map[Access, SoP],
+      kind: AccessType
+  ): SoP = {
     def extractAccessesInDenormalizationMapByName(exp: Exp): Boolean =
       exp match {
         case acc: Access => containsByName(denormMap, acc)
@@ -15,7 +19,7 @@ object Optimizer {
       }
 
     body.prods.foldLeft(emptySoP())((acc1, prod) => {
-      val (epxsInMap, epxsNotInMap): (Seq[Exp], Seq[Exp]) =
+      val (epxsInMap, expsNotInMap): (Seq[Exp], Seq[Exp]) =
         prod.exps.partition(extractAccessesInDenormalizationMapByName)
       val denormalizedSoPSeq = epxsInMap.map(exp =>
         exp match {
@@ -23,9 +27,55 @@ object Optimizer {
           case _           => throw new Exception("Unknown expression")
         }
       )
-      val singleAllExpSoP = SoP(Seq(Prod(epxsNotInMap)))
+      val (processedExpNotInMap, multEmptySetFlag) = kind match {
+        case UniqueSet | RedundancyMap =>
+          expsNotInMap.exists(e =>
+            e match {
+              case Access(_, v, k) if k == RedundancyMap => v.isEmpty
+              case _                                     => false
+            }
+          ) match {
+            case true => (Seq(), true)
+            case false =>
+              (
+                expsNotInMap.filter(exp =>
+                  exp match {
+                    case acc @ Access(_, v, _) if v.isEmpty => false
+                    case _                                  => true
+                  }
+                ),
+                false
+              )
+          }
+        case CompressedTensor =>
+          expsNotInMap.exists(e =>
+            e match {
+              case Access(_, v, k) if k == RedundancyMap => v.isEmpty
+              case _                                     => false
+            }
+          ) match {
+            case true => (Seq(), true)
+            case false =>
+              (
+                expsNotInMap.map(exp =>
+                  exp match {
+                    case acc @ Access(n, v, k)
+                        if v.isEmpty && n.endsWith("_C") =>
+                      Access(n.substring(0, n.length() - 2), v, k)
+                    case comp: Comparison => comp
+                    case _                => exp
+                  }
+                ),
+                false
+              )
+          }
+
+        case _ => (expsNotInMap, false)
+      }
+      val singleAllExpSoP = SoP(Seq(Prod(processedExpNotInMap)))
       val allExpSoP =
-        if (epxsNotInMap.length == 0) multSoP(denormalizedSoPSeq)
+        if (multEmptySetFlag) emptySoP()
+        else if (processedExpNotInMap.length == 0) multSoP(denormalizedSoPSeq)
         else if (epxsInMap.length == 0) singleAllExpSoP
         else multSoP(singleAllExpSoP +: denormalizedSoPSeq)
       concatSoP(Seq(acc1, allExpSoP))
@@ -39,10 +89,10 @@ object Optimizer {
     val denormMap = ctx.foldLeft(Map[Access, SoP]())((acc, cur) => {
       val (us, rm, cc, tc) = cur
       val (usBody, rmBody, ccBody, tcBody) = (
-        denormalizeSingle(us.body, acc),
-        denormalizeSingle(rm.body, acc),
-        denormalizeSingle(cc.body, acc),
-        denormalizeSingle(tc.body, acc)
+        denormalizeSingle(us.body, acc, UniqueSet),
+        denormalizeSingle(rm.body, acc, RedundancyMap),
+        denormalizeSingle(cc.body, acc, CompressedTensor),
+        denormalizeSingle(tc.body, acc, Tensor)
       )
       acc + (us.head -> usBody) + (rm.head -> rmBody) + (cc.head -> ccBody) + (tc.head -> tcBody)
     })
@@ -558,6 +608,7 @@ object Optimizer {
       )
     }))
 
-    Rule(rule.head, finalBody)
+    if (rule.head.vars.isEmpty) Rule(rule.head, newBody)
+    else Rule(rule.head, finalBody)
   }
 }

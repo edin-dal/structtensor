@@ -55,6 +55,31 @@ Here, `B:R(i, j, ip, jp)` provides the mapping for redundant elements of matrix 
 
 Make sure that you are following the same convention when you write your own STUR file. Always use `T:D` for dimension information, `T:U` for unique set, and `T:R` for redundancy map of tensor `T`. Note that the second half of the iterator names in the redundancy map must always be similar to the first half but with an extra `p` at the end of their names.
 
+#### Using Scalar Tensors and Numbers
+
+Following is an example on how you can use scalar tensors and constant numbers in STUR.
+
+```
+symbols: N
+A(i) := 3.14 * B() * C(i) + D(i) * (-1)
+A:D(i) := (0 <= i < N)
+C:D(i) := (0 <= i < N)
+D:D(i) := (0 <= i < N)
+```
+
+This computation will generate the following code:
+
+```c++
+for (int i = 0; i < N; ++i) {
+  A[i] += (3.14 * B * C[i]);
+}
+for (int i = 0; i < N; ++i) {
+  A[i] += (-1 * D[i]);
+}
+```
+
+As shown, the values of the array `C` are multiplied by `3.14` and the value of variable `B`. Then the array `D` is subtracted from the array `A`.
+
 ### Advanced Syntax
 
 #### Preprocessing

@@ -609,7 +609,13 @@ object Compiler {
         )
     }
     val denormMap = requiredCtx.foldLeft(Map[Access, SoP]())((acc, cur) => {
-      val body = Optimizer.denormalizeSingle(cur.body, acc)
+      val body = cur.head.kind match {
+        case UniqueSet => Optimizer.denormalizeSingle(cur.body, acc, UniqueSet)
+        case RedundancyMap =>
+          Optimizer.denormalizeSingle(cur.body, acc, RedundancyMap)
+        case _ =>
+          throw new Exception("Must be a unique set or redundancy map type")
+      }
       acc + (cur.head -> body)
     })
     denormMap(access)

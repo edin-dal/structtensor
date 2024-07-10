@@ -1461,4 +1461,139 @@ class CodegenTest extends AnyFlatSpec with Matchers {
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
   }
+
+  it should "generate code for when there is a scalar tensor in the computation without the body" in {
+    Utils.cnt = 0
+    Main.main(
+      Array(
+        "-i",
+        "examples/scalar-tensor-op.stur",
+        "-o",
+        "src/test/resources/test_outputs/scalar-tensor-op_wo_body_test.cpp"
+      )
+    )
+
+    val file1 = scala.io.Source.fromFile(
+      "src/test/resources/correct_test_outputs/scalar-tensor-op_wo_body.cpp"
+    )
+    val file2 = scala.io.Source.fromFile(
+      "src/test/resources/test_outputs/scalar-tensor-op_wo_body_test.cpp"
+    )
+    val lines1 = file1.getLines().toList
+    val lines2 = file2.getLines().toList
+    lines2 should be(lines1)
+  }
+
+  it should "generate code for when there is a scalar tensor in the computation with the body" in {
+    Utils.cnt = 0
+    Main.main(
+      Array(
+        "-i",
+        "examples/scalar-tensor-op.stur",
+        "-o",
+        "src/test/resources/test_outputs/scalar-tensor-op_w_body_test.cpp",
+        "--init-tensors"
+      )
+    )
+
+    val file1 = scala.io.Source.fromFile(
+      "src/test/resources/correct_test_outputs/scalar-tensor-op_w_body.cpp"
+    )
+    val file2 = scala.io.Source.fromFile(
+      "src/test/resources/test_outputs/scalar-tensor-op_w_body_test.cpp"
+    )
+    val lines1 = file1.getLines().toList
+    val lines2 = file2.getLines().toList
+    lines2 should be(lines1)
+  }
+
+  it should "generate code for when there is subtraction in form of multiplication in the computation without the body" in {
+    Utils.cnt = 0
+    Main.main(
+      Array(
+        "-i",
+        "examples/subtraction.stur",
+        "-o",
+        "src/test/resources/test_outputs/subtraction_wo_body_test.cpp"
+      )
+    )
+
+    val file1 = scala.io.Source.fromFile(
+      "src/test/resources/correct_test_outputs/subtraction_wo_body.cpp"
+    )
+    val file2 = scala.io.Source.fromFile(
+      "src/test/resources/test_outputs/subtraction_wo_body_test.cpp"
+    )
+    val lines1 = file1.getLines().toList
+    val lines2 = file2.getLines().toList
+    lines2 should be(lines1)
+  }
+
+  it should "generate code for when there is subtraction in form of multiplication in the computation with the body" in {
+    Utils.cnt = 0
+    Main.main(
+      Array(
+        "-i",
+        "examples/subtraction.stur",
+        "-o",
+        "src/test/resources/test_outputs/subtraction_w_body_test.cpp",
+        "--init-tensors"
+      )
+    )
+
+    val file1 = scala.io.Source.fromFile(
+      "src/test/resources/correct_test_outputs/subtraction_w_body.cpp"
+    )
+    val file2 = scala.io.Source.fromFile(
+      "src/test/resources/test_outputs/subtraction_w_body_test.cpp"
+    )
+    val lines1 = file1.getLines().toList
+    val lines2 = file2.getLines().toList
+    lines2 should be(lines1)
+  }
+
+  it should "generate code for when there is mixture of scalar tensors and constants in the computation without the body" in {
+    Utils.cnt = 0
+    Main.main(
+      Array(
+        "-i",
+        "examples/scalar-constant-mixture.stur",
+        "-o",
+        "src/test/resources/test_outputs/scalar-constant-mixture_wo_body_test.cpp"
+      )
+    )
+
+    val file1 = scala.io.Source.fromFile(
+      "src/test/resources/correct_test_outputs/scalar-constant-mixture_wo_body.cpp"
+    )
+    val file2 = scala.io.Source.fromFile(
+      "src/test/resources/test_outputs/scalar-constant-mixture_wo_body_test.cpp"
+    )
+    val lines1 = file1.getLines().toList
+    val lines2 = file2.getLines().toList
+    lines2 should be(lines1)
+  }
+
+  it should "generate code for when there is mixture of scalar tensors and constants in the computation with the body" in {
+    Utils.cnt = 0
+    Main.main(
+      Array(
+        "-i",
+        "examples/scalar-constant-mixture.stur",
+        "-o",
+        "src/test/resources/test_outputs/scalar-constant-mixture_w_body_test.cpp",
+        "--init-tensors"
+      )
+    )
+
+    val file1 = scala.io.Source.fromFile(
+      "src/test/resources/correct_test_outputs/scalar-constant-mixture_w_body.cpp"
+    )
+    val file2 = scala.io.Source.fromFile(
+      "src/test/resources/test_outputs/scalar-constant-mixture_w_body_test.cpp"
+    )
+    val lines1 = file1.getLines().toList
+    val lines2 = file2.getLines().toList
+    lines2 should be(lines1)
+  }
 }
