@@ -743,7 +743,7 @@ class OptimizerTest
     Optimizer.isComparisonEquivalent(c1, c2) shouldBe true
   }
 
-  it should "remove equivalent comparisons in a single product" in {
+  it should "remove equivalent comparisons in a single product using single product set idempotence" in {
     // Keeps the last one only
     val prod = Prod(
       Seq(
@@ -752,9 +752,27 @@ class OptimizerTest
         Comparison("<", Variable("i"), Variable("j"))
       )
     )
-    Optimizer.removeEquivalentComparisonsOpt(prod) shouldBe Prod(
+    Optimizer.singleProdIdempotence(prod) shouldBe Prod(
       Seq(
         Comparison("<", Variable("i"), Variable("j"))
+      )
+    )
+  }
+
+  it should "not remove equal tensors in a single product using single product set idempotence" in {
+    // Keeps the last one only
+    val prod = Prod(
+      Seq(
+        Access("T", Seq(Variable("i")), Tensor),
+        Access("T", Seq(Variable("i")), Tensor),
+        Access("T", Seq(Variable("i")), Tensor)
+      )
+    )
+    Optimizer.singleProdIdempotence(prod) shouldBe Prod(
+      Seq(
+        Access("T", Seq(Variable("i")), Tensor),
+        Access("T", Seq(Variable("i")), Tensor),
+        Access("T", Seq(Variable("i")), Tensor)
       )
     )
   }
