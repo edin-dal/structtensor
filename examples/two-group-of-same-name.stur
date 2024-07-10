@@ -1,0 +1,5 @@
+symbols: N
+A(i, j, k, l, r) := t(r) * f(i) * f(j) * t(k) * t(l)
+A:D(i, j, k, l, r) := (0 <= i < N) * (0 <= j < N) * (0 <= k < N) * (0 <= l < N) * (0 <= r < N)
+f:D(i) := (0 <= i < N)
+t:D(i) := (0 <= i < N)
