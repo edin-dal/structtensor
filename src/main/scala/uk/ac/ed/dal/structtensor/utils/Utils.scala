@@ -153,6 +153,10 @@ object Utils {
       getByAccessNameAndReplaceVars(access).getOrElse(default)
   }
 
+  implicit class SeqOps(s: Seq[Access]) {
+    def containsByName(name: String): Boolean = s.exists(_.name == name)
+  }
+
   def concatSoP(sops: Seq[SoP]): SoP = SoP(sops.flatMap(_.prods))
 
   def MLIR_start_timer_code(postfix: String = ""): String = s"""
