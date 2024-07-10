@@ -252,6 +252,8 @@ class ConvertorTest
       )
     )
 
+    val lhs = Seq(Access("foo", Seq(Variable("i"), Variable("j")), Tensor))
+
     val dimInfoMap = Map(
       Access("bar", Seq(Variable("y")), Tensor) -> DimInfo(
         Access("bar", Seq(Variable("y")), Tensor),
@@ -263,7 +265,8 @@ class ConvertorTest
       )
     )
 
-    val result = Convertor.extractSet(headToUniqueSetMap, dimInfoMap, UniqueSet)
+    val result =
+      Convertor.extractSet(headToUniqueSetMap, dimInfoMap, lhs, UniqueSet)
     result should contain theSameElementsAs Map(
       Access("bar", Seq(Variable("y")), Tensor) -> Rule(
         Access("bar", Seq(Variable("y")), Tensor),
@@ -583,27 +586,6 @@ class ConvertorTest
           )
         )
       ),
-      Access(
-        "B",
-        List(Variable("i"), Variable("j"), Variable("k")),
-        Tensor
-      ) -> Rule(
-        Access("B", List(Variable("i"), Variable("j"), Variable("k")), Tensor),
-        SoP(
-          List(
-            Prod(
-              List(
-                Comparison("<=", ConstantInt(0), Variable("i")),
-                Comparison(">", Variable("N"), Variable("i")),
-                Comparison("<=", ConstantInt(0), Variable("j")),
-                Comparison(">", Variable("N"), Variable("j")),
-                Comparison("<=", ConstantInt(0), Variable("k")),
-                Comparison(">", Variable("N"), Variable("k"))
-              )
-            )
-          )
-        )
-      ),
       Access("f", List(Variable("j")), Tensor) -> Rule(
         Access("f", List(Variable("j")), Tensor),
         SoP(
@@ -617,33 +599,6 @@ class ConvertorTest
           )
         )
       ),
-      Access(
-        "C",
-        List(Variable("i"), Variable("j"), Variable("k"), Variable("l")),
-        Tensor
-      ) -> Rule(
-        Access(
-          "C",
-          List(Variable("i"), Variable("j"), Variable("k"), Variable("l")),
-          Tensor
-        ),
-        SoP(
-          List(
-            Prod(
-              List(
-                Comparison("<=", ConstantInt(0), Variable("i")),
-                Comparison(">", Variable("N"), Variable("i")),
-                Comparison("<=", ConstantInt(0), Variable("j")),
-                Comparison(">", Variable("N"), Variable("j")),
-                Comparison("<=", ConstantInt(0), Variable("k")),
-                Comparison(">", Variable("N"), Variable("k")),
-                Comparison("<=", ConstantInt(0), Variable("l")),
-                Comparison(">", Variable("N"), Variable("l"))
-              )
-            )
-          )
-        )
-      ),
       Access("f", List(Variable("i")), Tensor) -> Rule(
         Access("f", List(Variable("i")), Tensor),
         SoP(
@@ -652,21 +607,6 @@ class ConvertorTest
               List(
                 Comparison("<=", ConstantInt(0), Variable("i")),
                 Comparison(">", Variable("N"), Variable("i"))
-              )
-            )
-          )
-        )
-      ),
-      Access("A", List(Variable("i"), Variable("j")), Tensor) -> Rule(
-        Access("A", List(Variable("i"), Variable("j")), Tensor),
-        SoP(
-          List(
-            Prod(
-              List(
-                Comparison("<=", ConstantInt(0), Variable("i")),
-                Comparison(">", Variable("N"), Variable("i")),
-                Comparison("<=", ConstantInt(0), Variable("j")),
-                Comparison(">", Variable("N"), Variable("j"))
               )
             )
           )
@@ -692,36 +632,12 @@ class ConvertorTest
         Access("f", List(Variable("l")), Tensor),
         SoP(List())
       ),
-      Access(
-        "B",
-        List(Variable("i"), Variable("j"), Variable("k")),
-        Tensor
-      ) -> Rule(
-        Access("B", List(Variable("i"), Variable("j"), Variable("k")), Tensor),
-        SoP(List())
-      ),
       Access("f", List(Variable("j")), Tensor) -> Rule(
         Access("f", List(Variable("j")), Tensor),
         SoP(List())
       ),
-      Access(
-        "C",
-        List(Variable("i"), Variable("j"), Variable("k"), Variable("l")),
-        Tensor
-      ) -> Rule(
-        Access(
-          "C",
-          List(Variable("i"), Variable("j"), Variable("k"), Variable("l")),
-          Tensor
-        ),
-        SoP(List())
-      ),
       Access("f", List(Variable("i")), Tensor) -> Rule(
         Access("f", List(Variable("i")), Tensor),
-        SoP(List())
-      ),
-      Access("A", List(Variable("i"), Variable("j")), Tensor) -> Rule(
-        Access("A", List(Variable("i"), Variable("j")), Tensor),
         SoP(List())
       ),
       Access("f", List(Variable("k")), Tensor) -> Rule(
