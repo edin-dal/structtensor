@@ -52,11 +52,12 @@ class CompilerTest
       Access("a", Seq(Variable("q"), Variable("r")), Tensor)
     )
     val res = Compiler.groupBySameName(exprs.head, exprs.tail)
-    res should contain theSameElementsAs Seq(
+    res._1 should contain theSameElementsAs Seq(
       Access("a", Seq(Variable("i"), Variable("j")), Tensor),
       Access("a", Seq(Variable("k"), Variable("l")), Tensor),
       Access("a", Seq(Variable("q"), Variable("r")), Tensor)
     )
+    res._2 shouldBe true
   }
 
   it should "whether a rule is a shift rule" in {
