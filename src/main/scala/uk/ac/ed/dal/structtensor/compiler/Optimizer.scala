@@ -119,10 +119,11 @@ object Optimizer {
       }
     }
 
-    val (boolDomainExps, realDomainExps) = removeEquivalentComparisonsOpt(
-      p
-    ).exps.partition(extractBooleanDomainComputation)
-    val distinctBoolDomainExps = boolDomainExps.distinct
+    val (boolDomainExps, realDomainExps) =
+      p.exps.partition(extractBooleanDomainComputation)
+    val distinctBoolDomainExps = removeEquivalentComparisonsOpt(
+      Prod(boolDomainExps)
+    ).exps.distinct
 
     Prod(distinctBoolDomainExps ++ realDomainExps)
   }
