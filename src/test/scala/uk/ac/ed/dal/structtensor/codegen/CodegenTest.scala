@@ -1641,4 +1641,26 @@ class CodegenTest extends AnyFlatSpec with Matchers {
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
   }
+
+  it should "generate code for when the same scalar appears in the computation without the body" in {
+    Utils.cnt = 0
+    Main.main(
+      Array(
+        "-i",
+        "examples/same-scalar.stur",
+        "-o",
+        "src/test/resources/test_outputs/same-scalar_wo_body_test.cpp"
+      )
+    )
+
+    val file1 = scala.io.Source.fromFile(
+      "src/test/resources/correct_test_outputs/same-scalar_wo_body.cpp"
+    )
+    val file2 = scala.io.Source.fromFile(
+      "src/test/resources/test_outputs/same-scalar_wo_body_test.cpp"
+    )
+    val lines1 = file1.getLines().toList
+    val lines2 = file2.getLines().toList
+    lines2 should be(lines1)
+  }
 }
