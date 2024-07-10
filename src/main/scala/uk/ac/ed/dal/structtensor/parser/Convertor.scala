@@ -118,28 +118,30 @@ object Convertor {
   def extractSet(
       headToSetMap: Map[Access, Rule],
       dimInfoMap: Map[Access, DimInfo],
+      lhs: Seq[Access],
       kind: AccessType
   ): Map[Access, Rule] = {
-    dimInfoMap.map { case (old_head, dimInfo) =>
-      val head = Access(dimInfo.access.name, dimInfo.access.vars, Tensor)
-      val body = dimInfo.toSoP
-      val newBody =
-        if (kind == UniqueSet)
-          headToSetMap.getByAccessNameAndReplaceVars(
-            Access(old_head.name, old_head.vars, Tensor)
-          ) match {
-            case Some(r) => SoPTimesSoP(body, r.body)
-            case None    => body
+    dimInfoMap.collect {
+      case (old_head, dimInfo) if !lhs.containsByName(old_head.name) =>
+        val head = Access(dimInfo.access.name, dimInfo.access.vars, Tensor)
+        val body = dimInfo.toSoP
+        val newBody =
+          if (kind == UniqueSet)
+            headToSetMap.getByAccessNameAndReplaceVars(
+              Access(old_head.name, old_head.vars, Tensor)
+            ) match {
+              case Some(r) => SoPTimesSoP(body, r.body)
+              case None    => body
+            }
+          else {
+            headToSetMap.getByAccessNameAndReplaceVars(
+              Access(old_head.name, old_head.vars.redundancyVarsInplace, Tensor)
+            ) match {
+              case Some(r) => SoPTimesSoP(body, r.body)
+              case None    => emptySoP()
+            }
           }
-        else {
-          headToSetMap.getByAccessNameAndReplaceVars(
-            Access(old_head.name, old_head.vars.redundancyVarsInplace, Tensor)
-          ) match {
-            case Some(r) => SoPTimesSoP(body, r.body)
-            case None    => emptySoP()
-          }
-        }
-      head -> Rule(head, newBody)
+        head -> Rule(head, newBody)
     }.toMap
   }
 
@@ -164,12 +166,13 @@ object Convertor {
     ) = groupRules(rules)
     val tensorComputations = headToTensorMap.values.toSeq
 
-    val (dimInfo, dimInfoMap): (Seq[DimInfo], Map[Access, DimInfo]) =
-      extractDims(headToTensorMap, headToDimensionMap)
-    val uniqueSets: Map[Access, Rule] =
-      extractSet(headToUniqueSetMap, dimInfoMap, UniqueSet)
-    val redundancyMaps: Map[Access, Rule] =
-      extractSet(headToRedundancyMapMap, dimInfoMap, RedundancyMap)
+    val (dimInfo, dimInfoMap) = extractDims(headToTensorMap, headToDimensionMap)
+
+    val lhs = headToTensorMap.keySet.toSeq.filterNot(_.vars.isEmpty)
+    val uniqueSets = extractSet(headToUniqueSetMap, dimInfoMap, lhs, UniqueSet)
+    val redundancyMaps =
+      extractSet(headToRedundancyMapMap, dimInfoMap, lhs, RedundancyMap)
+
     val all_tensors: Seq[Access] = getAllTensors(tensorComputations).distinct
     (all_tensors, tensorComputations, dimInfo, uniqueSets, redundancyMaps)
   }
