@@ -657,9 +657,9 @@ class CompilerTest
                 RedundancyMap
               ),
               Access(
-                "b",
+                "b_C",
                 Seq(Variable("ip"), Variable("jp"), Variable("kp")),
-                Tensor
+                CompressedTensor
               )
             )
           )
