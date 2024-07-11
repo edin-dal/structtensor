@@ -256,7 +256,9 @@ object Compiler {
         SoP(
           Seq(
             Prod(Seq(rhs.compressedHead)),
-            Prod(Seq(rhs.redundancyHead, rhs.vars2RedundancyVars))
+            Prod(
+              Seq(rhs.redundancyHead, rhs.vars2RedundancyVars.compressedHead())
+            )
           )
         )
       )
