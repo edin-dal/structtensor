@@ -62,7 +62,9 @@ object Parser {
   def variableSeq[$: P]: P[Seq[Variable]] = P(variable.rep(sep = ","))
 
   def name[$: P]: P[String] = P(
-    CharIn("A-Za-z") ~ CharIn("A-Za-z0-9._").rep ~ (":" ~ CharIn("DUR")).?
+    CharIn("A-Za-z") ~ CharIn("A-Za-z0-9._").rep ~ "^-1".? ~ (":" ~ CharIn(
+      "DUR"
+    )).?
   ).!
 
   def access[$: P]: P[Access] = P(name.! ~ "(" ~ variableSeq ~ ")").map {
@@ -123,11 +125,15 @@ object Parser {
 
   def exp_or_const[$: P]: P[Seq[Exp]] =
     P(exp) |
-      P(decimal)
-        .map(d => Access(d.value.toString(), Seq(), Tensor))
+      P(decimal ~ "^-1".?.!)
+        .map({ case (d, inv) =>
+          Access(d.value.toString() + inv, Seq(), Tensor)
+        })
         .map(Seq(_)) |
-      P(integer)
-        .map(d => Access(d.value.toString(), Seq(), Tensor))
+      P(integer ~ "^-1".?.!)
+        .map({ case (d, inv) =>
+          Access(d.value.toString() + inv, Seq(), Tensor)
+        })
         .map(Seq(_)) |
       P("(" ~ exp_or_const ~ ")")
 
@@ -141,7 +147,11 @@ object Parser {
   } | P("(" ~ sop ~ ")")
 
   def rule[$: P]: P[Rule] = P(access ~ ":=" ~ sop).map({ case (a, b) =>
-    Rule(a, b)
+    if (a.name.contains("^-1"))
+      throw new Exception(
+        "Invalid access name. You can't use ^-1 on the lhs of a computatoin."
+      )
+    else Rule(a, b)
   }) | P("(" ~ rule ~ ")")
 
   def program[$: P]: P[Seq[Rule]] = P(rule.rep(sep = "\n"))
