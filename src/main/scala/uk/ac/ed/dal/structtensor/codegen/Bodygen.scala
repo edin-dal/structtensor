@@ -76,6 +76,7 @@ object Bodygen {
           .distinctBy(_.name)
           .filter(_.kind == Tensor)
           .filterNot(only_lhs_heads.contains)
+          .filterNot(t => symbols.contains(t.name.deinversifiedName.toVar))
           .filterNot(t => decimal_pattern.matches(t.name))
           .map(t =>
             alloc_and_gen_random_number(
@@ -135,6 +136,7 @@ extern "C"
         val decimal_pattern = """-?\d+(\.\d+)?""".r
         val tensor_to_str = all_tensors
           .filterNot(only_lhs_heads_not_in_output.contains)
+          .filterNot(t => symbols.contains(t.name.deinversifiedName.toVar))
           .filterNot(t => decimal_pattern.matches(t.name.deinversifiedName))
           .map(t =>
             "double " + (if (t.vars.isEmpty) "&"
