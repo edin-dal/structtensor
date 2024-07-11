@@ -26,13 +26,41 @@ object Convertor {
         Map.empty[Access, Rule]
       )
     )((acc, r) => {
-      val head = Access(r.head.name, r.head.vars, Tensor)
+      val head = Access(r.head.name.deinversifiedName, r.head.vars, Tensor)
+      val head_inverse = head.inverseHead()
       r.head.kind match {
-        case Tensor        => (acc._1 ++ Map(head -> r), acc._2, acc._3, acc._4)
-        case UniqueSet     => (acc._1, acc._2 ++ Map(head -> r), acc._3, acc._4)
-        case RedundancyMap => (acc._1, acc._2, acc._3 ++ Map(head -> r), acc._4)
-        case DimensionType => (acc._1, acc._2, acc._3, acc._4 ++ Map(head -> r))
-        case _             => throw new Exception("Unknown kind of tensor")
+        case Tensor => (acc._1 ++ Map(head -> r), acc._2, acc._3, acc._4)
+        case UniqueSet =>
+          (
+            acc._1,
+            acc._2 ++ Map(
+              head -> r,
+              head_inverse -> Rule(r.head, r.body.inverse())
+            ),
+            acc._3,
+            acc._4
+          )
+        case RedundancyMap =>
+          (
+            acc._1,
+            acc._2,
+            acc._3 ++ Map(
+              head -> r,
+              head_inverse -> Rule(r.head, r.body.inverse())
+            ),
+            acc._4
+          )
+        case DimensionType =>
+          (
+            acc._1,
+            acc._2,
+            acc._3,
+            acc._4 ++ Map(
+              head -> r,
+              head_inverse -> Rule(r.head, r.body.inverse())
+            )
+          )
+        case _ => throw new Exception("Unknown kind of tensor")
       }
     })
   }
@@ -99,18 +127,26 @@ object Convertor {
     if (!dimsAvailable)
       throw new Exception("Dimensions not available for all tensors")
 
-    val (dimInfos, headToDimInfoMap) = headsRequiringDim.map { a =>
-      val r = headToDimensionMap.getByAccessNameAndReplaceVars(a).get
-      val oldHead = r.head
-      val name =
-        if (r.head.name.contains("_D"))
-          r.head.name.substring(0, r.head.name.length - 2)
-        else r.head.name
-      val head = Access(name, r.head.vars, Tensor)
-      val body = r.body
+    val headAndHeadInverseRequiringDim =
+      headsRequiringDim ++ headsRequiringDim.map(_.inverseHead())
 
-      val dimSeq = head.vars.map(v => findUpperBound(v, body))
-      (DimInfo(head, dimSeq), oldHead -> DimInfo(r.head, dimSeq))
+    val (dimInfos, headToDimInfoMap) = headAndHeadInverseRequiringDim.collect {
+      a =>
+        headToDimensionMap.containsByName(a.name) match {
+          case true => {
+            val r = headToDimensionMap.getByAccessNameAndReplaceVars(a).get
+            val oldHead = r.head
+            val name =
+              if (r.head.name.contains("_D"))
+                r.head.name.substring(0, r.head.name.length - 2)
+              else r.head.name
+            val head = Access(name, r.head.vars, Tensor)
+            val body = r.body
+
+            val dimSeq = head.vars.map(v => findUpperBound(v, body))
+            (DimInfo(head, dimSeq), oldHead -> DimInfo(r.head, dimSeq))
+          }
+        }
     }.unzip
     (dimInfos, headToDimInfoMap.toMap)
   }
@@ -122,7 +158,10 @@ object Convertor {
       kind: AccessType
   ): Map[Access, Rule] = {
     dimInfoMap.collect {
-      case (old_head, dimInfo) if !lhs.containsByName(old_head.name) =>
+      case (old_head, dimInfo)
+          if (!lhs.containsByName(old_head.name) && !lhs.containsByName(
+            old_head.name.inverseName
+          )) =>
         val head = Access(dimInfo.access.name, dimInfo.access.vars, Tensor)
         val body = dimInfo.toSoP
         val newBody =
