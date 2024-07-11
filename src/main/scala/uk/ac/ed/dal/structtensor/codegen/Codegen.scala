@@ -14,9 +14,9 @@ object Codegen {
 
   def CPPFormat(a: Any): String = {
     a match {
-      case s: String   => s
-      case i: Int      => i.toString
-      case d: Double   => d.toString
+      case s: String => if (s.endsWith("^-1")) s"1. / ${s.dropRight(3)}" else s
+      case i: Int    => i.toString
+      case d: Double => d.toString
       case v: Variable => v.name
       case i: Index =>
         i match {
@@ -28,8 +28,9 @@ object Codegen {
           case _ => ""
         }
       case a: Access =>
-        if (a.vars.isEmpty) a.name
-        else s"${a.name}[${a.vars.map(_.name).mkString("][")}]"
+        if (a.vars.isEmpty) CPPFormat(a.name)
+        else
+          s"${CPPFormat(a.name)}[${a.vars.map(_.name).mkString("][")}]"
       case c @ Comparison(op, i, v) =>
         s"(${CPPFormat(i)} ${op} ${CPPFormat(v)})"
       case p: Prod =>
