@@ -127,6 +127,17 @@ object Utils {
     }))
   }
 
+  def getNonDimensionVariables(prod: Prod): Seq[Variable] = prod.exps.flatMap {
+    case Access(_, vars, _) => vars.distinct
+    case _                  => Seq()
+  }.distinct
+
+  def getNonDimensionVariables(sop: SoP): Seq[Variable] =
+    sop.prods.flatMap(getNonDimensionVariables).distinct
+
+  def getNonDimensionVariables(rule: Rule): Seq[Variable] =
+    (rule.head.vars ++ getNonDimensionVariables(rule.body)).distinct
+
   implicit class MapOps(m: Map[Access, Rule]) {
     def getByName(name: String): Option[Rule] =
       m.keys.find(_.name == name).map(m)
@@ -137,12 +148,17 @@ object Utils {
       m.keys.find(_.name == access.name).map { key =>
         m(key) match {
           case Rule(head, body) =>
+            val nonDimVarsValue = getNonDimensionVariables(body)
+            val alphaRenameRequiredVars = nonDimVarsValue.diff(key.vars)
             Rule(
               access,
               alphaRename(
                 body,
-                key.vars.redundancyVarsInplace
-                  .zip(access.vars.redundancyVarsInplace)
+                (key.vars.redundancyVarsInplace ++ alphaRenameRequiredVars)
+                  .zip(
+                    access.vars.redundancyVarsInplace ++ alphaRenameRequiredVars
+                      .map(_ => Variable(getVar("i")))
+                  )
                   .toMap
               )
             )

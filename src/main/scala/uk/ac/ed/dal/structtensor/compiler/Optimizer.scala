@@ -433,17 +433,6 @@ object Optimizer {
   def removeEmptyProductsOpt(r: Rule): Rule =
     Rule(r.head, SoP(r.body.prods.filterNot(isExpOrProductEmpty)))
 
-  def getNonDimensionVariables(prod: Prod): Seq[Variable] = prod.exps.flatMap {
-    case Access(_, vars, _) => vars.distinct
-    case _                  => Seq()
-  }.distinct
-
-  def getNonDimensionVariables(sop: SoP): Seq[Variable] =
-    sop.prods.flatMap(getNonDimensionVariables).distinct
-
-  def getNonDimensionVariables(rule: Rule): Seq[Variable] =
-    (rule.head.vars ++ getNonDimensionVariables(rule.body)).distinct
-
   def containsByName(m: Map[Access, SoP], access: Access): Boolean = m.exists {
     case (key, _) if key.name == access.name => true
     case _                                   => false
