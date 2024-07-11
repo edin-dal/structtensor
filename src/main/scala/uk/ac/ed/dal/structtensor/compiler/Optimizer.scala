@@ -14,7 +14,7 @@ object Optimizer {
   ): SoP = {
     def extractAccessesInDenormalizationMapByName(exp: Exp): Boolean =
       exp match {
-        case acc: Access => containsByName(denormMap, acc)
+        case acc: Access => denormMap.containsByName(acc.name)
         case _           => false
       }
 
@@ -23,7 +23,7 @@ object Optimizer {
         prod.exps.partition(extractAccessesInDenormalizationMapByName)
       val denormalizedSoPSeq = epxsInMap.map(exp =>
         exp match {
-          case acc: Access => getByNameAndAlphaRename(denormMap, acc).get
+          case acc: Access => denormMap.getByAccessNameAndReplaceVars(acc).get
           case _           => throw new Exception("Unknown expression")
         }
       )
@@ -432,26 +432,6 @@ object Optimizer {
 
   def removeEmptyProductsOpt(r: Rule): Rule =
     Rule(r.head, SoP(r.body.prods.filterNot(isExpOrProductEmpty)))
-
-  def containsByName(m: Map[Access, SoP], access: Access): Boolean = m.exists {
-    case (key, _) if key.name == access.name => true
-    case _                                   => false
-  }
-
-  def getByNameAndAlphaRename(
-      m: Map[Access, SoP],
-      access: Access
-  ): Option[SoP] = m.collectFirst {
-    case (key, value) if key.name == access.name => {
-      val nonDimVarsValue = getNonDimensionVariables(value)
-      val alphaRenameRequiredVars = nonDimVarsValue.diff(key.vars)
-      val alphaRenameMap =
-        (key.vars.zip(access.vars) ++ alphaRenameRequiredVars.map(v =>
-          (v -> Variable(getVar("i")))
-        )).toMap
-      alphaRename(value, alphaRenameMap)
-    }
-  }
 
   def getEqualVariables(rule: Rule): Seq[Seq[Seq[Variable]]] = {
     val binaryEqualSets = rule.body.prods.map(p => {
