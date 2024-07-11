@@ -1,0 +1,4 @@
+symbols: N
+A(i, j) := f^-1(i) * f^-1(j)
+A:D(i, j) := (0 <= i < N) * (0 <= j < N)
+f:D(i) := (0 <= i < N)
