@@ -19,9 +19,9 @@ p += (3 * q * l * s * 5.12 * -12 * t[j]);
 }
 for (int i = 0; i < N; ++i) {
 
-for (int i7 = 0; i7 < N; ++i7) {
+for (int i8 = 0; i8 < N; ++i8) {
 
-A[i] += (3 * q * l * s * 5.12 * -12 * t[i7] * f[i]);
+A[i] += (3 * q * l * s * 5.12 * -12 * t[i8] * f[i]);
 }
 }
 end_computation = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();

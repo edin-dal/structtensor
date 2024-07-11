@@ -50,9 +50,9 @@ for (int i = 0; i < N; ++i) {
 
 for (int j = 0; j < min({(i) + 1, N}); ++j) {
 
-for (int i4 = 0; i4 < N; ++i4) {
+for (int i5 = 0; i5 < N; ++i5) {
 
-A[i][j] += (f[j] * f[i] * t[i4]);
+A[i][j] += (f[j] * f[i] * t[i5]);
 }
 }
 }
