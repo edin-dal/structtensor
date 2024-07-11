@@ -177,7 +177,7 @@ extern "C"
           case true =>
             all_tensors
               .map(_.deinversifiedHead())
-              // .distinctBy(_.name)
+              .distinctBy(_.name)
               .map(t => printerr(codeLang, t))
               .mkString("\n")
           case false =>
