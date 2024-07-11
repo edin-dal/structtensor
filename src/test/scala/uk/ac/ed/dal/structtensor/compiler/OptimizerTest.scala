@@ -22,7 +22,7 @@ class OptimizerTest
       Access("A", Seq(Variable("i")), UniqueSet) -> SoP(Seq())
     )
     val access = Access("A", Seq(Variable("j")), Tensor)
-    Optimizer.containsByName(map, access) shouldBe true
+    map.containsByName(access.name) shouldBe true
   }
 
   it should "alpha rename the variables in a body of a rule, based on the access and given the denormalization map" in {
@@ -40,7 +40,7 @@ class OptimizerTest
 
     val access = Access("T", Seq(Variable("i")), Tensor)
 
-    val actual = Optimizer.getByNameAndAlphaRename(m, access)
+    val actual = m.getByAccessNameAndReplaceVars(access)
 
     val pattern = """i\d+""".r
     val test_value = actual match {
