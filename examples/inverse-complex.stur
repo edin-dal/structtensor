@@ -1,0 +1,11 @@
+symbols: N
+A(i, j) := B^-1(i, j) * 5^-1 * f^-1()
+C(i, j) := A^-1(i, j)
+X(i, j) := C^-1(i, j)
+D(i, j) := B(i, j) * B^-1(i, j)
+A:D(i, j) := (0 <= i < N) * (0 <= j < N)
+B:D(i, j) := (0 <= i < N) * (0 <= j < N)
+B:U(i, j) := (i = j)
+C:D(i, j) := (0 <= i < N) * (0 <= j < N)
+D:D(i, j) := (0 <= i < N) * (0 <= j < N)
+X:D(i, j) := (0 <= i < N) * (0 <= j < N)

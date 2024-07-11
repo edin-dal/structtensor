@@ -1706,4 +1706,184 @@ class CodegenTest extends AnyFlatSpec with Matchers {
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
   }
+
+  it should "generate code for when there is inverse tensor in the computation without the body" in {
+    Utils.cnt = 0
+    Main.main(
+      Array(
+        "-i",
+        "examples/inverse-tensor.stur",
+        "-o",
+        "src/test/resources/test_outputs/inverse-tensor_wo_body_test.cpp"
+      )
+    )
+
+    val file1 = scala.io.Source.fromFile(
+      "src/test/resources/correct_test_outputs/inverse-tensor_wo_body.cpp"
+    )
+    val file2 = scala.io.Source.fromFile(
+      "src/test/resources/test_outputs/inverse-tensor_wo_body_test.cpp"
+    )
+    val lines1 = file1.getLines().toList
+    val lines2 = file2.getLines().toList
+    lines2 should be(lines1)
+  }
+
+  it should "generate code for when there is inverse tensor in the computation with the body" in {
+    Utils.cnt = 0
+    Main.main(
+      Array(
+        "-i",
+        "examples/inverse-tensor.stur",
+        "-o",
+        "src/test/resources/test_outputs/inverse-tensor_w_body_test.cpp",
+        "--init-tensors"
+      )
+    )
+
+    val file1 = scala.io.Source.fromFile(
+      "src/test/resources/correct_test_outputs/inverse-tensor_w_body.cpp"
+    )
+    val file2 = scala.io.Source.fromFile(
+      "src/test/resources/test_outputs/inverse-tensor_w_body_test.cpp"
+    )
+    val lines1 = file1.getLines().toList
+    val lines2 = file2.getLines().toList
+    lines2 should be(lines1)
+  }
+
+  it should "generate code for when there is inverse tensor with structure in the computation without the body" in {
+    Utils.cnt = 0
+    Main.main(
+      Array(
+        "-i",
+        "examples/inverse-with-structure.stur",
+        "-o",
+        "src/test/resources/test_outputs/inverse-with-structure_wo_body_test.cpp"
+      )
+    )
+
+    val file1 = scala.io.Source.fromFile(
+      "src/test/resources/correct_test_outputs/inverse-with-structure_wo_body.cpp"
+    )
+    val file2 = scala.io.Source.fromFile(
+      "src/test/resources/test_outputs/inverse-with-structure_wo_body_test.cpp"
+    )
+    val lines1 = file1.getLines().toList
+    val lines2 = file2.getLines().toList
+    lines2 should be(lines1)
+  }
+
+  it should "generate code for when there is inverse tensor with structure in the computation with the body" in {
+    Utils.cnt = 0
+    Main.main(
+      Array(
+        "-i",
+        "examples/inverse-with-structure.stur",
+        "-o",
+        "src/test/resources/test_outputs/inverse-with-structure_w_body_test.cpp",
+        "--init-tensors"
+      )
+    )
+
+    val file1 = scala.io.Source.fromFile(
+      "src/test/resources/correct_test_outputs/inverse-with-structure_w_body.cpp"
+    )
+    val file2 = scala.io.Source.fromFile(
+      "src/test/resources/test_outputs/inverse-with-structure_w_body_test.cpp"
+    )
+    val lines1 = file1.getLines().toList
+    val lines2 = file2.getLines().toList
+    lines2 should be(lines1)
+  }
+
+  it should "generate code for when there is mixture of tensor scalar and constant inverse in the computation without the body" in {
+    Utils.cnt = 0
+    Main.main(
+      Array(
+        "-i",
+        "examples/inverse-tensor-scalar.stur",
+        "-o",
+        "src/test/resources/test_outputs/inverse-tensor-scalar_wo_body_test.cpp"
+      )
+    )
+
+    val file1 = scala.io.Source.fromFile(
+      "src/test/resources/correct_test_outputs/inverse-tensor-scalar_wo_body.cpp"
+    )
+    val file2 = scala.io.Source.fromFile(
+      "src/test/resources/test_outputs/inverse-tensor-scalar_wo_body_test.cpp"
+    )
+    val lines1 = file1.getLines().toList
+    val lines2 = file2.getLines().toList
+    lines2 should be(lines1)
+  }
+
+  it should "generate code for when there is mixture of tensor scalar and constant inverse in the computation with the body" in {
+    Utils.cnt = 0
+    Main.main(
+      Array(
+        "-i",
+        "examples/inverse-tensor-scalar.stur",
+        "-o",
+        "src/test/resources/test_outputs/inverse-tensor-scalar_w_body_test.cpp",
+        "--init-tensors"
+      )
+    )
+
+    val file1 = scala.io.Source.fromFile(
+      "src/test/resources/correct_test_outputs/inverse-tensor-scalar_w_body.cpp"
+    )
+    val file2 = scala.io.Source.fromFile(
+      "src/test/resources/test_outputs/inverse-tensor-scalar_w_body_test.cpp"
+    )
+    val lines1 = file1.getLines().toList
+    val lines2 = file2.getLines().toList
+    lines2 should be(lines1)
+  }
+
+  it should "generate code for when there is complex computation over inverse tensors in the computation without the body" in {
+    Utils.cnt = 0
+    Main.main(
+      Array(
+        "-i",
+        "examples/inverse-complex.stur",
+        "-o",
+        "src/test/resources/test_outputs/inverse-complex_wo_body_test.cpp"
+      )
+    )
+
+    val file1 = scala.io.Source.fromFile(
+      "src/test/resources/correct_test_outputs/inverse-complex_wo_body.cpp"
+    )
+    val file2 = scala.io.Source.fromFile(
+      "src/test/resources/test_outputs/inverse-complex_wo_body_test.cpp"
+    )
+    val lines1 = file1.getLines().toList
+    val lines2 = file2.getLines().toList
+    lines2 should be(lines1)
+  }
+
+  it should "generate code for when there is complex computation over inverse tensors in the computation with the body" in {
+    Utils.cnt = 0
+    Main.main(
+      Array(
+        "-i",
+        "examples/inverse-complex.stur",
+        "-o",
+        "src/test/resources/test_outputs/inverse-complex_w_body_test.cpp",
+        "--init-tensors"
+      )
+    )
+
+    val file1 = scala.io.Source.fromFile(
+      "src/test/resources/correct_test_outputs/inverse-complex_w_body.cpp"
+    )
+    val file2 = scala.io.Source.fromFile(
+      "src/test/resources/test_outputs/inverse-complex_w_body_test.cpp"
+    )
+    val lines1 = file1.getLines().toList
+    val lines2 = file2.getLines().toList
+    lines2 should be(lines1)
+  }
 }

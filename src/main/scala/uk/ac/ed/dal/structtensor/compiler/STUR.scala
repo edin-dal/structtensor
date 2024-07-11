@@ -80,6 +80,8 @@ case class Access(name: String, vars: Seq[Variable], kind: AccessType)
   def compressedHead(): Access =
     Access(name.compressedName, vars, CompressedTensor)
   def dimensionHead(): Access = Access(name.dimensionName, vars, DimensionType)
+  def inverseHead(): Access = Access(name.inverseName, vars, kind)
+  def deinversifiedHead(): Access = Access(name.deinversifiedName, vars, kind)
 }
 
 case class Comparison(op: String, index: Index, variable: Variable)
@@ -98,6 +100,14 @@ case class Prod(exps: Seq[Exp]) {
     val pr = exps.map(_.prettyFormat).mkString(" * ")
     if (pr.isEmpty) "∅" else pr
   }
+  def inverse(): Prod = Prod(
+    exps.map(e =>
+      e match {
+        case a: Access => a.inverseHead()
+        case _         => e
+      }
+    )
+  )
 }
 
 case class SoP(prods: Seq[Prod]) {
@@ -111,10 +121,13 @@ case class SoP(prods: Seq[Prod]) {
       Prod(prod.exps.map(_.vars2RedundancyVars))
     })
   }
+
+  def inverse(): SoP = SoP(prods.map(_.inverse()))
 }
 
 case class Rule(head: Access, body: SoP) {
   def prettyFormat(): String = s"${head.prettyFormat} := ${body.prettyFormat}"
+  def inverse(): Rule = Rule(head.inverseHead(), body.inverse())
 }
 
 case class Interval(begin: Seq[Index], end: Seq[Index])

@@ -12,15 +12,20 @@ int main(int argc, char **argv){
 
 
 const int N = atoi(argv[1]);
-double *f = new double[N];
+double **B = new double*[N];
 for (size_t i = 0; i < N; ++i) {
-int flag1 = 0 <= i && N > i;
+B[i] = new double[N];
+
+for (size_t j = 0; j < N; ++j) {
+int flag1 = 0 <= i && N > i && 0 <= j && N > j;
 if (flag1) {
-f[i] = (double) (rand() % 1000000) / 1e6;
+B[i][j] = (double) (rand() % 1000000) / 1e6;
 } else {
-f[i] = 0.0;
+B[i][j] = 0.0;
 }
 }
+}
+double f = (double) (rand() % 1000000) / 1e6;
 double **A = new double*[N];
 for (size_t i = 0; i < N; ++i) {
 A[i] = new double[N];
@@ -34,9 +39,9 @@ long time_computation = 0, start_computation, end_computation;
 start_computation = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
 for (int i = 0; i < N; ++i) {
 
-for (int j = max({i, 0}); j < N; ++j) {
+for (int j = 0; j < N; ++j) {
 
-A[i][j] += (f[i] * f[j]);
+A[i][j] += (1. / f * 1. / -5.123 * 1. / B[i][j]);
 }
 }
 end_computation = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
@@ -44,22 +49,17 @@ time_computation = end_computation - start_computation;
 cout << time_computation << endl;
 long time_reconstruction = 0, start_reconstruction, end_reconstruction;
 start_reconstruction = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
-for (int i = 0; i < N; ++i) {
 
-int jp = i;
-for (int j = 0; j < min({i, N}); ++j) {
-
-int ip = j;
-A[i][j] += A[ip][jp];
-}
-}
 end_reconstruction = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
 time_reconstruction = end_reconstruction - start_reconstruction;
 cout << time_reconstruction << endl;
 cerr << A[0][0] << endl;
-cerr << f[0] << endl;
+cerr << B[0][0] << endl;
+cerr << -5.123 << endl;
+cerr << f << endl;
 for (size_t i0 = 0; i0 < N; ++i0) {delete[] A[i0];
 }delete[] A;
-delete[] f;
+for (size_t i0 = 0; i0 < N; ++i0) {delete[] B[i0];
+}delete[] B;
 return 0;
 }

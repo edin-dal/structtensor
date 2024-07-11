@@ -72,10 +72,11 @@ object Bodygen {
         val c2 = read_argv(codeLang, argv_names)
         val decimal_pattern = """-?\d+(\.\d+)?""".r
         val c3 = all_tensors
+          .map(_.deinversifiedHead())
           .distinctBy(_.name)
           .filter(_.kind == Tensor)
           .filterNot(only_lhs_heads.contains)
-          .filterNot(decimal_pattern matches _.name)
+          .filterNot(t => decimal_pattern.matches(t.name))
           .map(t =>
             alloc_and_gen_random_number(
               codeLang,
@@ -134,12 +135,13 @@ extern "C"
         val decimal_pattern = """-?\d+(\.\d+)?""".r
         val tensor_to_str = all_tensors
           .filterNot(only_lhs_heads_not_in_output.contains)
-          .distinctBy(_.name)
-          .filterNot(decimal_pattern matches _.name)
+          .filterNot(t => decimal_pattern.matches(t.name.deinversifiedName))
           .map(t =>
             "double " + (if (t.vars.isEmpty) "&"
-                         else "*" * t.vars.length) + " " + t.name
+                         else
+                           "*" * t.vars.length) + " " + t.name.deinversifiedName
           )
+          .distinct
           .mkString(", ")
         val symbols_to_str = symbols.map(v => "int " + v.name).mkString(", ")
         val c2 =
@@ -173,15 +175,20 @@ extern "C"
         }
         val c1 = outputs_names.isEmpty match {
           case true =>
-            all_tensors.map(t => printerr(codeLang, t)).mkString("\n")
+            all_tensors
+              .map(_.deinversifiedHead())
+              .distinctBy(_.name)
+              .map(t => printerr(codeLang, t))
+              .mkString("\n")
           case false =>
             all_tensors
               .filter(e => outputs_names.contains(e.name))
-              .map(t => printerr(codeLang, t))
+              .map(t => printerr(codeLang, t.deinversifiedHead()))
               .mkString("\n")
         }
         val c2 = all_tensors
           .filterNot(only_lhs_heads_not_in_output.contains)
+          .map(_.deinversifiedHead())
           .distinctBy(_.name)
           .filter(all_dimensions.contains)
           .map(t => free(codeLang, t.name, all_dimensions(t)))

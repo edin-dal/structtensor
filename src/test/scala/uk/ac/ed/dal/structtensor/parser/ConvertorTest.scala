@@ -40,16 +40,28 @@ class ConvertorTest
       Access("bar", Seq(Variable("y")), Tensor) -> Rule(
         Access("bar", Seq(Variable("y")), UniqueSet),
         emptySoP()
+      ),
+      Access("bar^-1", Seq(Variable("y")), Tensor) -> Rule(
+        Access("bar", Seq(Variable("y")), UniqueSet),
+        emptySoP()
       )
     )
     headToRedundancyMapMap should contain theSameElementsAs Map(
       Access("baz", Seq(Variable("z")), Tensor) -> Rule(
         Access("baz", Seq(Variable("z")), RedundancyMap),
         emptySoP()
+      ),
+      Access("baz^-1", Seq(Variable("z")), Tensor) -> Rule(
+        Access("baz", Seq(Variable("z")), RedundancyMap),
+        emptySoP()
       )
     )
     headToDimensionTypeMap should contain theSameElementsAs Map(
       Access("qux", Seq(Variable("w")), Tensor) -> Rule(
+        Access("qux", Seq(Variable("w")), DimensionType),
+        emptySoP()
+      ),
+      Access("qux^-1", Seq(Variable("w")), Tensor) -> Rule(
         Access("qux", Seq(Variable("w")), DimensionType),
         emptySoP()
       )
@@ -82,11 +94,11 @@ class ConvertorTest
     )
     val heads = Convertor.getHeadsThatRequireDim(headToTensorMap)
     heads should contain theSameElementsAs Seq(
-      Access("bar", List(Variable("y")), Tensor),
-      Access("baz", List(Variable("z")), Tensor),
-      Access("foo", List(Variable("z"), Variable("y")), Tensor),
-      Access("foo", List(Variable("z"), Variable("y")), Tensor),
-      Access("qux", List(Variable("y")), Tensor)
+      Access("bar", Seq(Variable("y")), Tensor),
+      Access("baz", Seq(Variable("z")), Tensor),
+      Access("foo", Seq(Variable("z"), Variable("y")), Tensor),
+      Access("foo", Seq(Variable("z"), Variable("y")), Tensor),
+      Access("qux", Seq(Variable("y")), Tensor)
     )
   }
 
@@ -486,43 +498,43 @@ class ConvertorTest
 
     val result = Convertor.convertRules(rules)
 
-    result._1 should contain theSameElementsAs List(
-      Access("A", List(Variable("i"), Variable("j")), Tensor),
-      Access("f", List(Variable("i")), Tensor),
-      Access("f", List(Variable("j")), Tensor),
-      Access("B", List(Variable("i"), Variable("j"), Variable("k")), Tensor),
-      Access("f", List(Variable("k")), Tensor),
+    result._1 should contain theSameElementsAs Seq(
+      Access("A", Seq(Variable("i"), Variable("j")), Tensor),
+      Access("f", Seq(Variable("i")), Tensor),
+      Access("f", Seq(Variable("j")), Tensor),
+      Access("B", Seq(Variable("i"), Variable("j"), Variable("k")), Tensor),
+      Access("f", Seq(Variable("k")), Tensor),
       Access(
         "C",
-        List(Variable("i"), Variable("j"), Variable("k"), Variable("l")),
+        Seq(Variable("i"), Variable("j"), Variable("k"), Variable("l")),
         Tensor
       ),
-      Access("f", List(Variable("l")), Tensor)
+      Access("f", Seq(Variable("l")), Tensor)
     )
 
-    result._2 should contain theSameElementsAs List(
+    result._2 should contain theSameElementsAs Seq(
       Rule(
-        Access("A", List(Variable("i"), Variable("j")), Tensor),
+        Access("A", Seq(Variable("i"), Variable("j")), Tensor),
         SoP(
-          List(
+          Seq(
             Prod(
-              List(
-                Access("f", List(Variable("i")), Tensor),
-                Access("f", List(Variable("j")), Tensor)
+              Seq(
+                Access("f", Seq(Variable("i")), Tensor),
+                Access("f", Seq(Variable("j")), Tensor)
               )
             )
           )
         )
       ),
       Rule(
-        Access("B", List(Variable("i"), Variable("j"), Variable("k")), Tensor),
+        Access("B", Seq(Variable("i"), Variable("j"), Variable("k")), Tensor),
         SoP(
-          List(
+          Seq(
             Prod(
-              List(
-                Access("f", List(Variable("i")), Tensor),
-                Access("f", List(Variable("j")), Tensor),
-                Access("f", List(Variable("k")), Tensor)
+              Seq(
+                Access("f", Seq(Variable("i")), Tensor),
+                Access("f", Seq(Variable("j")), Tensor),
+                Access("f", Seq(Variable("k")), Tensor)
               )
             )
           )
@@ -531,17 +543,17 @@ class ConvertorTest
       Rule(
         Access(
           "C",
-          List(Variable("i"), Variable("j"), Variable("k"), Variable("l")),
+          Seq(Variable("i"), Variable("j"), Variable("k"), Variable("l")),
           Tensor
         ),
         SoP(
-          List(
+          Seq(
             Prod(
-              List(
-                Access("f", List(Variable("i")), Tensor),
-                Access("f", List(Variable("j")), Tensor),
-                Access("f", List(Variable("k")), Tensor),
-                Access("f", List(Variable("l")), Tensor)
+              Seq(
+                Access("f", Seq(Variable("i")), Tensor),
+                Access("f", Seq(Variable("j")), Tensor),
+                Access("f", Seq(Variable("k")), Tensor),
+                Access("f", Seq(Variable("l")), Tensor)
               )
             )
           )
@@ -549,36 +561,60 @@ class ConvertorTest
       )
     )
 
-    result._3 should contain theSameElementsAs List(
-      DimInfo(Access("f", List(Variable("l")), Tensor), List(Variable("N"))),
+    result._3 should contain theSameElementsAs Seq(
+      DimInfo(Access("f", Seq(Variable("i")), Tensor), Seq(Variable("N"))),
+      DimInfo(Access("f", Seq(Variable("j")), Tensor), Seq(Variable("N"))),
+      DimInfo(Access("f", Seq(Variable("k")), Tensor), Seq(Variable("N"))),
+      DimInfo(Access("f", Seq(Variable("l")), Tensor), Seq(Variable("N"))),
       DimInfo(
-        Access("B", List(Variable("i"), Variable("j"), Variable("k")), Tensor),
-        List(Variable("N"), Variable("N"), Variable("N"))
+        Access("A", Seq(Variable("i"), Variable("j")), Tensor),
+        Seq(Variable("N"), Variable("N"))
       ),
-      DimInfo(Access("f", List(Variable("j")), Tensor), List(Variable("N"))),
+      DimInfo(
+        Access("B", Seq(Variable("i"), Variable("j"), Variable("k")), Tensor),
+        Seq(Variable("N"), Variable("N"), Variable("N"))
+      ),
       DimInfo(
         Access(
           "C",
-          List(Variable("i"), Variable("j"), Variable("k"), Variable("l")),
+          Seq(Variable("i"), Variable("j"), Variable("k"), Variable("l")),
           Tensor
         ),
-        List(Variable("N"), Variable("N"), Variable("N"), Variable("N"))
+        Seq(Variable("N"), Variable("N"), Variable("N"), Variable("N"))
       ),
-      DimInfo(Access("f", List(Variable("i")), Tensor), List(Variable("N"))),
+      DimInfo(Access("f^-1", Seq(Variable("i")), Tensor), Seq(Variable("N"))),
+      DimInfo(Access("f^-1", Seq(Variable("j")), Tensor), Seq(Variable("N"))),
+      DimInfo(Access("f^-1", Seq(Variable("k")), Tensor), Seq(Variable("N"))),
+      DimInfo(Access("f^-1", Seq(Variable("l")), Tensor), Seq(Variable("N"))),
       DimInfo(
-        Access("A", List(Variable("i"), Variable("j")), Tensor),
-        List(Variable("N"), Variable("N"))
+        Access("A^-1", Seq(Variable("i"), Variable("j")), Tensor),
+        Seq(Variable("N"), Variable("N"))
       ),
-      DimInfo(Access("f", List(Variable("k")), Tensor), List(Variable("N")))
+      DimInfo(
+        Access(
+          "B^-1",
+          Seq(Variable("i"), Variable("j"), Variable("k")),
+          Tensor
+        ),
+        Seq(Variable("N"), Variable("N"), Variable("N"))
+      ),
+      DimInfo(
+        Access(
+          "C^-1",
+          Seq(Variable("i"), Variable("j"), Variable("k"), Variable("l")),
+          Tensor
+        ),
+        Seq(Variable("N"), Variable("N"), Variable("N"), Variable("N"))
+      )
     )
 
     result._4 should contain theSameElementsAs Map(
-      Access("f", List(Variable("l")), Tensor) -> Rule(
-        Access("f", List(Variable("l")), Tensor),
+      Access("f^-1", Seq(Variable("l")), Tensor) -> Rule(
+        Access("f^-1", Seq(Variable("l")), Tensor),
         SoP(
-          List(
+          Seq(
             Prod(
-              List(
+              Seq(
                 Comparison("<=", ConstantInt(0), Variable("l")),
                 Comparison(">", Variable("N"), Variable("l"))
               )
@@ -586,25 +622,38 @@ class ConvertorTest
           )
         )
       ),
-      Access("f", List(Variable("j")), Tensor) -> Rule(
-        Access("f", List(Variable("j")), Tensor),
+      Access("f", Seq(Variable("k")), Tensor) -> Rule(
+        Access("f", Seq(Variable("k")), Tensor),
         SoP(
-          List(
+          Seq(
             Prod(
-              List(
-                Comparison("<=", ConstantInt(0), Variable("j")),
-                Comparison(">", Variable("N"), Variable("j"))
+              Seq(
+                Comparison("<=", ConstantInt(0), Variable("k")),
+                Comparison(">", Variable("N"), Variable("k"))
               )
             )
           )
         )
       ),
-      Access("f", List(Variable("i")), Tensor) -> Rule(
-        Access("f", List(Variable("i")), Tensor),
+      Access("f", Seq(Variable("l")), Tensor) -> Rule(
+        Access("f", Seq(Variable("l")), Tensor),
         SoP(
-          List(
+          Seq(
             Prod(
-              List(
+              Seq(
+                Comparison("<=", ConstantInt(0), Variable("l")),
+                Comparison(">", Variable("N"), Variable("l"))
+              )
+            )
+          )
+        )
+      ),
+      Access("f^-1", Seq(Variable("i")), Tensor) -> Rule(
+        Access("f^-1", Seq(Variable("i")), Tensor),
+        SoP(
+          Seq(
+            Prod(
+              Seq(
                 Comparison("<=", ConstantInt(0), Variable("i")),
                 Comparison(">", Variable("N"), Variable("i"))
               )
@@ -612,14 +661,53 @@ class ConvertorTest
           )
         )
       ),
-      Access("f", List(Variable("k")), Tensor) -> Rule(
-        Access("f", List(Variable("k")), Tensor),
+      Access("f^-1", Seq(Variable("j")), Tensor) -> Rule(
+        Access("f^-1", Seq(Variable("j")), Tensor),
         SoP(
-          List(
+          Seq(
             Prod(
-              List(
+              Seq(
+                Comparison("<=", ConstantInt(0), Variable("j")),
+                Comparison(">", Variable("N"), Variable("j"))
+              )
+            )
+          )
+        )
+      ),
+      Access("f", Seq(Variable("j")), Tensor) -> Rule(
+        Access("f", Seq(Variable("j")), Tensor),
+        SoP(
+          Seq(
+            Prod(
+              Seq(
+                Comparison("<=", ConstantInt(0), Variable("j")),
+                Comparison(">", Variable("N"), Variable("j"))
+              )
+            )
+          )
+        )
+      ),
+      Access("f^-1", Seq(Variable("k")), Tensor) -> Rule(
+        Access("f^-1", Seq(Variable("k")), Tensor),
+        SoP(
+          Seq(
+            Prod(
+              Seq(
                 Comparison("<=", ConstantInt(0), Variable("k")),
                 Comparison(">", Variable("N"), Variable("k"))
+              )
+            )
+          )
+        )
+      ),
+      Access("f", Seq(Variable("i")), Tensor) -> Rule(
+        Access("f", Seq(Variable("i")), Tensor),
+        SoP(
+          Seq(
+            Prod(
+              Seq(
+                Comparison("<=", ConstantInt(0), Variable("i")),
+                Comparison(">", Variable("N"), Variable("i"))
               )
             )
           )
@@ -628,21 +716,37 @@ class ConvertorTest
     )
 
     result._5 should contain theSameElementsAs Map(
-      Access("f", List(Variable("l")), Tensor) -> Rule(
-        Access("f", List(Variable("l")), Tensor),
-        SoP(List())
+      Access("f^-1", Seq(Variable("l")), Tensor) -> Rule(
+        Access("f^-1", Seq(Variable("l")), Tensor),
+        SoP(Seq())
       ),
-      Access("f", List(Variable("j")), Tensor) -> Rule(
-        Access("f", List(Variable("j")), Tensor),
-        SoP(List())
+      Access("f", Seq(Variable("k")), Tensor) -> Rule(
+        Access("f", Seq(Variable("k")), Tensor),
+        SoP(Seq())
       ),
-      Access("f", List(Variable("i")), Tensor) -> Rule(
-        Access("f", List(Variable("i")), Tensor),
-        SoP(List())
+      Access("f", Seq(Variable("l")), Tensor) -> Rule(
+        Access("f", Seq(Variable("l")), Tensor),
+        SoP(Seq())
       ),
-      Access("f", List(Variable("k")), Tensor) -> Rule(
-        Access("f", List(Variable("k")), Tensor),
-        SoP(List())
+      Access("f^-1", Seq(Variable("i")), Tensor) -> Rule(
+        Access("f^-1", Seq(Variable("i")), Tensor),
+        SoP(Seq())
+      ),
+      Access("f^-1", Seq(Variable("j")), Tensor) -> Rule(
+        Access("f^-1", Seq(Variable("j")), Tensor),
+        SoP(Seq())
+      ),
+      Access("f", Seq(Variable("j")), Tensor) -> Rule(
+        Access("f", Seq(Variable("j")), Tensor),
+        SoP(Seq())
+      ),
+      Access("f^-1", Seq(Variable("k")), Tensor) -> Rule(
+        Access("f^-1", Seq(Variable("k")), Tensor),
+        SoP(Seq())
+      ),
+      Access("f", Seq(Variable("i")), Tensor) -> Rule(
+        Access("f", Seq(Variable("i")), Tensor),
+        SoP(Seq())
       )
     )
 

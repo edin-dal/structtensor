@@ -61,10 +61,9 @@ Following is an example on how you can use scalar tensors and constant numbers i
 
 ```
 symbols: N
-A(i) := 3.14 * B() * C(i) + D(i) * (-1)
+A(i) := 3.14 * B() * C(i)
 A:D(i) := (0 <= i < N)
 C:D(i) := (0 <= i < N)
-D:D(i) := (0 <= i < N)
 ```
 
 This computation will generate the following code:
@@ -73,12 +72,40 @@ This computation will generate the following code:
 for (int i = 0; i < N; ++i) {
   A[i] += (3.14 * B * C[i]);
 }
-for (int i = 0; i < N; ++i) {
-  A[i] += (-1 * D[i]);
-}
 ```
 
-As shown, the values of the array `C` are multiplied by `3.14` and the value of variable `B`. Then the array `D` is subtracted from the array `A`.
+As shown, the values of the array `C` are multiplied by `3.14` and the value of variable `B`.
+
+#### Subtraction
+
+Subtraction can be represented by multiplying the second operand of the addition by -1. Following is an example of using tensor subtraction with STUR syntax.
+
+```
+symbols: N
+A(i) := B(i) + (-1) * C(i)
+A:D(i) := (0 <= i < N)
+B:D(i) := (0 <= i < N)
+C:D(i) := (0 <= i < N)
+```
+
+#### Division
+
+Division is represented by adding `^-1` to the name of the tensors or constants. Following is an example of using tensor divison with STUR syntax.
+
+```
+symbols: N
+A(i) := B(i) * 3.14^-1 * C^-1()
+A:D(i) := (0 <= i < N)
+B:D(i) := (0 <= i < N)
+```
+
+This computation will generate the following code:
+
+```c++
+for (int i = 0; i < N; ++i) {
+  A[i] += (1. / C * 1. / 3.14 * B[i]);
+}
+```
 
 ### Advanced Syntax
 

@@ -193,13 +193,19 @@ object Main extends App {
               )
             )
             (
-              acc._1 + (usRule.head -> usRule),
+              acc._1 + (usRule.head -> usRule) + (usRule.head
+                .inverseHead() -> usRule),
               acc._2 + (Access(
                 rmRule.head.name,
                 usRule.head.vars,
                 rmRule.head.kind
+              ) -> rmRule) + (Access(
+                rmRule.head.name.inverseName,
+                usRule.head.vars,
+                rmRule.head.kind
               ) -> rmRule),
-              acc._3 + (ccRule.head -> ccRule),
+              acc._3 + (ccRule.head -> ccRule) + (ccRule.head
+                .inverseHead() -> ccRule.inverse()),
               acc._4 :+ ccRule,
               acc._5 :+ rcRule
             )
