@@ -82,6 +82,8 @@ object Utils {
     def redundancyName = s"${s}_RM"
     def compressedName = s"${s}_C"
     def dimensionName = s"${s}_D"
+    def inverseName = if (s.endsWith("^-1")) s.dropRight(3) else s"${s}^-1"
+    def deinversifiedName = if (s.endsWith("^-1")) s.dropRight(3) else s
     def toVar: Variable = Variable(s)
     def redundancyVars: Variable = s.toVar.redundancyVars
   }
