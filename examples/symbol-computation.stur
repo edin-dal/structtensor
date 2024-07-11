@@ -1,0 +1,4 @@
+symbols: N
+A(i) := B(i) * N^-1()
+A:D(i) := (0 <= i < N)
+B:D(i) := (0 <= i < N)
