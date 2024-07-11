@@ -19,9 +19,9 @@ object Optimizer {
       }
 
     body.prods.foldLeft(emptySoP())((acc1, prod) => {
-      val (epxsInMap, expsNotInMap): (Seq[Exp], Seq[Exp]) =
+      val (expsInMap, expsNotInMap): (Seq[Exp], Seq[Exp]) =
         prod.exps.partition(extractAccessesInDenormalizationMapByName)
-      val denormalizedSoPSeq = epxsInMap.map(exp =>
+      val denormalizedSoPSeq = expsInMap.map(exp =>
         exp match {
           case acc: Access => denormMap.getByAccessNameAndReplaceVars(acc).get
           case _           => throw new Exception("Unknown expression")
@@ -62,8 +62,7 @@ object Optimizer {
                     case acc @ Access(n, v, k)
                         if v.isEmpty && n.endsWith("_C") =>
                       Access(n.substring(0, n.length() - 2), v, k)
-                    case comp: Comparison => comp
-                    case _                => exp
+                    case _ => exp
                   }
                 ),
                 false
@@ -76,7 +75,7 @@ object Optimizer {
       val allExpSoP =
         if (multEmptySetFlag) emptySoP()
         else if (processedExpNotInMap.length == 0) multSoP(denormalizedSoPSeq)
-        else if (epxsInMap.length == 0) singleAllExpSoP
+        else if (expsInMap.length == 0) singleAllExpSoP
         else multSoP(singleAllExpSoP +: denormalizedSoPSeq)
       concatSoP(Seq(acc1, allExpSoP))
     })
