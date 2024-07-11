@@ -39,22 +39,48 @@ object Compiler {
       }
       .forall(_ == true)
 
-  def groupBySameName(exp: Exp, rest: Seq[Exp]): Seq[Exp] = {
-    exp match {
-      case acc @ Access(name, _, _) => {
-        val sameNameList = rest.collect {
-          case access @ Access(name2, _, _) if name2 == name => access
-        } ++ Seq(acc)
-        if (sameNameList.length == 1) Seq(exp)
-        else if (isPairwiseIntersectEmpty(sameNameList.map(e => e.vars)))
-          sameNameList
-        else Seq(exp)
+  def groupBySameName(
+      exp: Exp,
+      rest: Seq[Exp],
+      isThereAnySameNameLeft: Boolean = true,
+      init_exp: Exp = null
+  ): (Seq[Exp], Boolean) = {
+    if (!isThereAnySameNameLeft || rest.isEmpty)
+      if (init_exp == null) (Seq(exp), false)
+      else (Seq(init_exp), false)
+    else {
+      val real_init_exp = if (init_exp == null) exp else init_exp
+      exp match {
+        case acc @ Access(name, _, _) => {
+          val sameNameList = rest.collect {
+            case access @ Access(name2, _, _) if name2 == name => access
+          } ++ Seq(acc)
+          if (sameNameList.length == 1)
+            groupBySameName(
+              rest.head,
+              rest.tail,
+              isThereAnySameNameLeft = true,
+              init_exp = real_init_exp
+            )
+          else if (isPairwiseIntersectEmpty(sameNameList.map(e => e.vars)))
+            (sameNameList, true)
+          else
+            groupBySameName(
+              rest.head,
+              rest.tail,
+              isThereAnySameNameLeft = true,
+              init_exp = real_init_exp
+            )
+        }
+        case _ => (Seq(exp), true)
       }
-      case _ => Seq(exp)
     }
   }
 
-  def normalizeSingleProdRule(r: Rule): Seq[Rule] = {
+  def normalizeSingleProdRule(
+      r: Rule,
+      isThereAnySameNameLeft: Boolean = true
+  ): Seq[Rule] = {
     assert(r.body.prods.length == 1)
     val prod = r.body.prods.head
     val nonSizeVariables = getNonDimensionVariables(r).distinct
@@ -66,7 +92,8 @@ object Compiler {
       ).filter(nonSizeVariables.contains).toSet
     ) Seq(r)
     else {
-      val sameNameExpsList = groupBySameName(prod.exps.head, prod.exps.tail)
+      val (sameNameExpsList, itasnl) =
+        groupBySameName(prod.exps.head, prod.exps.tail, isThereAnySameNameLeft)
       if (sameNameExpsList.length == 1) {
         prod.exps.head match {
           case acc @ Access(_, vars, _)
@@ -86,7 +113,10 @@ object Compiler {
                 )
               )
             )
-            Seq(newRule) ++ normalizeSingleProdRule(Rule(r.head, restBody))
+            Seq(newRule) ++ normalizeSingleProdRule(
+              Rule(r.head, restBody),
+              itasnl
+            )
           }
           case _ => {
             val newVariables = appendDistinctVars(
@@ -100,7 +130,10 @@ object Compiler {
             val restBody = SoP(
               Seq(Prod(Seq(newHead) ++ prod.exps.slice(2, prod.exps.length)))
             )
-            Seq(newRule) ++ normalizeSingleProdRule(Rule(r.head, restBody))
+            Seq(newRule) ++ normalizeSingleProdRule(
+              Rule(r.head, restBody),
+              itasnl
+            )
           }
         }
       } else {
@@ -114,11 +147,11 @@ object Compiler {
         val restBody = SoP(
           Seq(
             Prod(
-              Seq(newHead) ++ prod.exps.filter(!sameNameExpsList.contains(_))
+              Seq(newHead) ++ prod.exps.diff(sameNameExpsList)
             )
           )
         )
-        Seq(newRule) ++ normalizeSingleProdRule(Rule(r.head, restBody))
+        Seq(newRule) ++ normalizeSingleProdRule(Rule(r.head, restBody), itasnl)
       }
     }
   }

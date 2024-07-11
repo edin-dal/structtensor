@@ -1,0 +1,4 @@
+symbols: N
+A(i, j) := f(i) * f(i) * f(j) 
+A:D(i, j) := (0 <= i < N) * (0 <= j < N)
+f:D(i) := (0 <= i < N)
