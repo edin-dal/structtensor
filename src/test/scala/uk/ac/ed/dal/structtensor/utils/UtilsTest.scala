@@ -299,6 +299,74 @@ class UtilsTest extends AnyFlatSpec with Matchers with ParallelTestExecution {
     Utils.allVariables(rule) should contain theSameElementsAs Set("x", "y", "N")
   }
 
+  it should "get non dimension variables of a rule correctly" in {
+    val rule = Rule(
+      Access("A", Seq(Variable("i")), Tensor),
+      SoP(
+        Seq(
+          Prod(
+            Seq(
+              Access("B", Seq(Variable("i"), Variable("j")), Tensor),
+              Access("C", Seq(Variable("j"), Variable("l")), Tensor),
+              Comparison("<=", ConstantInt(0), Variable("p")),
+              Comparison("<", Variable("p"), Variable("l"))
+            )
+          )
+        )
+      )
+    )
+    Utils.getNonDimensionVariables(rule) shouldBe Seq(
+      Variable("i"),
+      Variable("j"),
+      Variable("l")
+    )
+  }
+
+  it should "get non dimension variables of a SoP correctly" in {
+    val sop = SoP(
+      Seq(
+        Prod(
+          Seq(
+            Access("B", Seq(Variable("i"), Variable("j")), Tensor),
+            Access("C", Seq(Variable("j"), Variable("l")), Tensor),
+            Comparison("<=", ConstantInt(0), Variable("p")),
+            Comparison("<", Variable("p"), Variable("l"))
+          )
+        ),
+        Prod(
+          Seq(
+            Access("B", Seq(Variable("i"), Variable("k")), Tensor),
+            Access("C", Seq(Variable("k"), Variable("l")), Tensor),
+            Comparison("<=", ConstantInt(0), Variable("p")),
+            Comparison("<", Variable("p"), Variable("l"))
+          )
+        )
+      )
+    )
+    Utils.getNonDimensionVariables(sop) shouldBe Seq(
+      Variable("i"),
+      Variable("j"),
+      Variable("l"),
+      Variable("k")
+    )
+  }
+
+  it should "get non dimension variables of a product correctly" in {
+    val prod = Prod(
+      Seq(
+        Access("B", Seq(Variable("i"), Variable("j")), Tensor),
+        Access("C", Seq(Variable("j"), Variable("l")), Tensor),
+        Comparison("<=", ConstantInt(0), Variable("p")),
+        Comparison("<", Variable("p"), Variable("l"))
+      )
+    )
+    Utils.getNonDimensionVariables(prod) shouldBe Seq(
+      Variable("i"),
+      Variable("j"),
+      Variable("l")
+    )
+  }
+
   it should "get all the variables in a sequence of rules" in {
     val rule1 = Rule(
       Access("T", Seq[Variable](Variable("x"), Variable("y")), Tensor),

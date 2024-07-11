@@ -16,6 +16,8 @@ sealed trait Index {
 
 sealed trait Dim extends Index
 
+sealed trait RuleOrSoP
+
 sealed trait AccessType {
   def prettyFormat(): String
 }
@@ -110,7 +112,7 @@ case class Prod(exps: Seq[Exp]) {
   )
 }
 
-case class SoP(prods: Seq[Prod]) {
+case class SoP(prods: Seq[Prod]) extends RuleOrSoP {
   def prettyFormat(): String = {
     val pr = prods.map(_.prettyFormat).mkString(" + ")
     if (pr.isEmpty) "∅" else pr
@@ -125,7 +127,7 @@ case class SoP(prods: Seq[Prod]) {
   def inverse(): SoP = SoP(prods.map(_.inverse()))
 }
 
-case class Rule(head: Access, body: SoP) {
+case class Rule(head: Access, body: SoP) extends RuleOrSoP {
   def prettyFormat(): String = s"${head.prettyFormat} := ${body.prettyFormat}"
   def inverse(): Rule = Rule(head.inverseHead(), body.inverse())
 }

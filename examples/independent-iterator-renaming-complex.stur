@@ -1,0 +1,9 @@
+symbols: N
+A(i) := B(i, j, k)
+D(i, k) := A(i) * A^-1(k)
+C(i, j) := A^-1(i) * A^-1(j)
+A:D(i) := (0 <= i < N)
+B:D(i, j, k) := (0 <= i < N) * (0 <= j < N)  * (0 <= k < N)
+C:D(i, j) := (0 <= i < N) * (0 <= j < N)
+D:D(i, j) := (0 <= i < N) * (0 <= j < N)
+B:U(i, j, k) := (j = i)

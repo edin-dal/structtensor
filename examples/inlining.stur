@@ -1,0 +1,8 @@
+symbols: N
+B(i, j) := f(i) * f(j)
+A(i) := B(i, j)
+C(i, j) := A^-1(i) * A^-1(j)
+A:D(i) := (0 <= i < N)
+B:D(i, j) := (0 <= i < N) * (0 <= j < N)
+C:D(i, j) := (0 <= i < N) * (0 <= j < N)
+f:D(i) := (0 <= i < N)

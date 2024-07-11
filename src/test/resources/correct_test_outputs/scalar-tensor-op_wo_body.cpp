@@ -21,9 +21,9 @@ for (int i = 0; i < N; ++i) {
 
 for (int j = 0; j < min({(i) + 1, N}); ++j) {
 
-for (int i2 = 0; i2 < N; ++i2) {
+for (int i3 = 0; i3 < N; ++i3) {
 
-A[i][j] += (f[j] * f[i] * t[i2]);
+A[i][j] += (f[j] * f[i] * t[i3]);
 }
 }
 }

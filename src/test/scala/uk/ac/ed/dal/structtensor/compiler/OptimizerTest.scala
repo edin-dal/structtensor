@@ -22,75 +22,7 @@ class OptimizerTest
       Access("A", Seq(Variable("i")), UniqueSet) -> SoP(Seq())
     )
     val access = Access("A", Seq(Variable("j")), Tensor)
-    Optimizer.containsByName(map, access) shouldBe true
-  }
-
-  it should "get non dimension variables of a rule correctly" in {
-    val rule = Rule(
-      Access("A", Seq(Variable("i")), Tensor),
-      SoP(
-        Seq(
-          Prod(
-            Seq(
-              Access("B", Seq(Variable("i"), Variable("j")), Tensor),
-              Access("C", Seq(Variable("j"), Variable("l")), Tensor),
-              Comparison("<=", ConstantInt(0), Variable("p")),
-              Comparison("<", Variable("p"), Variable("l"))
-            )
-          )
-        )
-      )
-    )
-    Optimizer.getNonDimensionVariables(rule) shouldBe Seq(
-      Variable("i"),
-      Variable("j"),
-      Variable("l")
-    )
-  }
-
-  it should "get non dimension variables of a SoP correctly" in {
-    val sop = SoP(
-      Seq(
-        Prod(
-          Seq(
-            Access("B", Seq(Variable("i"), Variable("j")), Tensor),
-            Access("C", Seq(Variable("j"), Variable("l")), Tensor),
-            Comparison("<=", ConstantInt(0), Variable("p")),
-            Comparison("<", Variable("p"), Variable("l"))
-          )
-        ),
-        Prod(
-          Seq(
-            Access("B", Seq(Variable("i"), Variable("k")), Tensor),
-            Access("C", Seq(Variable("k"), Variable("l")), Tensor),
-            Comparison("<=", ConstantInt(0), Variable("p")),
-            Comparison("<", Variable("p"), Variable("l"))
-          )
-        )
-      )
-    )
-    Optimizer.getNonDimensionVariables(sop) shouldBe Seq(
-      Variable("i"),
-      Variable("j"),
-      Variable("l"),
-      Variable("k")
-    )
-  }
-
-  it should "get non dimension variables of a product correctly" in {
-    val prod = Prod(
-      Seq(
-        Access("B", Seq(Variable("i"), Variable("j")), Tensor),
-        Access("C", Seq(Variable("j"), Variable("l")), Tensor),
-        Comparison("<=", ConstantInt(0), Variable("p")),
-        Comparison("<", Variable("p"), Variable("l"))
-      )
-    )
-    Optimizer.getNonDimensionVariables(prod) shouldBe Seq(
-      Variable("i"),
-      Variable("j"),
-      Variable("l")
-    )
+    map.containsByName(access.name) shouldBe true
   }
 
   it should "alpha rename the variables in a body of a rule, based on the access and given the denormalization map" in {
@@ -108,7 +40,7 @@ class OptimizerTest
 
     val access = Access("T", Seq(Variable("i")), Tensor)
 
-    val actual = Optimizer.getByNameAndAlphaRename(m, access)
+    val actual = m.getByAccessNameAndReplaceVars(access)
 
     val pattern = """i\d+""".r
     val test_value = actual match {

@@ -127,31 +127,52 @@ object Utils {
     }))
   }
 
-  implicit class MapOps(m: Map[Access, Rule]) {
-    def getByName(name: String): Option[Rule] =
+  def getNonDimensionVariables(prod: Prod): Seq[Variable] = prod.exps.flatMap {
+    case Access(_, vars, _) => vars.distinct
+    case _                  => Seq()
+  }.distinct
+
+  def getNonDimensionVariables(sop: SoP): Seq[Variable] =
+    sop.prods.flatMap(getNonDimensionVariables).distinct
+
+  def getNonDimensionVariables(rule: Rule): Seq[Variable] =
+    (rule.head.vars ++ getNonDimensionVariables(rule.body)).distinct
+
+  implicit class MapOps[V <: RuleOrSoP](m: Map[Access, V]) {
+    def getByName(name: String): Option[V] =
       m.keys.find(_.name == name).map(m)
-    def getByNameOrElse(name: String, default: Rule): Rule =
+    def getByNameOrElse(name: String, default: V): V =
       getByName(name).getOrElse(default)
     def containsByName(name: String): Boolean = m.keys.exists(_.name == name)
-    def getByAccessNameAndReplaceVars(access: Access): Option[Rule] =
+    def getByAccessNameAndReplaceVars(access: Access): Option[V] =
       m.keys.find(_.name == access.name).map { key =>
-        m(key) match {
-          case Rule(head, body) =>
-            Rule(
-              access,
-              alphaRename(
-                body,
-                key.vars.redundancyVarsInplace
-                  .zip(access.vars.redundancyVarsInplace)
-                  .toMap
-              )
+        val value = m(key)
+        val body = value match {
+          case Rule(_, body) => body
+          case v: SoP        => v
+        }
+        val nonDimVarsValue = getNonDimensionVariables(body)
+        val alphaRenameRequiredVars = nonDimVarsValue.diff(key.vars)
+        val newBody = alphaRename(
+          body,
+          (key.vars.redundancyVarsInplace ++ alphaRenameRequiredVars.redundancyVarsInplace)
+            .zip(
+              access.vars.redundancyVarsInplace ++ alphaRenameRequiredVars
+                .map(_ => Variable(getVar("i")))
+                .redundancyVarsInplace
             )
+            .toMap
+        )
+
+        m(key) match {
+          case r: Rule => Rule(access, newBody).asInstanceOf[V]
+          case s: SoP  => newBody.asInstanceOf[V]
         }
       }
     def getByAccessNameAndReplaceVarsOrElse(
         access: Access,
-        default: Rule
-    ): Rule =
+        default: V
+    ): V =
       getByAccessNameAndReplaceVars(access).getOrElse(default)
   }
 
