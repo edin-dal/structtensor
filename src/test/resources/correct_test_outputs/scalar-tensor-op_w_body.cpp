@@ -78,7 +78,6 @@ cerr << p << endl;
 cerr << t[0] << endl;
 cerr << A[0][0] << endl;
 cerr << f[0] << endl;
-cerr << f[0] << endl;
 delete[] t;
 for (size_t i0 = 0; i0 < N; ++i0) {delete[] A[i0];
 }delete[] A;

@@ -58,7 +58,6 @@ time_reconstruction = end_reconstruction - start_reconstruction;
 cout << time_reconstruction << endl;
 cerr << A[0][0] << endl;
 cerr << f[0] << endl;
-cerr << f[0] << endl;
 for (size_t i0 = 0; i0 < N; ++i0) {delete[] A[i0];
 }delete[] A;
 delete[] f;
