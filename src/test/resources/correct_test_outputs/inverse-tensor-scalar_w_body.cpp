@@ -41,7 +41,7 @@ for (int i = 0; i < N; ++i) {
 
 for (int j = 0; j < N; ++j) {
 
-A[i][j] += (1. / f * 1. / 5 * 1. / B[i][j]);
+A[i][j] += (1. / f * 1. / -5.123 * 1. / B[i][j]);
 }
 }
 end_computation = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
@@ -55,7 +55,7 @@ time_reconstruction = end_reconstruction - start_reconstruction;
 cout << time_reconstruction << endl;
 cerr << A[0][0] << endl;
 cerr << B[0][0] << endl;
-cerr << 5 << endl;
+cerr << -5.123 << endl;
 cerr << f << endl;
 for (size_t i0 = 0; i0 < N; ++i0) {delete[] A[i0];
 }delete[] A;
