@@ -586,20 +586,22 @@ object Codegen {
       kind: AccessType
   ): String = {
     val computationHead = rule.head
-    rule.body.prods
-      .map(prod => {
-        val conditions =
-          prod.exps.collect { case condition: Comparison => condition }
-        val accesses = prod.exps.collect { case access: Access => access }
-        codeGenSingleProd(
-          computationHead,
-          conditions,
-          accesses,
-          symbols,
-          codeLang,
-          kind
-        )
-      })
+    rule.body.prods.zipWithIndex
+      .map {
+        case (prod, ind) => {
+          val conditions =
+            prod.exps.collect { case condition: Comparison => condition }
+          val accesses = prod.exps.collect { case access: Access => access }
+          codeGenSingleProd(
+            computationHead,
+            conditions,
+            accesses,
+            symbols,
+            codeLang,
+            if (ind > 0) kind else RedundancyMap
+          )
+        }
+      }
       .mkString("\n")
   }
 }
