@@ -17,14 +17,14 @@ for (int i = 0; i < N; ++i) {
 
 for (int j = max({i, 0}); j < N; ++j) {
 
-B[i][j] += (f[i] * f[j]);
+B[i][j] = (f[i] * f[j]);
 }
 }
 for (int i = 0; i < N; ++i) {
 
 for (int j = max({i, 0}); j < N; ++j) {
 
-A[i] += (f[i] * f[j]);
+A[i] = (f[i] * f[j]);
 }
 }
 for (int i = 0; i < N; ++i) {
@@ -42,7 +42,7 @@ for (int j = max({i, 0}); j < N; ++j) {
 
 for (int i4 = max({j, 0}); i4 < N; ++i4) {
 
-C[i][j] += (1. / f[i] * 1. / f[i3] * 1. / f[j] * 1. / f[i4]);
+C[i][j] = (1. / f[i] * 1. / f[i3] * 1. / f[j] * 1. / f[i4]);
 }
 }
 }
@@ -97,7 +97,7 @@ int jp = i;
 for (int j = 0; j < min({i, N}); ++j) {
 
 int ip = j;
-B[i][j] += B[ip][jp];
+B[i][j] = B[ip][jp];
 }
 }
 
@@ -107,7 +107,7 @@ int jp = i;
 for (int j = 0; j < min({i, N}); ++j) {
 
 int ip = j;
-C[i][j] += C[ip][jp];
+C[i][j] = C[ip][jp];
 }
 }
 end_reconstruction = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();

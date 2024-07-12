@@ -17,21 +17,21 @@ for (int i = 0; i < N; ++i) {
 
 for (int j = max({i, 0}); j < N; ++j) {
 
-A[i][j] += (f[i] * f[j]);
+A[i][j] = (f[i] * f[j]);
 }
 }
 for (int i = 0; i < N; ++i) {
 
 for (int j = max({i, 0}); j < N; ++j) {
 
-B[i][j] += (g[i] * g[j]);
+B[i][j] = (g[i] * g[j]);
 }
 }
 for (int i = 0; i < N; ++i) {
 
 for (int j = max({i, 0}); j < N; ++j) {
 
-C[i][j] += (f[i] * f[j]);
+C[i][j] = (f[i] * f[j]);
 }
 }
 for (int i = 0; i < N; ++i) {
@@ -52,7 +52,7 @@ int jp = i;
 for (int j = 0; j < min({i, N}); ++j) {
 
 int ip = j;
-A[i][j] += A[ip][jp];
+A[i][j] = A[ip][jp];
 }
 }
 for (int i = 0; i < N; ++i) {
@@ -61,7 +61,7 @@ int jp = i;
 for (int j = 0; j < min({i, N}); ++j) {
 
 int ip = j;
-B[i][j] += B[ip][jp];
+B[i][j] = B[ip][jp];
 }
 }
 for (int i = 0; i < N; ++i) {
@@ -70,7 +70,7 @@ int jp = i;
 for (int j = 0; j < min({i, N}); ++j) {
 
 int ip = j;
-C[i][j] += C[ip][jp];
+C[i][j] = C[ip][jp];
 }
 }
 end_reconstruction = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();

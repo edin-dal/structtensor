@@ -21,7 +21,7 @@ for (int k = 0; k < N; ++k) {
 
 for (int l = max({k, 0}); l < N; ++l) {
 
-C[i][j][k][l] += (f[i] * f[j] * t[k] * t[l]);
+C[i][j][k][l] = (f[i] * f[j] * t[k] * t[l]);
 }
 }
 }
@@ -43,7 +43,7 @@ for (int l = 0; l < min({k, N}); ++l) {
 
 int lp = k;
 int kp = l;
-C[i][j][k][l] += C[ip][jp][kp][lp];
+C[i][j][k][l] = C[ip][jp][kp][lp];
 }
 }
 }
@@ -60,7 +60,7 @@ for (int l = 0; l < min({k, N}); ++l) {
 
 int lp = k;
 int kp = l;
-C[i][j][k][l] += C[ip][jp][kp][lp];
+C[i][j][k][l] = C[ip][jp][kp][lp];
 }
 }
 }
@@ -77,7 +77,7 @@ for (int l = max({k, 0}); l < N; ++l) {
 
 int kp = k;
 int lp = l;
-C[i][j][k][l] += C[ip][jp][kp][lp];
+C[i][j][k][l] = C[ip][jp][kp][lp];
 }
 }
 }

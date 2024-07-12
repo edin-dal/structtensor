@@ -14,7 +14,7 @@ for (int l = 0; l < P; ++l) {
 
 int j = J;
 if (j >= 0 && j < Q) {
-D2[l] += D[l][j];
+D2[l] = D[l][j];
 }
 }
 long time_computation = 0, start_computation, end_computation;
@@ -27,7 +27,7 @@ for (int k = 0; k < N; ++k) {
 
 for (int l = 0; l < P; ++l) {
 
-A[i][j] += (B[i][k][l] * C[k][j] * D2[l]);
+A[i][j] = (B[i][k][l] * C[k][j] * D2[l]);
 }
 }
 }

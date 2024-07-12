@@ -17,7 +17,7 @@ for (int i = 0; i < N; ++i) {
 
 for (int j = max({i, 0}); j < N; ++j) {
 
-A[i][j] += (f[i] * f[j]);
+A[i][j] = (f[i] * f[j]);
 }
 }
 end_computation = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
@@ -31,7 +31,7 @@ int jp = i;
 for (int j = 0; j < min({i, N}); ++j) {
 
 int ip = j;
-A[i][j] += A[ip][jp];
+A[i][j] = A[ip][jp];
 }
 }
 end_reconstruction = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
