@@ -182,7 +182,8 @@ object Codegen {
       conditions: Seq[Comparison],
       accesses: Seq[Access],
       symbols: Seq[Variable],
-      codeLang: String
+      codeLang: String,
+      kind: AccessType
   ): String = {
     val variablesInit =
       (computationHead.vars ++ accesses.flatMap(_.vars)).distinct
@@ -571,10 +572,19 @@ object Codegen {
       numberOfBrackets1 + restOfConditions.filterNot(_.op == "=").length
     val brackets = (0 until numberOfBrackets).map(_ => "}").mkString("\n")
     val computationBody = CPPFormat(Prod(accesses))
-    s"$loopNestsString\n${CPPFormat(computationHead)} += $computationBody;\n$brackets"
+    val assignment = kind match {
+      case RedundancyMap => "="
+      case _             => "+="
+    }
+    s"$loopNestsString\n${CPPFormat(computationHead)} $assignment $computationBody;\n$brackets"
   }
 
-  def apply(rule: Rule, symbols: Seq[Variable], codeLang: String): String = {
+  def apply(
+      rule: Rule,
+      symbols: Seq[Variable],
+      codeLang: String,
+      kind: AccessType
+  ): String = {
     val computationHead = rule.head
     rule.body.prods
       .map(prod => {
@@ -586,7 +596,8 @@ object Codegen {
           conditions,
           accesses,
           symbols,
-          codeLang
+          codeLang,
+          kind
         )
       })
       .mkString("\n")

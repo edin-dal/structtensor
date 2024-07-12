@@ -235,17 +235,17 @@ object Main extends App {
         })
 
         val preprocessComputation = ccRuleSeq_preprocess
-          .map(r => Codegen(r, symbols, config.codeLang))
+          .map(r => Codegen(r, symbols, config.codeLang, Tensor))
           .mkString("\n")
         val ccComputation = outputs_names.isEmpty match {
           case true =>
             ccRuleSeq
-              .map(r => Codegen(r, symbols, config.codeLang))
+              .map(r => Codegen(r, symbols, config.codeLang, CompressedTensor))
               .mkString("\n")
           case false =>
             ccRuleSeq
               .filter(r => outputs_names.contains(r.head.name))
-              .map(r => Codegen(r, symbols, config.codeLang))
+              .map(r => Codegen(r, symbols, config.codeLang, CompressedTensor))
               .mkString("\n")
         }
 
@@ -265,12 +265,12 @@ object Main extends App {
             val rcComputation = outputs_names.isEmpty match {
               case true =>
                 rcRuleSeq
-                  .map(r => Codegen(r, symbols, config.codeLang))
+                  .map(r => Codegen(r, symbols, config.codeLang, RedundancyMap))
                   .mkString("\n")
               case false =>
                 rcRuleSeq
                   .filter(r => outputs_names.contains(r.head.name))
-                  .map(r => Codegen(r, symbols, config.codeLang))
+                  .map(r => Codegen(r, symbols, config.codeLang, RedundancyMap))
                   .mkString("\n")
             }
             write2File(
