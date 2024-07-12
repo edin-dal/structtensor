@@ -10,7 +10,8 @@ object Optimizer {
   def denormalizeSingle(
       body: SoP,
       denormMap: Map[Access, SoP],
-      kind: AccessType
+      kind: AccessType,
+      outputs_names: Seq[String] = Seq()
   ): SoP = {
     def extractAccessesInDenormalizationMapByName(exp: Exp): Boolean =
       exp match {
@@ -23,8 +24,39 @@ object Optimizer {
         prod.exps.partition(extractAccessesInDenormalizationMapByName)
       val denormalizedSoPSeq = expsInMap.map(exp =>
         exp match {
-          case acc: Access => denormMap.getByAccessNameAndReplaceVars(acc).get
-          case _           => throw new Exception("Unknown expression")
+          case acc: Access =>
+            // Only compressed head must not be denormalized here if selective inlining is happening and it ends with _C which shouldn't appear in the generated code
+            val name = acc.name.dropRight(2)
+            val denormalizedValue =
+              denormMap.getByAccessNameAndReplaceVars(acc).get
+            if (
+              outputs_names.isEmpty || !(outputs_names
+                .contains(name))
+            )
+              denormalizedValue
+            else {
+              SoPTimesSoP(
+                SoP(
+                  denormalizedValue.prods.map(prod =>
+                    Prod(prod.exps.filterNot(_.isInstanceOf[Access]))
+                  )
+                ),
+                SoP(
+                  Seq(
+                    Prod(
+                      Seq(
+                        Access(
+                          name,
+                          acc.vars,
+                          acc.kind
+                        )
+                      )
+                    )
+                  )
+                )
+              )
+            }
+          case _ => throw new Exception("Unknown expression")
         }
       )
       val (processedExpNotInMap, multEmptySetFlag) = kind match {
@@ -83,15 +115,16 @@ object Optimizer {
 
   def denormalize(
       head: Access,
-      ctx: Seq[(Rule, Rule, Rule, Rule)]
+      ctx: Seq[(Rule, Rule, Rule, Rule)],
+      outputs_names: Seq[String] = Seq()
   ): (Rule, Rule, Rule, Rule) = {
     val denormMap = ctx.foldLeft(Map[Access, SoP]())((acc, cur) => {
       val (us, rm, cc, tc) = cur
       val (usBody, rmBody, ccBody, tcBody) = (
-        denormalizeSingle(us.body, acc, UniqueSet),
-        denormalizeSingle(rm.body, acc, RedundancyMap),
-        denormalizeSingle(cc.body, acc, CompressedTensor),
-        denormalizeSingle(tc.body, acc, Tensor)
+        denormalizeSingle(us.body, acc, UniqueSet, outputs_names),
+        denormalizeSingle(rm.body, acc, RedundancyMap, outputs_names),
+        denormalizeSingle(cc.body, acc, CompressedTensor, outputs_names),
+        denormalizeSingle(tc.body, acc, Tensor, outputs_names)
       )
       acc + (us.head -> usBody) + (rm.head -> rmBody) + (cc.head -> ccBody) + (tc.head -> tcBody)
     })

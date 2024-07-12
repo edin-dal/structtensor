@@ -850,7 +850,8 @@ object Compiler {
   def compile(
       computation: Rule,
       inputs: Seq[(Rule, Rule, Rule, Rule)],
-      symbols: Seq[Variable]
+      symbols: Seq[Variable],
+      outputs_names: Seq[String] = Seq()
   ): (Rule, Rule, Rule) = {
     val norm = normalize(computation)
     val us_rm_cc_tc_seq = norm.foldLeft(inputs)((ctx, r) => {
@@ -860,7 +861,7 @@ object Compiler {
 
     // Optimization
     val (denormUS, denormRM, denormCC, denormTC) =
-      denormalize(computation.head, inputs ++ us_rm_cc_tc_seq)
+      denormalize(computation.head, inputs ++ us_rm_cc_tc_seq, outputs_names)
     val (idempotentOptUS, idempotentOptRM, idempotentOptCC) = (
       setIdempotentOpt(denormUS),
       setIdempotentOpt(denormRM),
