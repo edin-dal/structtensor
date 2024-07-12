@@ -420,14 +420,14 @@ object Compiler {
                 Seq(
                   acc1.compressedHead,
                   acc2.redundancyHead,
-                  acc2.vars2RedundancyVars
+                  acc2.vars2RedundancyVars.compressedHead()
                 )
               ),
               Prod(
                 Seq(
                   acc1.redundancyHead,
                   acc2.compressedHead,
-                  acc1.vars2RedundancyVars
+                  acc1.vars2RedundancyVars.compressedHead()
                 )
               )
             )
@@ -744,8 +744,18 @@ object Compiler {
             Seq(
               Prod(Seq(acc1.compressedHead)),
               Prod(Seq(acc2.compressedHead)),
-              Prod(Seq(acc1.redundancyHead, acc1.vars2RedundancyVars)),
-              Prod(Seq(acc2.redundancyHead, acc2.vars2RedundancyVars))
+              Prod(
+                Seq(
+                  acc1.redundancyHead,
+                  acc1.vars2RedundancyVars.compressedHead()
+                )
+              ),
+              Prod(
+                Seq(
+                  acc2.redundancyHead,
+                  acc2.vars2RedundancyVars.compressedHead()
+                )
+              )
             )
           )
           val c = Rule(lhs.compressedHead, cBody)
