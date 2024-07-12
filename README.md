@@ -147,12 +147,32 @@ C:D(j) := (0 <= j < N)
 
 This will generate the computation code only for tensors `B` and `C` while leveraging the symmetric structure of `A` in their computations.
 
+This will also activate *selective inlining* rather than aggressive inlining. This means that the code generated for `C` will use tensor `B` directly for projection rather than recomputing everything from the inlined version. The generated computation code will look like the following:
+
+```c++
+for (int i = 0; i < N; ++i) {
+  for (int j = 0; j < min({(i) + 1, N}); ++j) {
+    B[i][j] = (f[j] * f[i]);
+  }
+}
+for (int j = 0; j < N; ++j) {
+  for (int i = max({j, 0}); i < N; ++i) {
+    C[j] = B[i][j];
+  }
+}
+for (int j = 0; j < N; ++j) {
+  for (int i = 0; i < min({j, N, (j) + 1}); ++i) {
+    C[j] += B[j][i];
+  }
+}
+``
+
 ### Generating C++ Code
 
 To generate code for one of the existing `.stur` codes in the `examples/` directory, use the following command:
 
 ```
-$ sbt 
+$ sbt
 sbt:struct-tensor> clean
 sbt:struct-tensor> compile
 sbt:struct-tensor> run -i examples/<name>.stur -o <path/to/output.cpp>
