@@ -959,7 +959,7 @@ class CompilerTest
                 Seq(Variable("i"), Variable("ip")),
                 RedundancyMap
               ),
-              Access("c", Seq(Variable("ip")), Tensor)
+              Access("c_C", Seq(Variable("ip")), CompressedTensor)
             )
           ),
           Prod(
@@ -970,7 +970,7 @@ class CompilerTest
                 RedundancyMap
               ),
               Access("c_C", Seq(Variable("i")), CompressedTensor),
-              Access("b", Seq(Variable("ip")), Tensor)
+              Access("b_C", Seq(Variable("ip")), CompressedTensor)
             )
           )
         )
@@ -2444,7 +2444,11 @@ class CompilerTest
                 ),
                 RedundancyMap
               ),
-              Access("B", Seq(Variable("ip"), Variable("jp")), Tensor)
+              Access(
+                "B_C",
+                Seq(Variable("ip"), Variable("jp")),
+                CompressedTensor
+              )
             )
           ),
           Prod(
@@ -2459,7 +2463,11 @@ class CompilerTest
                 ),
                 RedundancyMap
               ),
-              Access("C", Seq(Variable("ip"), Variable("jp")), Tensor)
+              Access(
+                "C_C",
+                Seq(Variable("ip"), Variable("jp")),
+                CompressedTensor
+              )
             )
           )
         )
