@@ -19,7 +19,7 @@ int j = J;
 if (j >= 0 && j < N) {
 for (int k = 0; k < P; ++k) {
 
-A[i][j][k] += (B[i][j][k] * C[i][j][k]);
+A[i][j][k] = (B[i][j][k] * C[i][j][k]);
 }
 }
 }

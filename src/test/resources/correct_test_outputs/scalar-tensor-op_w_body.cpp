@@ -44,7 +44,7 @@ long time_computation = 0, start_computation, end_computation;
 start_computation = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
 for (int i = 0; i < N; ++i) {
 
-p += t[i];
+p = t[i];
 }
 for (int i = 0; i < N; ++i) {
 
@@ -52,7 +52,7 @@ for (int j = 0; j < min({(i) + 1, N}); ++j) {
 
 for (int i5 = 0; i5 < N; ++i5) {
 
-A[i][j] += (f[j] * f[i] * t[i5]);
+A[i][j] = (f[j] * f[i] * t[i5]);
 }
 }
 }
@@ -68,7 +68,7 @@ int jp = i;
 for (int j = max({(i) + 1, 0}); j < N; ++j) {
 
 int ip = j;
-A[i][j] += A[ip][jp];
+A[i][j] = A[ip][jp];
 }
 }
 end_reconstruction = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();

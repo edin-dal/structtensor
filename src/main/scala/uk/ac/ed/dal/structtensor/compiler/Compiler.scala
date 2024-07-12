@@ -420,14 +420,14 @@ object Compiler {
                 Seq(
                   acc1.compressedHead,
                   acc2.redundancyHead,
-                  acc2.vars2RedundancyVars
+                  acc2.vars2RedundancyVars.compressedHead()
                 )
               ),
               Prod(
                 Seq(
                   acc1.redundancyHead,
                   acc2.compressedHead,
-                  acc1.vars2RedundancyVars
+                  acc1.vars2RedundancyVars.compressedHead()
                 )
               )
             )
@@ -744,8 +744,18 @@ object Compiler {
             Seq(
               Prod(Seq(acc1.compressedHead)),
               Prod(Seq(acc2.compressedHead)),
-              Prod(Seq(acc1.redundancyHead, acc1.vars2RedundancyVars)),
-              Prod(Seq(acc2.redundancyHead, acc2.vars2RedundancyVars))
+              Prod(
+                Seq(
+                  acc1.redundancyHead,
+                  acc1.vars2RedundancyVars.compressedHead()
+                )
+              ),
+              Prod(
+                Seq(
+                  acc2.redundancyHead,
+                  acc2.vars2RedundancyVars.compressedHead()
+                )
+              )
             )
           )
           val c = Rule(lhs.compressedHead, cBody)
@@ -840,7 +850,8 @@ object Compiler {
   def compile(
       computation: Rule,
       inputs: Seq[(Rule, Rule, Rule, Rule)],
-      symbols: Seq[Variable]
+      symbols: Seq[Variable],
+      outputs_names: Seq[String] = Seq()
   ): (Rule, Rule, Rule) = {
     val norm = normalize(computation)
     val us_rm_cc_tc_seq = norm.foldLeft(inputs)((ctx, r) => {
@@ -850,7 +861,7 @@ object Compiler {
 
     // Optimization
     val (denormUS, denormRM, denormCC, denormTC) =
-      denormalize(computation.head, inputs ++ us_rm_cc_tc_seq)
+      denormalize(computation.head, inputs ++ us_rm_cc_tc_seq, outputs_names)
     val (idempotentOptUS, idempotentOptRM, idempotentOptCC) = (
       setIdempotentOpt(denormUS),
       setIdempotentOpt(denormRM),

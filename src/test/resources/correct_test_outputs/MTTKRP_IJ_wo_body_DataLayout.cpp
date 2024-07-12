@@ -14,7 +14,7 @@ for (int l = 0; l < P; ++l) {
 
 int j = J;
 if (j >= 0 && j < Q) {
-D2[l] += D[l][j];
+D2[l] = D[l][j];
 }
 }
 for (int k = 0; k < N; ++k) {
@@ -23,7 +23,7 @@ for (int l = 0; l < P; ++l) {
 
 int i = I;
 if (i >= 0 && i < M) {
-B2[k][l] += B[i][k][l];
+B2[k][l] = B[i][k][l];
 }
 }
 }
@@ -36,7 +36,7 @@ for (int k = 0; k < N; ++k) {
 
 for (int l = 0; l < P; ++l) {
 
-A[i][j] += (B2[k][l] * C[k][j] * D2[l]);
+A[i][j] = (B2[k][l] * C[k][j] * D2[l]);
 }
 }
 }

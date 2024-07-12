@@ -14,7 +14,7 @@ for (int i = 0; i < min({M, N}); ++i) {
 
 for (int k = 0; k < P; ++k) {
 
-B2[i][k] += B[i][i][k];
+B2[i][k] = B[i][i][k];
 }
 }
 long time_computation = 0, start_computation, end_computation;
@@ -24,7 +24,7 @@ for (int i = 0; i < min({M, N}); ++i) {
 int j = i;
 for (int k = 0; k < P; ++k) {
 
-A[i][j][k] += (B2[i][k] * C[i][i][k]);
+A[i][j][k] = (B2[i][k] * C[i][i][k]);
 }
 }
 end_computation = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();

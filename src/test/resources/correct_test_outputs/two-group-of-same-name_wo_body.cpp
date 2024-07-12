@@ -23,7 +23,7 @@ for (int l = max({k, 0}); l < N; ++l) {
 
 for (int r = max({l, 0}); r < N; ++r) {
 
-A[i][j][k][l][r] += (f[j] * f[i] * t[k] * t[l] * t[r]);
+A[i][j][k][l][r] = (f[j] * f[i] * t[k] * t[l] * t[r]);
 }
 }
 }
@@ -49,7 +49,7 @@ for (int r = max({k, 0}); r < min({(l) + 1, N}); ++r) {
 
 int rp = l;
 int lp = r;
-A[i][j][k][l][r] += A[ip][jp][kp][lp][rp];
+A[i][j][k][l][r] = A[ip][jp][kp][lp][rp];
 }
 }
 }
@@ -70,7 +70,7 @@ for (int l = 0; l < min({(k) + 1, N}); ++l) {
 int lp = k;
 int rp = r;
 int kp = l;
-A[i][j][k][l][r] += A[ip][jp][kp][lp][rp];
+A[i][j][k][l][r] = A[ip][jp][kp][lp][rp];
 }
 }
 }
@@ -91,7 +91,7 @@ for (int r = max({l, 0}); r < min({(k) + 1, N}); ++r) {
 
 int rp = l;
 int kp = r;
-A[i][j][k][l][r] += A[ip][jp][kp][lp][rp];
+A[i][j][k][l][r] = A[ip][jp][kp][lp][rp];
 }
 }
 }
@@ -112,7 +112,7 @@ for (int l = max({k, 0}); l < N; ++l) {
 int rp = k;
 int lp = r;
 int kp = l;
-A[i][j][k][l][r] += A[ip][jp][kp][lp][rp];
+A[i][j][k][l][r] = A[ip][jp][kp][lp][rp];
 }
 }
 }
@@ -133,7 +133,7 @@ for (int r = 0; r < min({(l) + 1, N}); ++r) {
 
 int lp = l;
 int kp = r;
-A[i][j][k][l][r] += A[ip][jp][kp][lp][rp];
+A[i][j][k][l][r] = A[ip][jp][kp][lp][rp];
 }
 }
 }
@@ -154,7 +154,7 @@ for (int r = max({k, 0}); r < min({(l) + 1, N}); ++r) {
 
 int rp = l;
 int lp = r;
-A[i][j][k][l][r] += A[ip][jp][kp][lp][rp];
+A[i][j][k][l][r] = A[ip][jp][kp][lp][rp];
 }
 }
 }
@@ -175,7 +175,7 @@ for (int l = 0; l < min({(k) + 1, N}); ++l) {
 int lp = k;
 int rp = r;
 int kp = l;
-A[i][j][k][l][r] += A[ip][jp][kp][lp][rp];
+A[i][j][k][l][r] = A[ip][jp][kp][lp][rp];
 }
 }
 }
@@ -196,7 +196,7 @@ for (int r = max({l, 0}); r < min({(k) + 1, N}); ++r) {
 
 int rp = l;
 int kp = r;
-A[i][j][k][l][r] += A[ip][jp][kp][lp][rp];
+A[i][j][k][l][r] = A[ip][jp][kp][lp][rp];
 }
 }
 }
@@ -217,7 +217,7 @@ for (int l = max({k, 0}); l < N; ++l) {
 int rp = k;
 int lp = r;
 int kp = l;
-A[i][j][k][l][r] += A[ip][jp][kp][lp][rp];
+A[i][j][k][l][r] = A[ip][jp][kp][lp][rp];
 }
 }
 }
@@ -238,7 +238,7 @@ for (int r = 0; r < min({(l) + 1, N}); ++r) {
 
 int lp = l;
 int kp = r;
-A[i][j][k][l][r] += A[ip][jp][kp][lp][rp];
+A[i][j][k][l][r] = A[ip][jp][kp][lp][rp];
 }
 }
 }
@@ -259,7 +259,7 @@ for (int r = max({l, 0}); r < N; ++r) {
 
 int lp = l;
 int rp = r;
-A[i][j][k][l][r] += A[ip][jp][kp][lp][rp];
+A[i][j][k][l][r] = A[ip][jp][kp][lp][rp];
 }
 }
 }

@@ -1,0 +1,8 @@
+symbols: M
+outputs: covar, dw
+covar(i, j) := f(i) * f(j)
+dw(i) := covar(i, j) * w(j)
+w:D(i) := (0 <= i < M)
+f:D(i) := (0 <= i < M)
+covar:D(i, j) := (0 <= i < M) * (0 <= j < M)
+dw:D(i) := (0 <= i < M)

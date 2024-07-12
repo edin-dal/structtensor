@@ -1975,4 +1975,26 @@ class CodegenTest extends AnyFlatSpec with Matchers {
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
   }
+
+  it should "generate code for when outputs are defined and use selective inlining rather than aggressive inlining without the body" in {
+    Utils.cnt = 0
+    Main.main(
+      Array(
+        "-i",
+        "examples/selective-inlining.stur",
+        "-o",
+        "src/test/resources/test_outputs/selective-inlining_wo_body_test.cpp"
+      )
+    )
+
+    val file1 = scala.io.Source.fromFile(
+      "src/test/resources/correct_test_outputs/selective-inlining_wo_body.cpp"
+    )
+    val file2 = scala.io.Source.fromFile(
+      "src/test/resources/test_outputs/selective-inlining_wo_body_test.cpp"
+    )
+    val lines1 = file1.getLines().toList
+    val lines2 = file2.getLines().toList
+    lines2 should be(lines1)
+  }
 }

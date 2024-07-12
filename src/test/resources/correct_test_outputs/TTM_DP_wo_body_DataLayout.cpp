@@ -14,7 +14,7 @@ for (int i = 0; i < min({M, N}); ++i) {
 
 for (int l = 0; l < Q; ++l) {
 
-B2[i][l] += B[i][i][l];
+B2[i][l] = B[i][i][l];
 }
 }
 long time_computation = 0, start_computation, end_computation;
@@ -26,7 +26,7 @@ for (int k = 0; k < P; ++k) {
 
 for (int l = 0; l < Q; ++l) {
 
-A[i][j][k] += (B2[i][l] * C[k][l]);
+A[i][j][k] = (B2[i][l] * C[k][l]);
 }
 }
 }

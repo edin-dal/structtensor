@@ -68,7 +68,7 @@ for (int i = 0; i < min({M, N}); ++i) {
 int j = i;
 for (int k = 0; k < P; ++k) {
 
-A[i][j][k] += (B[i][i][k] * C[i][i][k]);
+A[i][j][k] = (B[i][i][k] * C[i][i][k]);
 }
 }
 end_computation = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();

@@ -16,22 +16,22 @@ start_computation = duration_cast<microseconds>(system_clock::now().time_since_e
 for (int i = 0; i < N; ++i) {
 
 int j = i;
-A[i][j] += (1. / f * 1. / 5 * 1. / B[i][i]);
+A[i][j] = (1. / f * 1. / 5 * 1. / B[i][i]);
 }
 for (int i = 0; i < N; ++i) {
 
 int j = i;
-C[i][j] += (f * 5 * B[i][i]);
+C[i][j] = (f * 5 * B[i][i]);
 }
 for (int i = 0; i < N; ++i) {
 
 int j = i;
-X[i][j] += (1. / f * 1. / 5 * 1. / B[i][i]);
+X[i][j] = (1. / f * 1. / 5 * 1. / B[i][i]);
 }
 for (int i = 0; i < N; ++i) {
 
 int j = i;
-D[i][j] += (B[i][i] * 1. / B[i][i]);
+D[i][j] = (B[i][i] * 1. / B[i][i]);
 }
 end_computation = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
 time_computation = end_computation - start_computation;
