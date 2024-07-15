@@ -8,7 +8,7 @@ using namespace std;
 using namespace std::chrono;
 
 extern "C"
-void fn(double * f, double * t, double **** C, double ** B, int N) {
+void fn(double * f, double * t, double **** C, int N) {
 
 
 long time_computation = 0, start_computation, end_computation;

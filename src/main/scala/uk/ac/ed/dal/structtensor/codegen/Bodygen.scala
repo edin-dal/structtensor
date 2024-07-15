@@ -135,6 +135,7 @@ extern "C"
         }
         val decimal_pattern = """-?\d+(\.\d+)?""".r
         val tensor_to_str = all_tensors
+          .distinctBy(_.name)
           .filterNot(only_lhs_heads_not_in_output.contains)
           .filterNot(t => symbols.contains(t.name.deinversifiedName.toVar))
           .filterNot(t => decimal_pattern.matches(t.name.deinversifiedName))
@@ -189,6 +190,7 @@ extern "C"
               .mkString("\n")
         }
         val c2 = all_tensors
+          .distinctBy(_.name)
           .filterNot(only_lhs_heads_not_in_output.contains)
           .map(_.deinversifiedHead())
           .distinctBy(_.name)

@@ -3,6 +3,8 @@ package structtensor
 package compiler
 
 import utils._
+import sourcecode.Macros.Chunk.Var
+import uk.ac.ed.dal.structtensor.parser.Parser.variableSeq
 
 object Compiler {
   import Utils._
@@ -555,80 +557,358 @@ object Compiler {
     }
   }
 
-  def selfOuterProduct(lhs: Access, eSeq: Seq[Exp]): (Rule, Rule, Rule) = {
-    val accSeq = eSeq.collect {
-      case acc: Access => acc
-      case _ =>
-        throw new IllegalArgumentException(
-          "All elements in the sequence must be of type Access."
-        )
+  def inject(
+      comparisonSeq: Seq[Comparison],
+      variableSeq: Seq[Variable],
+      right_index: Int,
+      variable: Variable
+  ): Seq[Comparison] = {
+    if (right_index == variableSeq.length) {
+      // find the only variable that never appears on the lhs of a comparison.
+      val lhs_varibles = comparisonSeq
+        .collect { case Comparison(op, index, _) =>
+          index match {
+            case v: Variable => v
+          }
+        }
+      // There must be only one variable that doesn't appear on the lhs and it's the maximum.
+      val max_variable = variableSeq.diff(lhs_varibles)(0)
+
+      comparisonSeq :+ Comparison("<=", max_variable, variable)
+    } else {
+      val (containsRightIndexVariable, rest) = comparisonSeq.partition {
+        case Comparison(op, index, v) =>
+          v == variableSeq(right_index)
+      }
+      // if it is not on the rhs of any comparsion, it's the smallest.
+      containsRightIndexVariable.isEmpty match {
+        case true =>
+          Comparison("<", variable, variableSeq(right_index)) +: comparisonSeq
+        case false => {
+          // The length must be 1 since each of them only appear in one rhs (at most).
+          val cur_comp = containsRightIndexVariable(0)
+          rest ++ Seq(
+            Comparison("<=", cur_comp.index, variable),
+            Comparison("<", variable, cur_comp.variable)
+          )
+        }
+      }
+    }
+  }
+
+  def injectSingleVariableInProd(
+      comparisonSeq: Seq[Comparison],
+      varSeq: Seq[Variable],
+      last_variable_index: Int,
+      last: Access,
+      kind: AccessType
+  ): SoP = {
+    val range = kind match {
+      case RedundancyMap => varSeq.length
+      case UniqueSet     => varSeq.length - 1
+      case _ => throw new Exception(s"kind: $kind should not appear here!")
     }
 
-    // we made sure in the normalization step that all the accesses have the same name and their variable pairwise intersection is empty
-    val bodyUSComparisonSeq = (0 to accSeq.length - 2).flatMap(ind =>
-      vectorizeComparisonMultiplication(
-        "<=",
-        accSeq(ind).vars,
-        accSeq(ind + 1).vars
+    val prodSeq = (0 to range).toSeq.map(index =>
+      Prod(inject(comparisonSeq, varSeq, index, last.vars(last_variable_index)))
+    )
+
+    SoP(prodSeq)
+  }
+
+  def injectVariablesInProd(
+      prod: Prod,
+      groupByIdxVars: Seq[Seq[Variable]],
+      last: Access,
+      kind: AccessType
+  ): SoP = {
+    val sopSeq = groupByIdxVars.zipWithIndex.map {
+      case (varSeq, index) => {
+        val filteredProd = prod.exps.collect {
+          case c @ Comparison(op, i, v)
+              if (varSeq.contains(v) || varSeq.contains(i)) =>
+            c
+        }
+        injectSingleVariableInProd(filteredProd, varSeq, index, last, kind)
+      }
+    }
+
+    val concatenatedSoP = concatSoP(sopSeq)
+    concatenatedSoP
+  }
+
+  def injectVariables(
+      usOrRmBody: SoP,
+      all_vars_minus_last: Seq[Seq[Variable]],
+      last: Access,
+      kind: AccessType
+  ): SoP = {
+    val groupByIdxVars = all_vars_minus_last.transpose
+    val sopSeq = usOrRmBody.prods.map(prod =>
+      injectVariablesInProd(prod, groupByIdxVars, last, kind)
+    )
+    concatSoP(sopSeq)
+  }
+
+  def selfOuterProduct2(
+      lhs: Access,
+      accSeq: Seq[Access]
+  ): (Rule, Rule, Rule) = {
+    if (accSeq.length == 2) {
+      val comparisonSeq =
+        vectorizeComparisonMultiplication("<=", accSeq(0).vars, accSeq(1).vars)
+      val us = Rule(
+        lhs.uniqueHead(),
+        SoP(Seq(Prod(comparisonSeq)))
       )
-    )
-    val usBody = SoP(
-      Seq(Prod(accSeq.map(acc => acc.uniqueHead) ++ bodyUSComparisonSeq))
-    )
-    val us = Rule(lhs.uniqueHead, usBody)
-
-    val vectorizedMultVarEqualsRedundancyVarSeq = accSeq.map(acc =>
-      vectorizeComparisonMultiplication("=", acc.vars, acc.vars.redundancyVars)
-    )
-    val bodyRMProdSeq1 = (0 to accSeq.length - 1).flatMap(i => {
-      (0 to accSeq.length - 1)
-        .combinations(i)
-        .map(indexList => {
-          Prod(
-            (accSeq.zipWithIndex)
-              .collect {
-                case (acc, ind) if indexList.contains(ind) =>
-                  vectorizedMultVarEqualsRedundancyVarSeq(ind) :+ acc.uniqueHead
-                case (acc, ind) if !indexList.contains(ind) =>
-                  Seq(acc.redundancyHead)
-              }
-              .flatten
-              .toSeq
+      val rm = Rule(
+        lhs.redundancyHead(),
+        SoP(
+          Seq(
+            Prod(
+              vectorizeComparisonMultiplication(
+                "<",
+                accSeq(1).vars,
+                accSeq(0).vars
+              )
+            )
           )
+        )
+      )
+      val c = Rule(
+        lhs.compressedHead(),
+        SoP(Seq(Prod(comparisonSeq)))
+      )
+      (us, rm, c)
+    } else {
+      val init = accSeq.init
+      val (us_minus_last, rm_minus_last, c_minus_last) =
+        selfOuterProduct2(lhs, init)
+      val last = accSeq.last
+
+      val comparisonSeq =
+        vectorizeComparisonMultiplication("<=", init.last.vars, last.vars)
+
+      val usBody = SoPTimesSoP(
+        us_minus_last.body,
+        SoP(Seq(Prod(comparisonSeq)))
+      )
+      val us = Rule(lhs.uniqueHead, usBody)
+
+      val all_vars_minus_last = init.map(_.vars)
+      val rmBody1 =
+        injectVariables(
+          us_minus_last.body,
+          all_vars_minus_last,
+          last,
+          UniqueSet
+        )
+      val rmBody2 =
+        injectVariables(
+          rm_minus_last.body,
+          all_vars_minus_last,
+          last,
+          RedundancyMap
+        )
+      val rm = Rule(lhs.redundancyHead(), concatSoP(Seq(rmBody1, rmBody2)))
+
+      val cBody = SoPTimesSoP(
+        c_minus_last.body,
+        SoP(Seq(Prod(comparisonSeq)))
+      )
+      val c = Rule(lhs.compressedHead, cBody)
+
+      (us, rm, c)
+    }
+  }
+
+  def findAllVariables(prod: Prod): Seq[Variable] = {
+    val comparisonSeq = prod.exps.collect {
+      case c: Comparison => c
+      case _ => throw new Exception("all expressions here must be comparsion")
+    }
+    comparisonSeq
+      .collect {
+        case c @ Comparison(op, i, v) if (op == "<" || op == "<=") =>
+          i match {
+            case variable: Variable => Seq(variable, v)
+          }
+        case c2 @ Comparison(op, _, _) =>
+          throw new Exception(s"op cannot be $op. It must be < or <=.")
+      }
+      .flatten
+      .distinct
+  }
+
+  def findMinVariable(prod: Prod): Variable = {
+    val allVars = findAllVariables(prod)
+    val comparisonSeq = prod.exps.collect {
+      case c: Comparison => c
+      case _ => throw new Exception("all expressions here must be comparsion")
+    }
+    val rhsVars = comparisonSeq.collect {
+      case c @ Comparison(op, _, v) if (op == "<" || op == "<=") => v
+      case c2 @ Comparison(op, _, _) =>
+        throw new Exception(s"op cannot be $op. It must be < or <=.")
+    }
+    // It must be only one element based on construction.
+    val result = allVars.diff(rhsVars)
+    assert(result.length == 1)
+    result(0)
+  }
+
+  def findMaxVariable(prod: Prod): Variable = {
+    val comparisonSeq = prod.exps.collect {
+      case c: Comparison => c
+      case _ => throw new Exception("all expressions here must be comparsion")
+    }
+    val lhsVars = comparisonSeq.collect {
+      case c @ Comparison(op, i, _) if (op == "<" || op == "<=") =>
+        i match {
+          case v: Variable => v
+        }
+      case c2 @ Comparison(op, _, _) =>
+        throw new Exception(s"op cannot be $op. It must be < or <=.")
+    }
+
+    val allVars = findAllVariables(prod)
+    // It must be only one element based on construction.
+    val result = allVars.diff(lhsVars)
+    assert(result.length == 1)
+    result(0)
+  }
+
+  def injectInFilteredRM(
+      rmBody: SoP,
+      usBody: Prod
+  ): SoP = {
+    if (usBody.exps.length == 1) {
+      val (minUSVar, maxUSVar) = usBody.exps(0) match {
+        case Comparison(op, index, variable) =>
+          index match {
+            case v: Variable => (v, variable)
+          }
+      }
+      SoP(rmBody.prods.map(prod => {
+        val (prodMinVar, prodMaxVar) = prod.exps(0) match {
+          case Comparison(op, index, variable) =>
+            index match {
+              case v: Variable => (v, variable)
+            }
+        }
+        Prod(
+          Seq(
+            Comparison("=", prodMinVar, minUSVar.redundancyVars),
+            Comparison("=", prodMaxVar, maxUSVar.redundancyVars),
+            prod.exps(0)
+          )
+        )
+      }))
+    } else {
+      val minUSVar = findMinVariable(usBody)
+      val (minProd, restRM) = rmBody.prods
+        .map(prod => {
+          val prodMinVar = findMinVariable(prod)
+          val mapping = Comparison("=", prodMinVar, minUSVar.redundancyVars)
+          val (minimum_comp, rest) = prod.exps.partition {
+            case Comparison(op, i, _) => i == prodMinVar
+          }
+          (Prod(mapping +: minimum_comp), Prod(rest))
         })
-    })
+        .unzip
 
-    val allUSMult = accSeq.map(acc => acc.uniqueHead)
-    val bodyRMSeq21: Seq[Prod] = (0 to accSeq.length - 1).permutations
-      .map(iters => {
-        val conds = (0 to iters.length - 2).flatMap(i =>
-          vectorizeComparisonMultiplication(
-            "<=",
-            accSeq(iters(i)).vars,
-            accSeq(iters(i + 1)).vars
-          )
-        )
-        val swaps = (0 to iters.length - 1).flatMap(i =>
-          vectorizeComparisonMultiplication(
-            "=",
-            accSeq(i).vars,
-            accSeq(iters(i)).vars.redundancyVars
-          )
-        )
-        Prod(conds ++ swaps ++ allUSMult)
+      val newUSBody = Prod(usBody.exps.filter { case Comparison(op, i, _) =>
+        i != minUSVar
       })
-      .toSeq
-    val bodyRMProdSeq2 = bodyRMSeq21.tail
 
-    val rmBody = SoP(bodyRMProdSeq1 ++ bodyRMProdSeq2)
-    val rm = Rule(lhs.redundancyHead, rmBody)
+      val injectRest =
+        injectInFilteredRM(
+          SoP(restRM),
+          newUSBody
+        )
 
-    val cBody = SoP(
-      Seq(Prod(accSeq.map(acc => acc.compressedHead) ++ bodyUSComparisonSeq))
-    )
-    val c = Rule(lhs.compressedHead, cBody)
+      SoP(injectRest.prods.zip(minProd).map { case (prod, mProd) =>
+        Prod(prod.exps ++ mProd.exps)
+      })
+    }
+  }
 
-    (us, rm, c)
+  def injectRM(
+      rmBody: SoP,
+      usBody: Prod,
+      groupByIdxVars: Seq[Seq[Variable]]
+  ): SoP = {
+    // In self-outer product and before inlining, body of the unique set must be just a single product.
+    val sopSeq =
+      groupByIdxVars.map(varSeq => injectInFilteredRM(rmBody, usBody))
+
+    SoP(sopSeq.tail.foldLeft(sopSeq(0).prods)((acc, cur) => {
+      cur.prods.zip(acc).map { case (p1, p2) => prodTimesProd(p1, p2) }
+    }))
+  }
+
+  def selfOuterProduct(lhs: Access, accSeq: Seq[Access]): (Rule, Rule, Rule) = {
+    if (lhs.vars.isEmpty) {
+      val us =
+        Rule(lhs.uniqueHead(), SoP(Seq(Prod(accSeq.map(_.uniqueHead())))))
+      val rm =
+        Rule(
+          lhs.redundancyHead(),
+          SoP(Seq(Prod(accSeq.map(_.redundancyHead()))))
+        )
+      val c =
+        Rule(
+          lhs.compressedHead(),
+          SoP(Seq(Prod(accSeq.map(_.compressedHead()))))
+        )
+      (us, rm, c)
+    } else { // we made sure in the normalization step that all the accesses have the same name and their variable pairwise intersection is empty
+      val (us2, rm2, c2) = selfOuterProduct2(lhs, accSeq)
+      val allUniqueHeads = accSeq.map(_.uniqueHead())
+
+      val usBody = prodTimesSoP(Prod(allUniqueHeads), us2.body)
+      val us = Rule(lhs.uniqueHead(), usBody)
+
+      val vectorizedMultVarEqualsRedundancyVarSeq = accSeq.map(acc =>
+        vectorizeComparisonMultiplication(
+          "=",
+          acc.vars,
+          acc.vars.redundancyVars
+        )
+      )
+      val bodyRMProdSeq1 = (0 to accSeq.length - 1).flatMap(i => {
+        (0 to accSeq.length - 1)
+          .combinations(i)
+          .map(indexList => {
+            Prod(
+              (accSeq.zipWithIndex)
+                .collect {
+                  case (acc, ind) if indexList.contains(ind) =>
+                    vectorizedMultVarEqualsRedundancyVarSeq(
+                      ind
+                    ) :+ acc.uniqueHead
+                  case (acc, ind) if !indexList.contains(ind) =>
+                    Seq(acc.redundancyHead)
+                }
+                .flatten
+                .toSeq
+            )
+          })
+      })
+
+      val injectedMapRM =
+        injectRM(rm2.body, us2.body.prods.head, accSeq.map(_.vars).transpose)
+      val uniqueHeadIncludedInRM =
+        prodTimesSoP(Prod(allUniqueHeads), injectedMapRM)
+
+      val rmBody = concatSoP(Seq(SoP(bodyRMProdSeq1), uniqueHeadIncludedInRM))
+      val rm = Rule(lhs.redundancyHead, rmBody)
+
+      val cBody = prodTimesSoP(Prod(accSeq.map(_.compressedHead())), c2.body)
+      val c = Rule(lhs.compressedHead(), cBody)
+
+      (us, rm, c)
+    }
   }
 
   def locallyDenormalizeAndReturnBody(
@@ -792,7 +1072,16 @@ object Compiler {
       } else {
         // We made sure in the normalization step that all the accesses have the same name and their variable pairwise intersection is empty
         // So if sth ends up here, it must be a self outer product
-        selfOuterProduct(head, exps)
+        selfOuterProduct(
+          head,
+          exps.collect {
+            case acc: Access => acc
+            case _ =>
+              throw new IllegalArgumentException(
+                "All elements in the sequence must be of type Access."
+              )
+          }
+        )
       }
     } else if (prods.length == 2) {
       // We made sure in the normalization step that all the products that reach here have only 1 expression and they are all accesses
