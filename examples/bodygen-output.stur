@@ -1,0 +1,6 @@
+symbols: M
+outputs: covar
+f(i) := 1 * (0 <= i < M)
+covar(i, j, k) := f(i) * f(j) * f(k)
+f:D(i) := (0 <= i < M)
+covar:D(i, j, k) := (0 <= i < M) * (0 <= j < M) * (0 <= k < M)

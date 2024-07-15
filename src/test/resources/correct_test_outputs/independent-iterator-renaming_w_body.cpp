@@ -132,7 +132,5 @@ delete[] C[i0][i1];
 }
 delete[] C[i0];
 }delete[] C;
-for (size_t i0 = 0; i0 < N; ++i0) {delete[] B[i0];
-}delete[] B;
 return 0;
 }
