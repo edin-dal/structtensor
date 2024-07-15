@@ -848,46 +848,67 @@ object Compiler {
   }
 
   def selfOuterProduct(lhs: Access, accSeq: Seq[Access]): (Rule, Rule, Rule) = {
-    // we made sure in the normalization step that all the accesses have the same name and their variable pairwise intersection is empty
-    val (us2, rm2, c2) = selfOuterProduct2(lhs, accSeq)
-    val allUniqueHeads = accSeq.map(_.uniqueHead())
+    if (lhs.vars.isEmpty) {
+      val us =
+        Rule(lhs.uniqueHead(), SoP(Seq(Prod(accSeq.map(_.uniqueHead())))))
+      val rm =
+        Rule(
+          lhs.redundancyHead(),
+          SoP(Seq(Prod(accSeq.map(_.redundancyHead()))))
+        )
+      val c =
+        Rule(
+          lhs.compressedHead(),
+          SoP(Seq(Prod(accSeq.map(_.compressedHead()))))
+        )
+      (us, rm, c)
+    } else { // we made sure in the normalization step that all the accesses have the same name and their variable pairwise intersection is empty
+      val (us2, rm2, c2) = selfOuterProduct2(lhs, accSeq)
+      val allUniqueHeads = accSeq.map(_.uniqueHead())
 
-    val usBody = prodTimesSoP(Prod(allUniqueHeads), us2.body)
-    val us = Rule(lhs.uniqueHead(), usBody)
+      val usBody = prodTimesSoP(Prod(allUniqueHeads), us2.body)
+      val us = Rule(lhs.uniqueHead(), usBody)
 
-    val vectorizedMultVarEqualsRedundancyVarSeq = accSeq.map(acc =>
-      vectorizeComparisonMultiplication("=", acc.vars, acc.vars.redundancyVars)
-    )
-    val bodyRMProdSeq1 = (0 to accSeq.length - 1).flatMap(i => {
-      (0 to accSeq.length - 1)
-        .combinations(i)
-        .map(indexList => {
-          Prod(
-            (accSeq.zipWithIndex)
-              .collect {
-                case (acc, ind) if indexList.contains(ind) =>
-                  vectorizedMultVarEqualsRedundancyVarSeq(ind) :+ acc.uniqueHead
-                case (acc, ind) if !indexList.contains(ind) =>
-                  Seq(acc.redundancyHead)
-              }
-              .flatten
-              .toSeq
-          )
-        })
-    })
+      val vectorizedMultVarEqualsRedundancyVarSeq = accSeq.map(acc =>
+        vectorizeComparisonMultiplication(
+          "=",
+          acc.vars,
+          acc.vars.redundancyVars
+        )
+      )
+      val bodyRMProdSeq1 = (0 to accSeq.length - 1).flatMap(i => {
+        (0 to accSeq.length - 1)
+          .combinations(i)
+          .map(indexList => {
+            Prod(
+              (accSeq.zipWithIndex)
+                .collect {
+                  case (acc, ind) if indexList.contains(ind) =>
+                    vectorizedMultVarEqualsRedundancyVarSeq(
+                      ind
+                    ) :+ acc.uniqueHead
+                  case (acc, ind) if !indexList.contains(ind) =>
+                    Seq(acc.redundancyHead)
+                }
+                .flatten
+                .toSeq
+            )
+          })
+      })
 
-    val injectedMapRM =
-      injectRM(rm2.body, us2.body.prods(0), accSeq.map(_.vars).transpose)
-    val uniqueHeadIncludedInRM =
-      prodTimesSoP(Prod(allUniqueHeads), injectedMapRM)
+      val injectedMapRM =
+        injectRM(rm2.body, us2.body.prods.head, accSeq.map(_.vars).transpose)
+      val uniqueHeadIncludedInRM =
+        prodTimesSoP(Prod(allUniqueHeads), injectedMapRM)
 
-    val rmBody = concatSoP(Seq(SoP(bodyRMProdSeq1), uniqueHeadIncludedInRM))
-    val rm = Rule(lhs.redundancyHead, rmBody)
+      val rmBody = concatSoP(Seq(SoP(bodyRMProdSeq1), uniqueHeadIncludedInRM))
+      val rm = Rule(lhs.redundancyHead, rmBody)
 
-    val cBody = prodTimesSoP(Prod(accSeq.map(_.compressedHead())), c2.body)
-    val c = Rule(lhs.compressedHead(), cBody)
+      val cBody = prodTimesSoP(Prod(accSeq.map(_.compressedHead())), c2.body)
+      val c = Rule(lhs.compressedHead(), cBody)
 
-    (us, rm, c)
+      (us, rm, c)
+    }
   }
 
   def locallyDenormalizeAndReturnBody(
