@@ -165,7 +165,7 @@ for (int j = 0; j < N; ++j) {
     C[j] += B[j][i];
   }
 }
-``
+```
 
 ### Generating C++ Code
 
