@@ -45,7 +45,7 @@ int i = 0;
 if (i >= 0 && i < W) {
 for (int j = 0; j < W; ++j) {
 
-A[i] = (B[i][j] * C[j]);
+A[i] += (B[i][j] * C[j]);
 }
 }
 for (int i = max({0, 1}); i < W; ++i) {

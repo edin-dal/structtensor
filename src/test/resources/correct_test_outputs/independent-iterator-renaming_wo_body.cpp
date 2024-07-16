@@ -21,7 +21,7 @@ for (int k = 0; k < N; ++k) {
 
 for (int l = max({k, 0}); l < N; ++l) {
 
-C[i][j][k][l] = (f[i] * f[j] * t[k] * t[l]);
+C[i][j][k][l] += (f[i] * f[j] * t[k] * t[l]);
 }
 }
 }

@@ -48,7 +48,7 @@ for (int i = 0; i < M; ++i) {
 for (int j = max({i, 0}); j < N; ++j) {
 
 int s = (((N * i) + j) - ((i * (i + 1)) / 2));
-B2[s] = B[i][j];
+B2[s] += B[i][j];
 }
 }
 long time_computation = 0, start_computation, end_computation;
@@ -59,7 +59,7 @@ for (int j = max({i, 0}); j < N; ++j) {
 
 int s = (((N * i) + j) - ((i * (i + 1)) / 2));
 if (s >= 0 && s < ((M * (N + 1)) / 2)) {
-A[i] = (B2[s] * C[j]);
+A[i] += (B2[s] * C[j]);
 }
 }
 }

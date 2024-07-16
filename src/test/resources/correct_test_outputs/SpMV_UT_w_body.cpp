@@ -46,7 +46,7 @@ for (int i = 0; i < M; ++i) {
 
 for (int j = max({0, i}); j < N; ++j) {
 
-A[i] = (B[i][j] * C[j]);
+A[i] += (B[i][j] * C[j]);
 }
 }
 end_computation = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();

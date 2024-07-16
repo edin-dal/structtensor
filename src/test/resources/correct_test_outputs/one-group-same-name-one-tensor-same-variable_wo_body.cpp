@@ -17,7 +17,7 @@ for (int i = 0; i < N; ++i) {
 
 for (int j = 0; j < min({(i) + 1, N}); ++j) {
 
-A[i][j] = (f[j] * f[i] * f[i]);
+A[i][j] += (f[j] * f[i] * f[i]);
 }
 }
 for (int i = 0; i < N; ++i) {

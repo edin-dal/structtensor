@@ -17,7 +17,7 @@ for (int i = 0; i < N; ++i) {
 
 for (int j = max({i, 0}); j < N; ++j) {
 
-A[i][j] = (f[i] * f[j]);
+A[i][j] += (f[i] * f[j]);
 }
 }
 for (int i = 0; i < N; ++i) {
@@ -26,7 +26,7 @@ for (int j = 0; j < N; ++j) {
 
 for (int k = max({j, 0}); k < min({(i) + 1, N}); ++k) {
 
-B[i][j][k] = (f[j] * f[k] * f[i]);
+B[i][j][k] += (f[j] * f[k] * f[i]);
 }
 }
 }
@@ -38,7 +38,7 @@ for (int k = max({j, 0}); k < N; ++k) {
 
 for (int l = max({k, 0}); l < min({(i) + 1, N}); ++l) {
 
-C[i][j][k][l] = (f[j] * f[k] * f[l] * f[i]);
+C[i][j][k][l] += (f[j] * f[k] * f[l] * f[i]);
 }
 }
 }
@@ -53,7 +53,7 @@ for (int l = max({k, 0}); l < N; ++l) {
 
 for (int s = max({l, 0}); s < min({(i) + 1, N}); ++s) {
 
-D[i][j][k][l][s] = (f[j] * f[k] * f[l] * f[s] * f[i]);
+D[i][j][k][l][s] += (f[j] * f[k] * f[l] * f[s] * f[i]);
 }
 }
 }
@@ -71,7 +71,7 @@ for (int s = max({l, 0}); s < N; ++s) {
 
 for (int t = max({s, 0}); t < min({(i) + 1, N}); ++t) {
 
-E[i][j][k][l][s][t] = (f[j] * f[k] * f[l] * f[s] * f[t] * f[i]);
+E[i][j][k][l][s][t] += (f[j] * f[k] * f[l] * f[s] * f[t] * f[i]);
 }
 }
 }
@@ -82,7 +82,7 @@ for (int i = 0; i < N; ++i) {
 
 for (int j = max({i, 0}); j < N; ++j) {
 
-F[i][j] = (g[i] * g[j]);
+F[i][j] += (g[i] * g[j]);
 }
 }
 for (int i = 0; i < N; ++i) {
@@ -91,7 +91,7 @@ for (int j = 0; j < N; ++j) {
 
 for (int k = max({j, 0}); k < min({(i) + 1, N}); ++k) {
 
-G[i][j][k] = (g[j] * g[k] * g[i]);
+G[i][j][k] += (g[j] * g[k] * g[i]);
 }
 }
 }
@@ -103,7 +103,7 @@ for (int k = max({j, 0}); k < N; ++k) {
 
 for (int l = max({k, 0}); l < min({(i) + 1, N}); ++l) {
 
-H[i][j][k][l] = (g[j] * g[k] * g[l] * g[i]);
+H[i][j][k][l] += (g[j] * g[k] * g[l] * g[i]);
 }
 }
 }
@@ -118,7 +118,7 @@ for (int l = max({k, 0}); l < N; ++l) {
 
 for (int s = max({l, 0}); s < min({(i) + 1, N}); ++s) {
 
-I[i][j][k][l][s] = (g[j] * g[k] * g[l] * g[s] * g[i]);
+I[i][j][k][l][s] += (g[j] * g[k] * g[l] * g[s] * g[i]);
 }
 }
 }
@@ -136,7 +136,7 @@ for (int s = max({l, 0}); s < N; ++s) {
 
 for (int t = max({s, 0}); t < min({(i) + 1, N}); ++t) {
 
-J[i][j][k][l][s][t] = (g[j] * g[k] * g[l] * g[s] * g[t] * g[i]);
+J[i][j][k][l][s][t] += (g[j] * g[k] * g[l] * g[s] * g[t] * g[i]);
 }
 }
 }
@@ -147,7 +147,7 @@ for (int i = 0; i < N; ++i) {
 
 for (int j = max({i, 0}); j < N; ++j) {
 
-K[i][j] = (f[i] * f[j]);
+K[i][j] += (f[i] * f[j]);
 }
 }
 for (int i = 0; i < N; ++i) {
@@ -163,7 +163,7 @@ for (int j = 0; j < N; ++j) {
 
 for (int k = max({j, 0}); k < min({(i) + 1, N}); ++k) {
 
-L[i][j][k] = (f[j] * f[k] * f[i]);
+L[i][j][k] += (f[j] * f[k] * f[i]);
 }
 }
 }
@@ -185,7 +185,7 @@ for (int k = max({j, 0}); k < N; ++k) {
 
 for (int l = max({k, 0}); l < min({(i) + 1, N}); ++l) {
 
-M[i][j][k][l] = (f[j] * f[k] * f[l] * f[i]);
+M[i][j][k][l] += (f[j] * f[k] * f[l] * f[i]);
 }
 }
 }
@@ -213,7 +213,7 @@ for (int l = max({k, 0}); l < N; ++l) {
 
 for (int s = max({l, 0}); s < min({(i) + 1, N}); ++s) {
 
-P[i][j][k][l][s] = (f[j] * f[k] * f[l] * f[s] * f[i]);
+P[i][j][k][l][s] += (f[j] * f[k] * f[l] * f[s] * f[i]);
 }
 }
 }
@@ -247,7 +247,7 @@ for (int s = max({l, 0}); s < N; ++s) {
 
 for (int t = max({s, 0}); t < min({(i) + 1, N}); ++t) {
 
-O[i][j][k][l][s][t] = (f[j] * f[k] * f[l] * f[s] * f[t] * f[i]);
+O[i][j][k][l][s][t] += (f[j] * f[k] * f[l] * f[s] * f[t] * f[i]);
 }
 }
 }

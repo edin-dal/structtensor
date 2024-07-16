@@ -19,7 +19,7 @@ for (int j = 0; j < M; ++j) {
 
 for (int k = max({j, 0}); k < min({(i) + 1, M}); ++k) {
 
-covar[i][j][k] = (1 * 1 * 1);
+covar[i][j][k] += (1 * 1 * 1);
 }
 }
 }
