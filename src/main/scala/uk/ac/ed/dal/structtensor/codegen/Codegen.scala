@@ -598,7 +598,7 @@ object Codegen {
             accesses,
             symbols,
             codeLang,
-            if (ind > 0) kind else RedundancyMap
+            kind
           )
         }
       }

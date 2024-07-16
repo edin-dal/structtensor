@@ -19,7 +19,7 @@ for (int j = 0; j < N; ++j) {
 
 for (int k = 0; k < P; ++k) {
 
-A[i][j][k] = (B[i][j][k] * C[i][j][k]);
+A[i][j][k] += (B[i][j][k] * C[i][j][k]);
 }
 }
 }

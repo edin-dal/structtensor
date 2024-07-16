@@ -30,7 +30,7 @@ long time_computation = 0, start_computation, end_computation;
 start_computation = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
 for (int i = 0; i < N; ++i) {
 
-A[i] = (1. / N * B[i]);
+A[i] += (1. / N * B[i]);
 }
 end_computation = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
 time_computation = end_computation - start_computation;

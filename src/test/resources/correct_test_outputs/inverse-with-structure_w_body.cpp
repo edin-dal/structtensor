@@ -36,7 +36,7 @@ for (int i = 0; i < N; ++i) {
 
 for (int j = max({i, 0}); j < N; ++j) {
 
-A[i][j] = (1. / f[i] * 1. / f[j]);
+A[i][j] += (1. / f[i] * 1. / f[j]);
 }
 }
 end_computation = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();

@@ -23,7 +23,7 @@ for (int l = max({k, 0}); l < N; ++l) {
 
 for (int r = max({l, 0}); r < N; ++r) {
 
-A[i][j][k][l][r] = (f[j] * f[i] * t[k] * t[l] * t[r]);
+A[i][j][k][l][r] += (f[j] * f[i] * t[k] * t[l] * t[r]);
 }
 }
 }

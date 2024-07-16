@@ -61,21 +61,21 @@ for (int i = 0; i < N; ++i) {
 
 for (int j = max({i, 0}); j < N; ++j) {
 
-A[i][j] = (f[i] * f[j]);
+A[i][j] += (f[i] * f[j]);
 }
 }
 for (int i = 0; i < N; ++i) {
 
 for (int j = max({i, 0}); j < N; ++j) {
 
-B[i][j] = (g[i] * g[j]);
+B[i][j] += (g[i] * g[j]);
 }
 }
 for (int i = 0; i < N; ++i) {
 
 for (int j = max({i, 0}); j < N; ++j) {
 
-C[i][j] = (f[i] * f[j]);
+C[i][j] += (f[i] * f[j]);
 }
 }
 for (int i = 0; i < N; ++i) {

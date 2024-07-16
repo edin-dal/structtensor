@@ -81,7 +81,7 @@ for (int l = 0; l < P; ++l) {
 
 int i = I;
 if (i >= 0 && i < M) {
-B2[k][l] = B[i][k][l];
+B2[k][l] += B[i][k][l];
 }
 }
 }
@@ -94,7 +94,7 @@ for (int k = 0; k < N; ++k) {
 
 for (int l = 0; l < P; ++l) {
 
-A[i][j] = (B2[k][l] * C[k][j] * D[l][j]);
+A[i][j] += (B2[k][l] * C[k][j] * D[l][j]);
 }
 }
 }

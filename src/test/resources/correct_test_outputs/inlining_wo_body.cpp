@@ -17,14 +17,14 @@ for (int i = 0; i < N; ++i) {
 
 for (int j = max({i, 0}); j < N; ++j) {
 
-B[i][j] = (f[i] * f[j]);
+B[i][j] += (f[i] * f[j]);
 }
 }
 for (int i = 0; i < N; ++i) {
 
 for (int j = max({i, 0}); j < N; ++j) {
 
-A[i] = (f[i] * f[j]);
+A[i] += (f[i] * f[j]);
 }
 }
 for (int i = 0; i < N; ++i) {
@@ -42,7 +42,7 @@ for (int j = max({i, 0}); j < N; ++j) {
 
 for (int i4 = max({j, 0}); i4 < N; ++i4) {
 
-C[i][j] = (1. / f[i] * 1. / f[i3] * 1. / f[j] * 1. / f[i4]);
+C[i][j] += (1. / f[i] * 1. / f[i3] * 1. / f[j] * 1. / f[i4]);
 }
 }
 }

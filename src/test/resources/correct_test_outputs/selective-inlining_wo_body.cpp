@@ -17,14 +17,14 @@ for (int i = 0; i < M; ++i) {
 
 for (int j = max({i, 0}); j < M; ++j) {
 
-covar[i][j] = (f[i] * f[j]);
+covar[i][j] += (f[i] * f[j]);
 }
 }
 for (int i = 0; i < M; ++i) {
 
 for (int j = max({i, 0}); j < M; ++j) {
 
-dw[i] = (covar[i][j] * w[j]);
+dw[i] += (covar[i][j] * w[j]);
 }
 }
 for (int i = 0; i < M; ++i) {

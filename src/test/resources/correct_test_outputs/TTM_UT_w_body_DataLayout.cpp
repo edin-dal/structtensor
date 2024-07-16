@@ -72,7 +72,7 @@ for (int i = 0; i < M; ++i) {
 for (int j = max({i, 0}); j < N; ++j) {
 
 int s = (((N * i) + j) - ((i * (i + 1)) / 2));
-B2[s][l] = B[i][j][l];
+B2[s][l] += B[i][j][l];
 }
 }
 }
@@ -88,7 +88,7 @@ for (int k = 0; k < P; ++k) {
 
 for (int l = 0; l < Q; ++l) {
 
-A[i][j][k] = (B2[s][l] * C[k][l]);
+A[i][j][k] += (B2[s][l] * C[k][l]);
 }
 }
 }

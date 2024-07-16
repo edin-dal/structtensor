@@ -67,7 +67,7 @@ for (int k = 0; k < P; ++k) {
 
 for (int l = 0; l < Q; ++l) {
 
-A[i][j][k] = (B[i][i][l] * C[k][l]);
+A[i][j][k] += (B[i][i][l] * C[k][l]);
 }
 }
 }

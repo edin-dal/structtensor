@@ -16,7 +16,7 @@ for (int k = 0; k < P; ++k) {
 
 int j = J;
 if (j >= 0 && j < N) {
-B2[i][k] = B[i][j][k];
+B2[i][k] += B[i][j][k];
 }
 }
 }
@@ -28,7 +28,7 @@ int j = J;
 if (j >= 0 && j < N) {
 for (int k = 0; k < P; ++k) {
 
-A[i][j][k] = (B2[i][k] * C[i][j][k]);
+A[i][j][k] += (B2[i][k] * C[i][j][k]);
 }
 }
 }

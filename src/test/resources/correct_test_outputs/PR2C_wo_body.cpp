@@ -17,7 +17,7 @@ for (int i = 0; i < N; ++i) {
 
 for (int j = max({i, 0}); j < N; ++j) {
 
-A[i][j] = (f[i] * f[j]);
+A[i][j] += (f[i] * f[j]);
 }
 }
 for (int i = 0; i < N; ++i) {
@@ -26,7 +26,7 @@ for (int j = 0; j < N; ++j) {
 
 for (int k = max({j, 0}); k < min({(i) + 1, N}); ++k) {
 
-B[i][j][k] = (f[j] * f[k] * f[i]);
+B[i][j][k] += (f[j] * f[k] * f[i]);
 }
 }
 }
@@ -38,7 +38,7 @@ for (int k = max({j, 0}); k < N; ++k) {
 
 for (int l = max({k, 0}); l < min({(i) + 1, N}); ++l) {
 
-C[i][j][k][l] = (f[j] * f[k] * f[l] * f[i]);
+C[i][j][k][l] += (f[j] * f[k] * f[l] * f[i]);
 }
 }
 }
