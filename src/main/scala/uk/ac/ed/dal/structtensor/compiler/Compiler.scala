@@ -41,6 +41,22 @@ object Compiler {
       }
       .forall(_ == true)
 
+  def isSubSelfOuterProduct(vars: Seq[Seq[Variable]]): Boolean = {
+    val all_intersects =
+      vars.tail.foldLeft(vars.head)((acc, cur) => acc.intersect(cur))
+    val vars_wo_intersects = vars.map(_.diff(all_intersects))
+    val cond1 = isPairwiseIntersectEmpty(vars_wo_intersects)
+    val all_intersect_indecies = vars.map(v =>
+      v.zipWithIndex.collect {
+        case (variable, index) if all_intersects.contains(variable) => index
+      }
+    )
+    val cond2 = all_intersect_indecies.tail.forall(
+      _.toSet == all_intersect_indecies.head.toSet
+    )
+    cond1 && cond2
+  }
+
   def groupBySameName(
       exp: Exp,
       rest: Seq[Exp],
@@ -64,7 +80,11 @@ object Compiler {
               isThereAnySameNameLeft = true,
               init_exp = real_init_exp
             )
-          else if (isPairwiseIntersectEmpty(sameNameList.map(e => e.vars)))
+          else if (
+            isPairwiseIntersectEmpty(
+              sameNameList.map(e => e.vars)
+            ) || isSubSelfOuterProduct(sameNameList.map(e => e.vars))
+          )
             (sameNameList, true)
           else
             groupBySameName(
@@ -141,7 +161,7 @@ object Compiler {
       } else {
         val newVariables = sameNameExpsList.flatMap {
           case acc @ Access(_, vars, _) => vars
-        } // This one does not distinct since the intersection of the variables is empty
+        }.distinct
         val newHead = Access(getVar("sameNameProdHead"), newVariables, Tensor)
         val newBody = SoP(Seq(Prod(sameNameExpsList)))
         val newRule = Rule(newHead, newBody)
@@ -292,72 +312,9 @@ object Compiler {
             .union(vars2)
             .toSet && isIntersectEmpty(vars1, vars2)
         ) {
-          val usBody = SoP(
-            Seq(
-              Prod(
-                Seq(
-                  acc1.uniqueHead,
-                  acc2.uniqueHead
-                ) ++ vectorizeComparisonMultiplication("<=", vars1, vars2)
-              )
-            )
-          )
-          val us = Rule(lhs.uniqueHead, usBody)
-
-          val rmBody = SoP(
-            Seq(
-              Prod(Seq(acc1.redundancyHead, acc2.redundancyHead)),
-              Prod(
-                Seq(
-                  acc1.uniqueHead,
-                  acc2.redundancyHead
-                ) ++ vectorizeComparisonMultiplication(
-                  "=",
-                  vars1,
-                  vars1.redundancyVars
-                )
-              ),
-              Prod(
-                Seq(
-                  acc1.redundancyHead,
-                  acc2.uniqueHead
-                ) ++ vectorizeComparisonMultiplication(
-                  "=",
-                  vars2,
-                  vars2.redundancyVars
-                )
-              ),
-              Prod(
-                Seq(
-                  acc1.uniqueHead,
-                  acc2.uniqueHead
-                ) ++ vectorizeComparisonMultiplication(
-                  "=",
-                  vars1,
-                  vars2.redundancyVars
-                ) ++ vectorizeComparisonMultiplication(
-                  "=",
-                  vars2,
-                  vars1.redundancyVars
-                ) ++ vectorizeComparisonMultiplication(">", vars1, vars2)
-              )
-            )
-          )
-          val rm = Rule(lhs.redundancyHead, rmBody)
-
-          val cBody = SoP(
-            Seq(
-              Prod(
-                Seq(
-                  acc1.compressedHead,
-                  acc2.compressedHead
-                ) ++ vectorizeComparisonMultiplication("<=", vars1, vars2)
-              )
-            )
-          )
-          val c = Rule(lhs.compressedHead, cBody)
-
-          (us, rm, c)
+          selfOuterProduct(lhs, Seq(acc1, acc2))
+        } else if (name1 == name2 && isSubSelfOuterProduct(Seq(vars1, vars2))) {
+          selfOuterProduct(lhs, Seq(acc1, acc2))
         } else if (
           lhs.vars.toSet == vars1.union(vars2).toSet && isIntersectEmpty(
             vars1,
@@ -862,7 +819,7 @@ object Compiler {
           SoP(Seq(Prod(accSeq.map(_.compressedHead()))))
         )
       (us, rm, c)
-    } else { // we made sure in the normalization step that all the accesses have the same name and their variable pairwise intersection is empty
+    } else if (isPairwiseIntersectEmpty(accSeq.map(acc => acc.vars))) { // we made sure in the normalization step that all the accesses have the same name and their variable pairwise intersection is empty
       val (us2, rm2, c2) = selfOuterProduct2(lhs, accSeq)
       val allUniqueHeads = accSeq.map(_.uniqueHead())
 
@@ -906,6 +863,114 @@ object Compiler {
 
       val cBody = prodTimesSoP(Prod(accSeq.map(_.compressedHead())), c2.body)
       val c = Rule(lhs.compressedHead(), cBody)
+
+      (us, rm, c)
+    } else { // We assured that if the pairwise intersection is not empty, then the isSubSelfOuter function has returned true to be here.
+      val vars = accSeq.map(_.vars)
+      val all_intersect =
+        vars.tail.foldLeft(vars.head)((acc, cur) => acc.intersect(cur))
+
+      val (usSoPSeq, rmSoPSeq, cSoPSeq) = (0 to accSeq.length - 1)
+        .flatMap(i => {
+          (0 to accSeq.length - 1)
+            .combinations(i)
+            .map(indexList => {
+              val prodAndVectorizedMult = Prod(
+                accSeq.zipWithIndex
+                  .collect {
+                    case (acc, ind) if !indexList.contains(ind) =>
+                      vectorizeComparisonMultiplication(
+                        "=",
+                        all_intersect,
+                        all_intersect.redundancyVars
+                      ) :+
+                        acc.uniqueHead
+                    case (acc, ind) if indexList.contains(ind) =>
+                      Seq(acc.redundancyHead)
+                  }
+                  .flatten
+                  .toSeq
+              )
+
+              val (prodExps, vecMult) = prodAndVectorizedMult.exps.partition {
+                case _: Access => true
+                case _         => false
+              }
+              val prod = Prod(prodExps)
+
+              val (uniqueAccesses, rest) = prod.exps.partition {
+                case _ @Access(_, _, UniqueSet) => true
+                case _                          => false
+              }
+
+              if (uniqueAccesses.length == 1) {
+                val us = SoP(Seq(prod))
+                val rm = emptySoP()
+                val c11 = uniqueAccesses.collect { case u: Access =>
+                  Access(
+                    u.name.substring(0, u.name.length() - 2) + "C",
+                    u.vars,
+                    CompressedTensor
+                  )
+                }
+                val c12 = rest.collect { case r: Access =>
+                  Access(
+                    r.name.substring(0, r.name.length() - 2) + "C",
+                    r.vars.drop(r.vars.length / 2),
+                    CompressedTensor
+                  )
+                }
+                val c = SoP(Seq(Prod(c11 ++ c12 ++ rest)))
+
+                (us, rm, c)
+              } else {
+                val all_unique_accesses_minus_intersect =
+                  uniqueAccesses.collect {
+                    case _ @Access(name, variables, kind) =>
+                      Access(name, variables.diff(all_intersect), kind)
+                  }
+
+                val (us2, rm2, c2) =
+                  selfOuterProduct2(lhs, all_unique_accesses_minus_intersect)
+
+                val us = prodTimesSoP(prod, us2.body)
+                val injectedMapRM =
+                  injectRM(
+                    rm2.body,
+                    us2.body.prods.head,
+                    all_unique_accesses_minus_intersect.map(_.vars).transpose
+                  )
+                val rm =
+                  prodTimesSoP(prodAndVectorizedMult, injectedMapRM)
+
+                val c11 = uniqueAccesses.collect { case u: Access =>
+                  Access(
+                    u.name.substring(0, u.name.length() - 2) + "C",
+                    u.vars,
+                    CompressedTensor
+                  )
+                }
+                val c12 = rest.collect { case r: Access =>
+                  Access(
+                    r.name.substring(0, r.name.length() - 2) + "C",
+                    r.vars.drop(r.vars.length / 2),
+                    CompressedTensor
+                  )
+                }
+                val c = prodTimesSoP(Prod(c11 ++ c12 ++ rest), c2.body)
+
+                (us, rm, c)
+              }
+            })
+        })
+        .unzip3
+
+      val us = Rule(lhs.uniqueHead, concatSoP(usSoPSeq))
+      val rm = Rule(
+        lhs.redundancyHead,
+        concatSoP(rmSoPSeq :+ SoP(Seq(Prod(accSeq.map(_.redundancyHead())))))
+      )
+      val c = Rule(lhs.compressedHead, concatSoP(cSoPSeq))
 
       (us, rm, c)
     }
