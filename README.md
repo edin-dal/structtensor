@@ -107,6 +107,19 @@ for (int i = 0; i < N; ++i) {
 }
 ```
 
+#### More Complex Structures
+
+More complex structures can be represented through STUR as well. For example, assigning a matrix with skew-symmetric structure to another matrix can be represented as follows:
+
+```
+symbols: N
+A(i, j) := B(i, j)
+A:D(i, j) := (0 <= i < N) * (0 <= j < N)
+B:D(i, j) := (0 <= i < N) * (0 <= j < N)
+B:U(i, j) := (0 <= i <= j < N)
+B:R(i, j, ip, jp) := -1 * (0 <= j < i < N) * (ip = j) * (jp = i) 
+```
+
 ### Advanced Syntax
 
 #### Preprocessing
