@@ -72,8 +72,9 @@ object Optimizer {
               (
                 expsNotInMap.filter(exp =>
                   exp match {
-                    case acc @ Access(_, v, _) if v.isEmpty => false
-                    case _                                  => true
+                    case acc @ Access(_, v, k) if v.isEmpty && k != Tensor =>
+                      false
+                    case _ => true
                   }
                 ),
                 false

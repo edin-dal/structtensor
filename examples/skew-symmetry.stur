@@ -1,0 +1,6 @@
+symbols: N
+A(i, j) := B(i, j)
+A:D(i, j) := (0 <= i < N) * (0 <= j < N)
+B:D(i, j) := (0 <= i < N) * (0 <= j < N)
+B:U(i, j) := (0 <= i <= j < N)
+B:R(i, j, ip, jp) := -1 * (0 <= j < i < N) * (ip = j) * (jp = i) 
