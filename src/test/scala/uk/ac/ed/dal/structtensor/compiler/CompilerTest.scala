@@ -716,6 +716,386 @@ class CompilerTest
     }
   }
 
+  it should "project optimally when there is an optimal projection" in {
+    // This test is based on the following:
+    //   symbols: N, M
+    //   covar(j, k) := X(i, j) * X(i, k)
+    //   covar:D(i, j) := (0 <= i < N) * (0 <= j < N)
+    //   X:D(i, j) := (0 <= i < M) * (0 <= j < N)
+
+    val lhs = Access("covar", List(Variable("j"), Variable("k")), Tensor)
+    val rhs = Access(
+      "sameNameProdHead2",
+      List(Variable("i"), Variable("k"), Variable("j")),
+      Tensor
+    )
+    val ctx = List(
+      (
+        Rule(
+          Access("X_US", List(Variable("i"), Variable("j")), UniqueSet),
+          SoP(
+            List(
+              Prod(
+                List(
+                  Comparison("<=", ConstantInt(0), Variable("i")),
+                  Comparison(">", Variable("M"), Variable("i")),
+                  Comparison("<=", ConstantInt(0), Variable("j")),
+                  Comparison(">", Variable("N"), Variable("j"))
+                )
+              )
+            )
+          )
+        ),
+        Rule(
+          Access(
+            "X_RM",
+            List(Variable("i"), Variable("j"), Variable("ip"), Variable("jp")),
+            RedundancyMap
+          ),
+          SoP(List())
+        ),
+        Rule(
+          Access("X_C", List(Variable("i"), Variable("j")), CompressedTensor),
+          SoP(
+            List(
+              Prod(
+                List(
+                  Access("X", List(Variable("i"), Variable("j")), Tensor),
+                  Comparison("<=", ConstantInt(0), Variable("i")),
+                  Comparison(">", Variable("M"), Variable("i")),
+                  Comparison("<=", ConstantInt(0), Variable("j")),
+                  Comparison(">", Variable("N"), Variable("j"))
+                )
+              )
+            )
+          )
+        ),
+        Rule(
+          Access("X", List(Variable("i"), Variable("j")), Tensor),
+          SoP(
+            List(
+              Prod(
+                List(Access("X", List(Variable("i"), Variable("j")), Tensor))
+              )
+            )
+          )
+        )
+      ),
+      (
+        Rule(
+          Access("X_US", List(Variable("i"), Variable("k")), UniqueSet),
+          SoP(
+            List(
+              Prod(
+                List(
+                  Comparison("<=", ConstantInt(0), Variable("i")),
+                  Comparison(">", Variable("M"), Variable("i")),
+                  Comparison("<=", ConstantInt(0), Variable("k")),
+                  Comparison(">", Variable("N"), Variable("k"))
+                )
+              )
+            )
+          )
+        ),
+        Rule(
+          Access(
+            "X_RM",
+            List(Variable("i"), Variable("k"), Variable("ip"), Variable("kp")),
+            RedundancyMap
+          ),
+          SoP(List())
+        ),
+        Rule(
+          Access("X_C", List(Variable("i"), Variable("k")), CompressedTensor),
+          SoP(
+            List(
+              Prod(
+                List(
+                  Access("X", List(Variable("i"), Variable("k")), Tensor),
+                  Comparison("<=", ConstantInt(0), Variable("i")),
+                  Comparison(">", Variable("M"), Variable("i")),
+                  Comparison("<=", ConstantInt(0), Variable("k")),
+                  Comparison(">", Variable("N"), Variable("k"))
+                )
+              )
+            )
+          )
+        ),
+        Rule(
+          Access("X", List(Variable("i"), Variable("k")), Tensor),
+          SoP(
+            List(
+              Prod(
+                List(Access("X", List(Variable("i"), Variable("k")), Tensor))
+              )
+            )
+          )
+        )
+      ),
+      (
+        Rule(
+          Access(
+            "sameNameProdHead2_US",
+            List(Variable("i"), Variable("k"), Variable("j")),
+            UniqueSet
+          ),
+          SoP(
+            Vector(
+              Prod(
+                List(
+                  Access("X_US", List(Variable("i"), Variable("k")), UniqueSet),
+                  Access("X_US", List(Variable("i"), Variable("j")), UniqueSet),
+                  Comparison("<=", Variable("k"), Variable("j"))
+                )
+              ),
+              Prod(
+                List(
+                  Access(
+                    "X_RM",
+                    List(
+                      Variable("i"),
+                      Variable("k"),
+                      Variable("ip"),
+                      Variable("kp")
+                    ),
+                    RedundancyMap
+                  ),
+                  Access("X_US", List(Variable("i"), Variable("j")), UniqueSet)
+                )
+              ),
+              Prod(
+                List(
+                  Access("X_US", List(Variable("i"), Variable("k")), UniqueSet),
+                  Access(
+                    "X_RM",
+                    List(
+                      Variable("i"),
+                      Variable("j"),
+                      Variable("ip"),
+                      Variable("jp")
+                    ),
+                    RedundancyMap
+                  )
+                )
+              )
+            )
+          )
+        ),
+        Rule(
+          Access(
+            "sameNameProdHead2_RM",
+            List(
+              Variable("i"),
+              Variable("k"),
+              Variable("j"),
+              Variable("ip"),
+              Variable("kp"),
+              Variable("jp")
+            ),
+            RedundancyMap
+          ),
+          SoP(
+            Vector(
+              Prod(
+                List(
+                  Comparison("=", Variable("i"), Variable("ip")),
+                  Access("X_US", List(Variable("i"), Variable("k")), UniqueSet),
+                  Comparison("=", Variable("i"), Variable("ip")),
+                  Access("X_US", List(Variable("i"), Variable("j")), UniqueSet),
+                  Comparison("=", Variable("j"), Variable("kp")),
+                  Comparison("=", Variable("k"), Variable("jp")),
+                  Comparison("<", Variable("j"), Variable("k"))
+                )
+              ),
+              Prod(
+                List(
+                  Access(
+                    "X_RM",
+                    List(
+                      Variable("i"),
+                      Variable("k"),
+                      Variable("ip"),
+                      Variable("kp")
+                    ),
+                    RedundancyMap
+                  ),
+                  Access(
+                    "X_RM",
+                    List(
+                      Variable("i"),
+                      Variable("j"),
+                      Variable("ip"),
+                      Variable("jp")
+                    ),
+                    RedundancyMap
+                  )
+                )
+              )
+            )
+          )
+        ),
+        Rule(
+          Access(
+            "sameNameProdHead2_C",
+            List(Variable("i"), Variable("k"), Variable("j")),
+            CompressedTensor
+          ),
+          SoP(
+            Vector(
+              Prod(
+                List(
+                  Access(
+                    "X_C",
+                    List(Variable("i"), Variable("k")),
+                    CompressedTensor
+                  ),
+                  Access(
+                    "X_C",
+                    List(Variable("i"), Variable("j")),
+                    CompressedTensor
+                  ),
+                  Comparison("<=", Variable("k"), Variable("j"))
+                )
+              ),
+              Prod(
+                List(
+                  Access(
+                    "X_C",
+                    List(Variable("i"), Variable("j")),
+                    CompressedTensor
+                  ),
+                  Access(
+                    "X_C",
+                    List(Variable("ip"), Variable("kp")),
+                    CompressedTensor
+                  ),
+                  Access(
+                    "X_RM",
+                    List(
+                      Variable("i"),
+                      Variable("k"),
+                      Variable("ip"),
+                      Variable("kp")
+                    ),
+                    RedundancyMap
+                  )
+                )
+              ),
+              Prod(
+                List(
+                  Access(
+                    "X_C",
+                    List(Variable("i"), Variable("k")),
+                    CompressedTensor
+                  ),
+                  Access(
+                    "X_C",
+                    List(Variable("ip"), Variable("jp")),
+                    CompressedTensor
+                  ),
+                  Access(
+                    "X_RM",
+                    List(
+                      Variable("i"),
+                      Variable("j"),
+                      Variable("ip"),
+                      Variable("jp")
+                    ),
+                    RedundancyMap
+                  )
+                )
+              )
+            )
+          )
+        ),
+        Rule(
+          Access(
+            "sameNameProdHead2",
+            List(Variable("i"), Variable("k"), Variable("j")),
+            Tensor
+          ),
+          SoP(
+            List(
+              Prod(
+                List(
+                  Access("X", List(Variable("i"), Variable("k")), Tensor),
+                  Access("X", List(Variable("i"), Variable("j")), Tensor)
+                )
+              )
+            )
+          )
+        )
+      )
+    )
+
+    val res = Compiler.project(lhs, rhs, ctx)
+    val (us, rm, cc) = res
+
+    val expectedUS = Rule(
+      Access("covar_US", List(Variable("j"), Variable("k")), UniqueSet),
+      SoP(
+        List(
+          Prod(
+            List(
+              Access(
+                "sameNameProdHead2_US",
+                List(Variable("i"), Variable("k"), Variable("j")),
+                UniqueSet
+              )
+            )
+          )
+        )
+      )
+    )
+    val expectedRM = Rule(
+      Access(
+        "covar_RM",
+        List(Variable("j"), Variable("k"), Variable("jp"), Variable("kp")),
+        RedundancyMap
+      ),
+      SoP(
+        List(
+          Prod(
+            List(
+              Access(
+                "sameNameProdHead2_RM",
+                List(
+                  Variable("i"),
+                  Variable("k"),
+                  Variable("j"),
+                  Variable("ip"),
+                  Variable("kp"),
+                  Variable("jp")
+                ),
+                RedundancyMap
+              )
+            )
+          )
+        )
+      )
+    )
+    val expectedCC = Rule(
+      Access("covar_C", List(Variable("j"), Variable("k")), CompressedTensor),
+      SoP(
+        List(
+          Prod(
+            List(
+              Access(
+                "sameNameProdHead2_C",
+                List(Variable("i"), Variable("k"), Variable("j")),
+                CompressedTensor
+              )
+            )
+          )
+        )
+      )
+    )
+
+    us shouldBe expectedUS
+    rm shouldBe expectedRM
+    cc shouldBe expectedCC
+  }
+
   it should "be able to generate a vectorize comparison multiplication" in {
     Compiler.vectorizeComparisonMultiplication(
       "<=",
