@@ -503,7 +503,8 @@ class CompilerTest
     )
     val res = Compiler.project(
       rule.head,
-      rule.body.prods.head.exps.head.asInstanceOf[Access]
+      rule.body.prods.head.exps.head.asInstanceOf[Access],
+      Seq()
     )
     val (us, rm, cc) = res
 
@@ -583,7 +584,32 @@ class CompilerTest
     )
     val res = Compiler.project(
       rule.head,
-      rule.body.prods.head.exps.head.asInstanceOf[Access]
+      rule.body.prods.head.exps.head.asInstanceOf[Access],
+      Seq(
+        (
+          emptyRule(),
+          Rule(
+            Access(
+              "b",
+              Seq(Variable("i"), Variable("j"), Variable("k")),
+              Tensor
+            ).redundancyHead(),
+            SoP(
+              Seq(
+                Prod(
+                  Seq(
+                    Comparison("=", Variable("i"), Variable("kp")),
+                    Comparison("=", Variable("k"), Variable("ip")),
+                    Comparison("=", Variable("j"), Variable("jp"))
+                  )
+                )
+              )
+            )
+          ),
+          emptyRule(),
+          emptyRule()
+        )
+      )
     )
     val (us, rm, cc) = res
 
@@ -684,7 +710,8 @@ class CompilerTest
     assertThrows[AssertionError] {
       Compiler.project(
         rule.head,
-        rule.body.prods.head.exps.head.asInstanceOf[Access]
+        rule.body.prods.head.exps.head.asInstanceOf[Access],
+        Seq()
       )
     }
   }
@@ -747,31 +774,39 @@ class CompilerTest
         Seq(
           Prod(
             Seq(
-              Access("b_RM", Seq(Variable("i"), Variable("ip")), RedundancyMap),
+              Access(
+                "b_RM",
+                Seq(Variable("i"), Variable("ip")),
+                RedundancyMap
+              ),
               Access("b_RM", Seq(Variable("j"), Variable("jp")), RedundancyMap)
             )
           ),
           Prod(
             Seq(
+              Comparison("=", Variable("i"), Variable("ip")),
               Access("b_US", Seq(Variable("i")), UniqueSet),
-              Access("b_RM", Seq(Variable("j"), Variable("jp")), RedundancyMap),
-              Comparison("=", Variable("i"), Variable("ip"))
+              Access("b_RM", Seq(Variable("j"), Variable("jp")), RedundancyMap)
             )
           ),
           Prod(
             Seq(
-              Access("b_RM", Seq(Variable("i"), Variable("ip")), RedundancyMap),
-              Access("b_US", Seq(Variable("j")), UniqueSet),
-              Comparison("=", Variable("j"), Variable("jp"))
+              Access(
+                "b_RM",
+                Seq(Variable("i"), Variable("ip")),
+                RedundancyMap
+              ),
+              Comparison("=", Variable("j"), Variable("jp")),
+              Access("b_US", Seq(Variable("j")), UniqueSet)
             )
           ),
           Prod(
             Seq(
               Access("b_US", Seq(Variable("i")), UniqueSet),
               Access("b_US", Seq(Variable("j")), UniqueSet),
-              Comparison("=", Variable("i"), Variable("jp")),
               Comparison("=", Variable("j"), Variable("ip")),
-              Comparison(">", Variable("i"), Variable("j"))
+              Comparison("=", Variable("i"), Variable("jp")),
+              Comparison("<", Variable("j"), Variable("i"))
             )
           )
         )
@@ -2474,7 +2509,7 @@ class CompilerTest
     )
   }
 
-  it should "compile a a computation, given all inputs and symbols" in {
+  it should "compile a computation, given all inputs and symbols" in {
     // first expression in PR2C.stur
     val computation = Rule(
       Access("A", Seq(Variable("i"), Variable("j")), Tensor),
@@ -2596,9 +2631,9 @@ class CompilerTest
         Seq(
           Prod(
             Seq(
-              Comparison("=", Variable("i"), Variable("jp")),
               Comparison("=", Variable("j"), Variable("ip")),
-              Comparison(">", Variable("i"), Variable("j")),
+              Comparison("=", Variable("i"), Variable("jp")),
+              Comparison("<", Variable("j"), Variable("i")),
               Comparison("<=", ConstantInt(0), Variable("i")),
               Comparison(">", Variable("N"), Variable("i")),
               Comparison("<=", ConstantInt(0), Variable("j")),
