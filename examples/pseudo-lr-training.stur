@@ -1,0 +1,13 @@
+symbols: N, P
+outputs: DW, covar
+covar(i, k) := X(j, i) * X(j, k)
+T1(i) := covar(i, j) * w(i)
+T2(i) := X(j, i) * y(j)
+DW(i) := T1(i) + T2(i)
+X:D(j, i) := (0 <= j) * (j < N) * (0 <= i) * (i < P)
+y:D(j) := (0 <= j) * (j < N)
+w:D(i) := (0 <= i) * (i < P)
+covar:D(i, k) := (0 <= i) * (i < P) * (0 <= k) * (k < P)
+T1:D(i) := (0 <= i) * (i < P)
+T2:D(i) := (0 <= i) * (i < P)
+DW:D(i) := (0 <= i) * (i < P)
