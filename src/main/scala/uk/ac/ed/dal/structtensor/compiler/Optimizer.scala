@@ -592,9 +592,14 @@ object Optimizer {
       }
     })
 
-    val all_variable_names =
-      (symbols.map(_.name) ++ boundVariables(Seq(rule))).distinct
+    val base_variables =
+      symbols.map(_.name) ++ rule.head.vars.map(_.name).distinct
     val finalBody = SoP(newBody.prods.map(p => {
+      val all_variable_names = base_variables ++ p.exps
+        .collect { case a: Access => a.vars }
+        .flatten
+        .distinct
+        .map(_.name)
       Prod(
         p.exps.filter(e =>
           getVariables(e).map(_.name).forall(all_variable_names.contains(_))
