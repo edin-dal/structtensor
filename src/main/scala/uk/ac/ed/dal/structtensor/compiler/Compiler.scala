@@ -260,9 +260,35 @@ object Compiler {
     (us, rm, c)
   }
 
-  def project(lhs: Access, rhs: Access): (Rule, Rule, Rule) = {
+  def checkIfItsOptimalProject(
+      lhs: Access,
+      rhs: Access,
+      ctx: Seq[(Rule, Rule, Rule, Rule)]
+  ): Boolean = {
+    val uncommon_vars = rhs.vars.diff(lhs.vars)
+    val vecMult = vectorizeComparisonMultiplication(
+      "=",
+      uncommon_vars,
+      uncommon_vars.redundancyVars
+    )
+    val denormRM = locallyDenormalizeAndReturnBody(rhs.redundancyHead(), ctx)
+    denormRM.prods
+      .forall(p => p.exps.intersect(vecMult).toSet == vecMult.toSet)
+  }
+
+  def project(
+      lhs: Access,
+      rhs: Access,
+      ctx: Seq[(Rule, Rule, Rule, Rule)]
+  ): (Rule, Rule, Rule) = {
     assert(lhs.vars.toSet.subsetOf(rhs.vars.toSet))
-    if (lhs.vars.toSet == rhs.vars.toSet) {
+    if (
+      lhs.vars.toSet == rhs.vars.toSet || checkIfItsOptimalProject(
+        lhs,
+        rhs,
+        ctx
+      )
+    ) {
       val us = Rule(lhs.uniqueHead, SoP(Seq(Prod(Seq(rhs.uniqueHead)))))
       val rm = Rule(lhs.redundancyHead, SoP(Seq(Prod(Seq(rhs.redundancyHead)))))
       val c = Rule(lhs.compressedHead, SoP(Seq(Prod(Seq(rhs.compressedHead)))))
@@ -1129,7 +1155,7 @@ object Compiler {
         }
       } else if (exps.length == 1) {
         exps.head match {
-          case access: Access => project(head, access)
+          case access: Access => project(head, access, ctx)
           case _ => throw new AssertionError("Expected an Access expression")
         }
       } else if (exps.length == 2) {
