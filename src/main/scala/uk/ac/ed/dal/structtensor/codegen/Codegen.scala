@@ -186,11 +186,8 @@ object Codegen {
       kind: AccessType,
       iters: Seq[Variable]
   ): String = {
-    val variablesInit = iters.isEmpty match {
-      case true => (computationHead.vars ++ accesses.flatMap(_.vars)).distinct
-      case false =>
-        (iters ++ computationHead.vars ++ accesses.flatMap(_.vars)).distinct
-    }
+    val variablesInit =
+      (iters ++ computationHead.vars ++ accesses.flatMap(_.vars)).distinct
 
     val variables = reorder(variablesInit, conditions, symbols)
     val (loopNests, restOfConditions, numberOfBrackets1) = variables.reverse.foldLeft(
