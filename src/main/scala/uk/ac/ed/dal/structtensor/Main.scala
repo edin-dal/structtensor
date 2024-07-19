@@ -115,6 +115,8 @@ object Main extends App {
           lineSeqInit.zipWithIndex.filter(_._1.startsWith("symbols:")).unzip
         val (outputs_lines, outputs_index) =
           lineSeqInit.zipWithIndex.filter(_._1.startsWith("outputs:")).unzip
+        val (iters_lines, iters_index) =
+          lineSeqInit.zipWithIndex.filter(_._1.startsWith("iters:")).unzip
         val symbols = symbols_lines
           .map(e => e.slice(8, e.length))
           .flatMap(_.split(",").map(_.trim).toSeq)
@@ -122,9 +124,18 @@ object Main extends App {
         val outputs_names = outputs_lines
           .map(e => e.slice(8, e.length))
           .flatMap(_.split(",").map(_.trim).toSeq)
+        val iters_map = iters_lines
+          .map(e => e.slice(6, e.length))
+          .flatMap(_.split(";").map(_.trim).toSeq)
+          .map(iter_str =>
+            fastparse.parse(iter_str, Parser.iterators(_)).get.value
+          )
+          .toMap
         val lineSeq = lineSeqInit.zipWithIndex
           .filterNot(x =>
-            symbols_index.contains(x._2) || outputs_index.contains(x._2)
+            symbols_index.contains(x._2) ||
+              outputs_index.contains(x._2) ||
+              iters_index.contains(x._2)
           )
           .map(_._1)
         val preprocess_start_index = lineSeq.indexOf("@preprocess_start")
@@ -236,17 +247,33 @@ object Main extends App {
         })
 
         val preprocessComputation = ccRuleSeq_preprocess
-          .map(r => Codegen(r, symbols, config.codeLang, Tensor))
+          .map(r => Codegen(r, symbols, config.codeLang, Tensor, iters_map))
           .mkString("\n")
         val ccComputation = outputs_names.isEmpty match {
           case true =>
             ccRuleSeq
-              .map(r => Codegen(r, symbols, config.codeLang, CompressedTensor))
+              .map(r =>
+                Codegen(
+                  r,
+                  symbols,
+                  config.codeLang,
+                  CompressedTensor,
+                  iters_map
+                )
+              )
               .mkString("\n")
           case false =>
             ccRuleSeq
               .filter(r => outputs_names.contains(r.head.name))
-              .map(r => Codegen(r, symbols, config.codeLang, CompressedTensor))
+              .map(r =>
+                Codegen(
+                  r,
+                  symbols,
+                  config.codeLang,
+                  CompressedTensor,
+                  iters_map
+                )
+              )
               .mkString("\n")
         }
 
