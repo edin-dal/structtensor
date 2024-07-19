@@ -19,7 +19,6 @@ for (int j = 0; j < N; ++j) {
 
 for (int k = 0; k < min({(j) + 1, N}); ++k) {
 
-
 covar[j][k] += (X[i][k] * X[i][j]);
 }
 }

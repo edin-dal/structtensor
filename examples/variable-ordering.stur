@@ -1,5 +1,5 @@
 symbols: N, M
-iters: covar -> i, j, k, iter
-covar(j, k) := X(i, j) * X(i, k) * (0 < iter <= 1000)
+iters: covar -> i, j, k
+covar(j, k) := X(i, j) * X(i, k)
 covar:D(i, j) := (0 <= i < N) * (0 <= j < N)
 X:D(i, j) := (0 <= i < M) * (0 <= j < N)
