@@ -187,8 +187,9 @@ object Codegen {
       iters: Seq[Variable]
   ): String = {
     val variablesInit = iters.isEmpty match {
-      case true  => (computationHead.vars ++ accesses.flatMap(_.vars)).distinct
-      case false => iters
+      case true => (computationHead.vars ++ accesses.flatMap(_.vars)).distinct
+      case false =>
+        (iters ++ computationHead.vars ++ accesses.flatMap(_.vars)).distinct
     }
 
     val variables = reorder(variablesInit, conditions, symbols)
