@@ -183,10 +183,14 @@ object Codegen {
       accesses: Seq[Access],
       symbols: Seq[Variable],
       codeLang: String,
-      kind: AccessType
+      kind: AccessType,
+      iters: Seq[Variable]
   ): String = {
-    val variablesInit =
-      (computationHead.vars ++ accesses.flatMap(_.vars)).distinct
+    val variablesInit = iters.isEmpty match {
+      case true  => (computationHead.vars ++ accesses.flatMap(_.vars)).distinct
+      case false => iters
+    }
+
     val variables = reorder(variablesInit, conditions, symbols)
     val (loopNests, restOfConditions, numberOfBrackets1) = variables.reverse.foldLeft(
       Seq[String](),
@@ -583,9 +587,11 @@ object Codegen {
       rule: Rule,
       symbols: Seq[Variable],
       codeLang: String,
-      kind: AccessType
+      kind: AccessType,
+      iters_map: Map[String, Seq[Variable]] = Map()
   ): String = {
     val computationHead = rule.head
+    val iters = iters_map.getOrElse(computationHead.name, Seq())
     rule.body.prods.zipWithIndex
       .map {
         case (prod, ind) => {
@@ -598,7 +604,8 @@ object Codegen {
             accesses,
             symbols,
             codeLang,
-            kind
+            kind,
+            iters
           )
         }
       }
