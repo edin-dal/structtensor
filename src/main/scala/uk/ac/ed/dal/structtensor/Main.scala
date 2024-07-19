@@ -195,8 +195,9 @@ object Main extends App {
             )
           )((acc, tc) => {
             val inps = getInputs(tc, acc._1, acc._2, acc._3)
+            val iters = iters_map.getOrElse(tc.head.name, Seq())
             val (usRule, rmRule, ccRule) =
-              compile(tc, inps, symbols, outputs_names)
+              compile(tc, inps, symbols, outputs_names, iters)
             val rcRule = Rule(
               ccRule.head,
               SoPTimesSoP(
@@ -237,7 +238,9 @@ object Main extends App {
           )
         )((acc, tc) => {
           val inps = getInputs(tc, acc._1, acc._2, acc._3)
-          val (usRule, rmRule, ccRule) = compile(tc, inps, symbols)
+          val iters = iters_map.getOrElse(tc.head.name, Seq())
+          val (usRule, rmRule, ccRule) =
+            compile(tc, inps, symbols, iters = iters)
           (
             acc._1 + (usRule.head -> usRule),
             acc._2 + (rmRule.head -> rmRule),
