@@ -1189,7 +1189,8 @@ object Compiler {
       us: Rule,
       rm: Rule,
       cc: Rule,
-      symbols: Seq[Variable]
+      symbols: Seq[Variable],
+      iters: Seq[Variable]
   ): (Rule, Rule, Rule) = {
     val (idempotentOptUS, idempotentOptRM, idempotentOptCC) =
       (setIdempotentOpt(us), setIdempotentOpt(rm), setIdempotentOpt(cc))
@@ -1205,7 +1206,7 @@ object Compiler {
     ) = (
       replaceEqualVariables(removeEmptyProdOptUS, symbols),
       replaceEqualVariables(removeEmptyProdOptRM, symbols),
-      replaceEqualVariables(removeEmptyProdOptCC, symbols)
+      replaceEqualVariables(removeEmptyProdOptCC, symbols, iters)
     )
     if (
       isSoPEquals(replacedEqualVariablesOptUS.body, us.body) && isSoPEquals(
@@ -1223,7 +1224,8 @@ object Compiler {
         replacedEqualVariablesOptUS,
         replacedEqualVariablesOptRM,
         replacedEqualVariablesOptCC,
-        symbols
+        symbols,
+        iters
       )
   }
 
@@ -1231,7 +1233,8 @@ object Compiler {
       computation: Rule,
       inputs: Seq[(Rule, Rule, Rule, Rule)],
       symbols: Seq[Variable],
-      outputs_names: Seq[String] = Seq()
+      outputs_names: Seq[String] = Seq(),
+      iters: Seq[Variable] = Seq()
   ): (Rule, Rule, Rule) = {
     val norm = normalize(computation)
     val us_rm_cc_tc_seq = norm.foldLeft(inputs)((ctx, r) => {
@@ -1259,13 +1262,14 @@ object Compiler {
     ) = (
       replaceEqualVariables(removeEmptyProdOptUS, symbols),
       replaceEqualVariables(removeEmptyProdOptRM, symbols),
-      replaceEqualVariables(removeEmptyProdOptCC, symbols)
+      replaceEqualVariables(removeEmptyProdOptCC, symbols, iters)
     )
     val (fixedUS, fixedRM, fixedCC) = fixedPointOpt(
       replacedEqualVariablesOptUS,
       replacedEqualVariablesOptRM,
       replacedEqualVariablesOptCC,
-      symbols
+      symbols,
+      iters
     )
 
     (fixedUS, fixedRM, fixedCC)

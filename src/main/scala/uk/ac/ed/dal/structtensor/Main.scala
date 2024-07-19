@@ -115,6 +115,8 @@ object Main extends App {
           lineSeqInit.zipWithIndex.filter(_._1.startsWith("symbols:")).unzip
         val (outputs_lines, outputs_index) =
           lineSeqInit.zipWithIndex.filter(_._1.startsWith("outputs:")).unzip
+        val (iters_lines, iters_index) =
+          lineSeqInit.zipWithIndex.filter(_._1.startsWith("iters:")).unzip
         val symbols = symbols_lines
           .map(e => e.slice(8, e.length))
           .flatMap(_.split(",").map(_.trim).toSeq)
@@ -122,9 +124,18 @@ object Main extends App {
         val outputs_names = outputs_lines
           .map(e => e.slice(8, e.length))
           .flatMap(_.split(",").map(_.trim).toSeq)
+        val iters_map = iters_lines
+          .map(e => e.slice(6, e.length))
+          .flatMap(_.split(";").map(_.trim).toSeq)
+          .map(iter_str =>
+            fastparse.parse(iter_str, Parser.iterators(_)).get.value
+          )
+          .toMap
         val lineSeq = lineSeqInit.zipWithIndex
           .filterNot(x =>
-            symbols_index.contains(x._2) || outputs_index.contains(x._2)
+            symbols_index.contains(x._2) ||
+              outputs_index.contains(x._2) ||
+              iters_index.contains(x._2)
           )
           .map(_._1)
         val preprocess_start_index = lineSeq.indexOf("@preprocess_start")
@@ -184,8 +195,9 @@ object Main extends App {
             )
           )((acc, tc) => {
             val inps = getInputs(tc, acc._1, acc._2, acc._3)
+            val iters = iters_map.getOrElse(tc.head.name, Seq())
             val (usRule, rmRule, ccRule) =
-              compile(tc, inps, symbols, outputs_names)
+              compile(tc, inps, symbols, outputs_names, iters)
             val rcRule = Rule(
               ccRule.head,
               SoPTimesSoP(
@@ -226,7 +238,9 @@ object Main extends App {
           )
         )((acc, tc) => {
           val inps = getInputs(tc, acc._1, acc._2, acc._3)
-          val (usRule, rmRule, ccRule) = compile(tc, inps, symbols)
+          val iters = iters_map.getOrElse(tc.head.name, Seq())
+          val (usRule, rmRule, ccRule) =
+            compile(tc, inps, symbols, iters = iters)
           (
             acc._1 + (usRule.head -> usRule),
             acc._2 + (rmRule.head -> rmRule),
@@ -236,17 +250,33 @@ object Main extends App {
         })
 
         val preprocessComputation = ccRuleSeq_preprocess
-          .map(r => Codegen(r, symbols, config.codeLang, Tensor))
+          .map(r => Codegen(r, symbols, config.codeLang, Tensor, iters_map))
           .mkString("\n")
         val ccComputation = outputs_names.isEmpty match {
           case true =>
             ccRuleSeq
-              .map(r => Codegen(r, symbols, config.codeLang, CompressedTensor))
+              .map(r =>
+                Codegen(
+                  r,
+                  symbols,
+                  config.codeLang,
+                  CompressedTensor,
+                  iters_map
+                )
+              )
               .mkString("\n")
           case false =>
             ccRuleSeq
               .filter(r => outputs_names.contains(r.head.name))
-              .map(r => Codegen(r, symbols, config.codeLang, CompressedTensor))
+              .map(r =>
+                Codegen(
+                  r,
+                  symbols,
+                  config.codeLang,
+                  CompressedTensor,
+                  iters_map
+                )
+              )
               .mkString("\n")
         }
 

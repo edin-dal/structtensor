@@ -157,4 +157,8 @@ object Parser {
   def program[$: P]: P[Seq[Rule]] = P(rule.rep(sep = "\n"))
 
   def parser[$: P] = P(program ~ End)
+
+  def iterators[$: P]: P[(String, Seq[Variable])] = P(
+    name ~ "->" ~ variableSeq
+  )
 }

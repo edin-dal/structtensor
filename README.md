@@ -180,6 +180,32 @@ for (int j = 0; j < N; ++j) {
 }
 ```
 
+#### Variable Ordering
+
+You can provide arbitrary variable ordering and include extra non-symbol and unbound variables through a `;` separated mapping named `iters` by providing the mapping from the left-hand side tensor names to a comma separated list of variables. For example:
+
+```
+symbols: N, M, ITERS
+iters: covar -> iter, i, j, k
+covar(j, k) := X(i, j) * X(i, k) * (0 <= iter < ITERS)
+covar:D(i, j) := (0 <= i < N) * (0 <= j < N)
+X:D(i, j) := (0 <= i < M) * (0 <= j < N)
+```
+
+This will generate the following code:
+
+```c++
+for (int iter = 0; iter < ITERS; ++iter) {
+  for (int i = 0; i < M; ++i) {
+    for (int j = 0; j < N; ++j) {
+      for (int k = 0; k < min({(j) + 1, N}); ++k) {
+        covar[j][k] += (X[i][k] * X[i][j]);
+      }
+    }
+  }
+}
+```
+
 ### Generating C++ Code
 
 To generate code for one of the existing `.stur` codes in the `examples/` directory, use the following command:
