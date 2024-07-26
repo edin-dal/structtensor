@@ -41,6 +41,7 @@ A[i] = 0.0;
 
 long time_computation = 0, start_computation, end_computation;
 start_computation = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
+{
 int i = 0;
 if (i >= 0 && i < W) {
 for (int j = 0; j < W; ++j) {
@@ -48,11 +49,14 @@ for (int j = 0; j < W; ++j) {
 A[i] += (B[i][j] * C[j]);
 }
 }
+}
+{
 for (int i = max({0, 1}); i < W; ++i) {
 
 int j = (i - 1);
 if (j >= 0 && j < W) {
 A[i] += (B[i][j] * C[j]);
+}
 }
 }
 end_computation = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();

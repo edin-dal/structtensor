@@ -60,6 +60,7 @@ A[i][j][k] = 0.0;
 
 long time_computation = 0, start_computation, end_computation;
 start_computation = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
+{
 for (int i = 0; i < M; ++i) {
 
 for (int j = max({0, i}); j < N; ++j) {
@@ -69,6 +70,7 @@ for (int k = 0; k < P; ++k) {
 for (int l = 0; l < Q; ++l) {
 
 A[i][j][k] += (B[i][j][l] * C[k][l]);
+}
 }
 }
 }

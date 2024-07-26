@@ -10,6 +10,7 @@ using namespace std::chrono;
 extern "C"
 void fn(double * B2, double ** B, double * A, double * C, int N, int M) {
 
+{
 for (int i = 0; i < M; ++i) {
 
 for (int j = max({i, 0}); j < N; ++j) {
@@ -18,8 +19,10 @@ int s = (((N * i) + j) - ((i * (i + 1)) / 2));
 B2[s] += B[i][j];
 }
 }
+}
 long time_computation = 0, start_computation, end_computation;
 start_computation = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
+{
 for (int i = 0; i < M; ++i) {
 
 for (int j = max({i, 0}); j < N; ++j) {
@@ -27,6 +30,7 @@ for (int j = max({i, 0}); j < N; ++j) {
 int s = (((N * i) + j) - ((i * (i + 1)) / 2));
 if (s >= 0 && s < ((M * (N + 1)) / 2)) {
 A[i] += (B2[s] * C[j]);
+}
 }
 }
 }

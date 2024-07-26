@@ -13,11 +13,13 @@ void fn(double * A, double ** B, double * C, int N, int M) {
 
 long time_computation = 0, start_computation, end_computation;
 start_computation = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
+{
 for (int i = 0; i < M; ++i) {
 
 for (int j = max({0, i}); j < N; ++j) {
 
 A[i] += (B[i][j] * C[j]);
+}
 }
 }
 end_computation = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();

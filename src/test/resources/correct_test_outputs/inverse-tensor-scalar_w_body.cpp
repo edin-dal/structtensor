@@ -37,11 +37,13 @@ A[i][j] = 0.0;
 
 long time_computation = 0, start_computation, end_computation;
 start_computation = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
+{
 for (int i = 0; i < N; ++i) {
 
 for (int j = 0; j < N; ++j) {
 
 A[i][j] += (1. / f * 1. / -5.123 * 1. / B[i][j]);
+}
 }
 }
 end_computation = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();

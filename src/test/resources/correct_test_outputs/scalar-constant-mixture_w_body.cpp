@@ -41,15 +41,19 @@ A[i] = 0.0;
 
 long time_computation = 0, start_computation, end_computation;
 start_computation = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
+{
 for (int j = 0; j < N; ++j) {
 
 p += (3 * q * l * s * 5.12 * -12 * t[j]);
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 for (int i10 = 0; i10 < N; ++i10) {
 
 A[i] += (3 * q * l * s * 5.12 * -12 * t[i10] * f[i]);
+}
 }
 }
 end_computation = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
