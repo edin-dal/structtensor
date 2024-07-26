@@ -80,6 +80,7 @@ for (size_t j = 0; j < Q; ++j) {
 A[i][j] = 0.0;
 }
 }
+{
 for (int l = 0; l < P; ++l) {
 
 int j = J;
@@ -87,6 +88,8 @@ if (j >= 0 && j < Q) {
 D2[l] += D[l][j];
 }
 }
+}
+{
 for (int k = 0; k < N; ++k) {
 
 for (int l = 0; l < P; ++l) {
@@ -97,8 +100,10 @@ B2[k][l] += B[i][k][l];
 }
 }
 }
+}
 long time_computation = 0, start_computation, end_computation;
 start_computation = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
+{
 int i = I;
 int j = J;
 if (j >= 0 && j < Q) {
@@ -107,6 +112,7 @@ for (int k = 0; k < N; ++k) {
 for (int l = 0; l < P; ++l) {
 
 A[i][j] += (B2[k][l] * C[k][j] * D2[l]);
+}
 }
 }
 }

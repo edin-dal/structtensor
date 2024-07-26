@@ -49,6 +49,7 @@ C[i][j][k][l] = 0.0;
 
 long time_computation = 0, start_computation, end_computation;
 start_computation = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
+{
 for (int i = 0; i < N; ++i) {
 
 for (int j = max({i, 0}); j < N; ++j) {
@@ -62,11 +63,13 @@ C[i][j][k][l] += (f[i] * f[j] * t[k] * t[l]);
 }
 }
 }
+}
 end_computation = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
 time_computation = end_computation - start_computation;
 cout << time_computation << endl;
 long time_reconstruction = 0, start_reconstruction, end_reconstruction;
 start_reconstruction = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
+{
 for (int i = 0; i < N; ++i) {
 
 int jp = i;
@@ -84,6 +87,8 @@ C[i][j][k][l] = C[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int ip = i;
@@ -101,6 +106,8 @@ C[i][j][k][l] = C[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int jp = i;
@@ -114,6 +121,7 @@ for (int l = max({k, 0}); l < N; ++l) {
 int kp = k;
 int lp = l;
 C[i][j][k][l] = C[ip][jp][kp][lp];
+}
 }
 }
 }

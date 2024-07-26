@@ -13,6 +13,7 @@ void fn(double * A, double *** B, double ** D, double ** C, int N) {
 
 long time_computation = 0, start_computation, end_computation;
 start_computation = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
+{
 
 for (int j = 0; j < N; ++j) {
 int i = j;
@@ -21,6 +22,8 @@ for (int k = 0; k < N; ++k) {
 A[i] += B[j][j][k];
 }
 }
+}
+{
 
 for (int i5 = 0; i5 < N; ++i5) {
 int i = i5;
@@ -36,6 +39,8 @@ D[i][k] += (B[i5][i5][i6] * 1. / B[i7][i7][i8]);
 }
 }
 }
+}
+{
 
 for (int i13 = 0; i13 < N; ++i13) {
 int i = i13;
@@ -47,6 +52,7 @@ int j = i15;
 for (int i16 = 0; i16 < N; ++i16) {
 
 C[i][j] += (1. / B[i13][i13][i14] * 1. / B[i15][i15][i16]);
+}
 }
 }
 }

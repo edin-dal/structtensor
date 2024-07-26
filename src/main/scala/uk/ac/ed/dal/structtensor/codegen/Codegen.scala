@@ -578,7 +578,7 @@ object Codegen {
       case RedundancyMap => "="
       case _             => "+="
     }
-    s"$loopNestsString\n${CPPFormat(computationHead)} $assignment $computationBody;\n$brackets"
+    s"{\n$loopNestsString\n${CPPFormat(computationHead)} $assignment $computationBody;\n$brackets\n}"
   }
 
   def apply(

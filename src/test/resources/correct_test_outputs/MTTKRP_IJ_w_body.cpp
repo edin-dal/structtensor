@@ -71,6 +71,7 @@ A[i][j] = 0.0;
 
 long time_computation = 0, start_computation, end_computation;
 start_computation = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
+{
 int i = I;
 if (i >= 0 && i < M) {
 int j = J;
@@ -80,6 +81,7 @@ for (int k = 0; k < N; ++k) {
 for (int l = 0; l < P; ++l) {
 
 A[i][j] += (B[i][k][l] * C[k][j] * D[l][j]);
+}
 }
 }
 }

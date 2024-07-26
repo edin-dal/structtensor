@@ -141,6 +141,7 @@ J[i][j][k][l] = 0.0;
 
 long time_computation = 0, start_computation, end_computation;
 start_computation = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
+{
 for (int i = 0; i < N; ++i) {
 
 for (int j = max({i, 0}); j < N; ++j) {
@@ -148,6 +149,8 @@ for (int j = max({i, 0}); j < N; ++j) {
 A[i][j] += (f[i] * f[j]);
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 for (int j = 0; j < N; ++j) {
@@ -158,6 +161,8 @@ B[i][j][k] += (f[j] * f[k] * f[i]);
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 for (int j = 0; j < N; ++j) {
@@ -171,6 +176,8 @@ C[i][j][k][l] += (f[j] * f[k] * f[l] * f[i]);
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 for (int j = max({i, 0}); j < N; ++j) {
@@ -178,6 +185,8 @@ for (int j = max({i, 0}); j < N; ++j) {
 D[i][j] += (g[i] * g[j]);
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 for (int j = 0; j < N; ++j) {
@@ -188,6 +197,8 @@ E[i][j][k] += (g[j] * g[k] * g[i]);
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 for (int j = 0; j < N; ++j) {
@@ -201,6 +212,8 @@ F[i][j][k][l] += (g[j] * g[k] * g[l] * g[i]);
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 for (int j = max({i, 0}); j < N; ++j) {
@@ -208,6 +221,8 @@ for (int j = max({i, 0}); j < N; ++j) {
 H[i][j] += (f[i] * f[j]);
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 for (int j = max({i, 0}); j < N; ++j) {
@@ -215,6 +230,8 @@ for (int j = max({i, 0}); j < N; ++j) {
 H[i][j] += (g[i] * g[j]);
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 for (int j = 0; j < N; ++j) {
@@ -225,6 +242,8 @@ I[i][j][k] += (f[j] * f[k] * f[i]);
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 for (int j = 0; j < N; ++j) {
@@ -235,6 +254,8 @@ I[i][j][k] += (g[j] * g[k] * g[i]);
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 for (int j = 0; j < N; ++j) {
@@ -248,6 +269,8 @@ J[i][j][k][l] += (f[j] * f[k] * f[l] * f[i]);
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 for (int j = 0; j < N; ++j) {
@@ -261,11 +284,13 @@ J[i][j][k][l] += (g[j] * g[k] * g[l] * g[i]);
 }
 }
 }
+}
 end_computation = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
 time_computation = end_computation - start_computation;
 cout << time_computation << endl;
 long time_reconstruction = 0, start_reconstruction, end_reconstruction;
 start_reconstruction = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
+{
 for (int i = 0; i < N; ++i) {
 
 int jp = i;
@@ -275,6 +300,8 @@ int ip = j;
 A[i][j] = A[ip][jp];
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int jp = i;
@@ -288,6 +315,8 @@ B[i][j][k] = B[ip][jp][kp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int kp = i;
@@ -301,6 +330,8 @@ B[i][j][k] = B[ip][jp][kp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int kp = i;
@@ -314,6 +345,8 @@ B[i][j][k] = B[ip][jp][kp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int jp = i;
@@ -327,6 +360,8 @@ B[i][j][k] = B[ip][jp][kp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int ip = i;
@@ -340,6 +375,8 @@ B[i][j][k] = B[ip][jp][kp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int jp = i;
@@ -357,6 +394,8 @@ C[i][j][k][l] = C[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int kp = i;
@@ -374,6 +413,8 @@ C[i][j][k][l] = C[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 for (int l = max({(i) + 1, 0}); l < N; ++l) {
@@ -391,6 +432,8 @@ C[i][j][k][l] = C[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 for (int l = 0; l < min({(i) + 1, N}); ++l) {
@@ -408,6 +451,8 @@ C[i][j][k][l] = C[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int lp = i;
@@ -425,6 +470,8 @@ C[i][j][k][l] = C[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int jp = i;
@@ -442,6 +489,8 @@ C[i][j][k][l] = C[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int ip = i;
@@ -459,6 +508,8 @@ C[i][j][k][l] = C[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int jp = i;
@@ -476,6 +527,8 @@ C[i][j][k][l] = C[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int lp = i;
@@ -493,6 +546,8 @@ C[i][j][k][l] = C[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int kp = i;
@@ -510,6 +565,8 @@ C[i][j][k][l] = C[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int ip = i;
@@ -527,6 +584,8 @@ C[i][j][k][l] = C[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int lp = i;
@@ -544,6 +603,8 @@ C[i][j][k][l] = C[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int jp = i;
@@ -561,6 +622,8 @@ C[i][j][k][l] = C[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int kp = i;
@@ -578,6 +641,8 @@ C[i][j][k][l] = C[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int ip = i;
@@ -595,6 +660,8 @@ C[i][j][k][l] = C[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int lp = i;
@@ -612,6 +679,8 @@ C[i][j][k][l] = C[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 for (int l = 0; l < min({(i) + 1, N}); ++l) {
@@ -629,6 +698,8 @@ C[i][j][k][l] = C[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int jp = i;
@@ -646,6 +717,8 @@ C[i][j][k][l] = C[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int ip = i;
@@ -663,6 +736,8 @@ C[i][j][k][l] = C[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int kp = i;
@@ -680,6 +755,8 @@ C[i][j][k][l] = C[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int jp = i;
@@ -697,6 +774,8 @@ C[i][j][k][l] = C[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 for (int l = max({(i) + 1, 0}); l < N; ++l) {
@@ -714,6 +793,8 @@ C[i][j][k][l] = C[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int ip = i;
@@ -731,6 +812,8 @@ C[i][j][k][l] = C[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int jp = i;
@@ -740,6 +823,8 @@ int ip = j;
 D[i][j] = D[ip][jp];
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int jp = i;
@@ -753,6 +838,8 @@ E[i][j][k] = E[ip][jp][kp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int kp = i;
@@ -766,6 +853,8 @@ E[i][j][k] = E[ip][jp][kp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int kp = i;
@@ -779,6 +868,8 @@ E[i][j][k] = E[ip][jp][kp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int jp = i;
@@ -792,6 +883,8 @@ E[i][j][k] = E[ip][jp][kp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int ip = i;
@@ -805,6 +898,8 @@ E[i][j][k] = E[ip][jp][kp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int jp = i;
@@ -822,6 +917,8 @@ F[i][j][k][l] = F[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int kp = i;
@@ -839,6 +936,8 @@ F[i][j][k][l] = F[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 for (int l = max({(i) + 1, 0}); l < N; ++l) {
@@ -856,6 +955,8 @@ F[i][j][k][l] = F[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 for (int l = 0; l < min({(i) + 1, N}); ++l) {
@@ -873,6 +974,8 @@ F[i][j][k][l] = F[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int lp = i;
@@ -890,6 +993,8 @@ F[i][j][k][l] = F[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int jp = i;
@@ -907,6 +1012,8 @@ F[i][j][k][l] = F[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int ip = i;
@@ -924,6 +1031,8 @@ F[i][j][k][l] = F[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int jp = i;
@@ -941,6 +1050,8 @@ F[i][j][k][l] = F[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int lp = i;
@@ -958,6 +1069,8 @@ F[i][j][k][l] = F[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int kp = i;
@@ -975,6 +1088,8 @@ F[i][j][k][l] = F[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int ip = i;
@@ -992,6 +1107,8 @@ F[i][j][k][l] = F[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int lp = i;
@@ -1009,6 +1126,8 @@ F[i][j][k][l] = F[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int jp = i;
@@ -1026,6 +1145,8 @@ F[i][j][k][l] = F[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int kp = i;
@@ -1043,6 +1164,8 @@ F[i][j][k][l] = F[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int ip = i;
@@ -1060,6 +1183,8 @@ F[i][j][k][l] = F[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int lp = i;
@@ -1077,6 +1202,8 @@ F[i][j][k][l] = F[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 for (int l = 0; l < min({(i) + 1, N}); ++l) {
@@ -1094,6 +1221,8 @@ F[i][j][k][l] = F[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int jp = i;
@@ -1111,6 +1240,8 @@ F[i][j][k][l] = F[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int ip = i;
@@ -1128,6 +1259,8 @@ F[i][j][k][l] = F[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int kp = i;
@@ -1145,6 +1278,8 @@ F[i][j][k][l] = F[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int jp = i;
@@ -1162,6 +1297,8 @@ F[i][j][k][l] = F[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 for (int l = max({(i) + 1, 0}); l < N; ++l) {
@@ -1179,6 +1316,8 @@ F[i][j][k][l] = F[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int ip = i;
@@ -1196,6 +1335,8 @@ F[i][j][k][l] = F[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int jp = i;
@@ -1205,6 +1346,8 @@ int ip = j;
 H[i][j] = H[ip][jp];
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int jp = i;
@@ -1218,6 +1361,8 @@ I[i][j][k] = I[ip][jp][kp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int kp = i;
@@ -1231,6 +1376,8 @@ I[i][j][k] = I[ip][jp][kp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int kp = i;
@@ -1244,6 +1391,8 @@ I[i][j][k] = I[ip][jp][kp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int jp = i;
@@ -1257,6 +1406,8 @@ I[i][j][k] = I[ip][jp][kp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int ip = i;
@@ -1270,6 +1421,8 @@ I[i][j][k] = I[ip][jp][kp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int jp = i;
@@ -1287,6 +1440,8 @@ J[i][j][k][l] = J[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int kp = i;
@@ -1304,6 +1459,8 @@ J[i][j][k][l] = J[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 for (int l = max({(i) + 1, 0}); l < N; ++l) {
@@ -1321,6 +1478,8 @@ J[i][j][k][l] = J[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 for (int l = 0; l < min({(i) + 1, N}); ++l) {
@@ -1338,6 +1497,8 @@ J[i][j][k][l] = J[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int lp = i;
@@ -1355,6 +1516,8 @@ J[i][j][k][l] = J[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int jp = i;
@@ -1372,6 +1535,8 @@ J[i][j][k][l] = J[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int ip = i;
@@ -1389,6 +1554,8 @@ J[i][j][k][l] = J[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int jp = i;
@@ -1406,6 +1573,8 @@ J[i][j][k][l] = J[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int lp = i;
@@ -1423,6 +1592,8 @@ J[i][j][k][l] = J[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int kp = i;
@@ -1440,6 +1611,8 @@ J[i][j][k][l] = J[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int ip = i;
@@ -1457,6 +1630,8 @@ J[i][j][k][l] = J[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int lp = i;
@@ -1474,6 +1649,8 @@ J[i][j][k][l] = J[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int jp = i;
@@ -1491,6 +1668,8 @@ J[i][j][k][l] = J[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int kp = i;
@@ -1508,6 +1687,8 @@ J[i][j][k][l] = J[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int ip = i;
@@ -1525,6 +1706,8 @@ J[i][j][k][l] = J[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int lp = i;
@@ -1542,6 +1725,8 @@ J[i][j][k][l] = J[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 for (int l = 0; l < min({(i) + 1, N}); ++l) {
@@ -1559,6 +1744,8 @@ J[i][j][k][l] = J[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int jp = i;
@@ -1576,6 +1763,8 @@ J[i][j][k][l] = J[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int ip = i;
@@ -1593,6 +1782,8 @@ J[i][j][k][l] = J[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int kp = i;
@@ -1610,6 +1801,8 @@ J[i][j][k][l] = J[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int jp = i;
@@ -1627,6 +1820,8 @@ J[i][j][k][l] = J[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 for (int l = max({(i) + 1, 0}); l < N; ++l) {
@@ -1644,6 +1839,8 @@ J[i][j][k][l] = J[ip][jp][kp][lp];
 }
 }
 }
+}
+{
 for (int i = 0; i < N; ++i) {
 
 int ip = i;
@@ -1657,6 +1854,7 @@ for (int k = 0; k < min({j, N}); ++k) {
 int lp = l;
 int jp = k;
 J[i][j][k][l] = J[ip][jp][kp][lp];
+}
 }
 }
 }

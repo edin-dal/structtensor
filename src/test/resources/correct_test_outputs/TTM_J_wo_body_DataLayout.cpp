@@ -10,6 +10,7 @@ using namespace std::chrono;
 extern "C"
 void fn(double ** B2, double *** B, double *** A, double ** C, int N, int M, int P, int Q, int J) {
 
+{
 for (int i = 0; i < M; ++i) {
 
 for (int l = 0; l < Q; ++l) {
@@ -20,8 +21,10 @@ B2[i][l] += B[i][j][l];
 }
 }
 }
+}
 long time_computation = 0, start_computation, end_computation;
 start_computation = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
+{
 for (int i = 0; i < M; ++i) {
 
 int j = J;
@@ -30,6 +33,7 @@ for (int k = 0; k < P; ++k) {
 for (int l = 0; l < Q; ++l) {
 
 A[i][j][k] += (B2[i][l] * C[k][l]);
+}
 }
 }
 }

@@ -43,15 +43,19 @@ double *A = new double[M];
 for (size_t i = 0; i < M; ++i) {
 A[i] = 0.0;
 }
+{
 for (int i = 0; i < min({M, N}); ++i) {
 
 B2[i] += B[i][i];
 }
+}
 long time_computation = 0, start_computation, end_computation;
 start_computation = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
+{
 for (int i = 0; i < min({M, N}); ++i) {
 
 A[i] += (B2[i] * C[i]);
+}
 }
 end_computation = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
 time_computation = end_computation - start_computation;
