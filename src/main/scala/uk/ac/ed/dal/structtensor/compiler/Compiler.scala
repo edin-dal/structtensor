@@ -3,7 +3,7 @@ package structtensor
 package compiler
 
 import utils._
-import sourcecode.Macros.Chunk.Var
+
 import uk.ac.ed.dal.structtensor.parser.Parser.variableSeq
 
 object Compiler {
