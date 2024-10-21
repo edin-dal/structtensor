@@ -201,7 +201,7 @@ object Main extends App {
             val rcRule = Rule(
               ccRule.head,
               SoPTimesSoP(
-                SoP(Seq(Prod(Seq(ccRule.head.vars2RedundancyVars)))),
+                SoP(Seq(Prod(Seq(ccRule.head.vars2RedundancyVars())))),
                 rmRule.body
               )
             )
