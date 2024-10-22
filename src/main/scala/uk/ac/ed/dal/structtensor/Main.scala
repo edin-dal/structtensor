@@ -10,7 +10,8 @@ import codegen._
 import java.io.File
 import scopt.OParser
 
-object Main extends App {
+object Main {
+  def main(args: Array[String]) = {
   import Optimizer._
   import Utils._
 
@@ -330,4 +331,5 @@ object Main extends App {
       println("Use --help to see the options")
     }
   }
+}
 }

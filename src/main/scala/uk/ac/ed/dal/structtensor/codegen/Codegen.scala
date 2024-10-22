@@ -25,7 +25,6 @@ object Codegen {
           case c: ConstantDouble => c.value.toString
           case a @ Arithmetic(op, i1, i2) =>
             s"(${CPPFormat(i1)} ${op} ${CPPFormat(i2)})"
-          case _ => ""
         }
       case a: Access =>
         if (a.vars.isEmpty) CPPFormat(a.name)
@@ -81,7 +80,6 @@ object Codegen {
           }
           case _ => None
         }
-      case _ => None
     }
     val (begin, end, equals, usedIndices) = (
       begin_end_equals_usedIndices.map(_._1),
