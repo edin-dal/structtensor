@@ -61,21 +61,21 @@ case class Arithmetic(op: String, index1: Index, index2: Index)
     extends Index
     with Dim {
   def prettyFormat(): String =
-    s"(${index1.prettyFormat} $op ${index2.prettyFormat})"
+    s"(${index1.prettyFormat()} $op ${index2.prettyFormat()})"
   def vars2RedundancyVars(): Arithmetic =
-    Arithmetic(op, index1.vars2RedundancyVars, index2.vars2RedundancyVars)
+    Arithmetic(op, index1.vars2RedundancyVars(), index2.vars2RedundancyVars())
 }
 
 case class Access(name: String, vars: Seq[Variable], kind: AccessType)
     extends Exp {
   import Utils._
   def prettyFormat(): String = {
-    val pr = vars.map(_.prettyFormat).mkString(", ")
+    val pr = vars.map(_.prettyFormat()).mkString(", ")
     if (pr.isEmpty) name else s"$name($pr)"
   }
 
   def vars2RedundancyVars(): Access =
-    Access(name, vars.map(_.vars2RedundancyVars), kind)
+    Access(name, vars.map(_.vars2RedundancyVars()), kind)
   def uniqueHead(): Access = Access(name.uniqueName, vars, UniqueSet)
   def redundancyHead(): Access =
     Access(name.redundancyName, vars.redundancyVarsInplace, RedundancyMap)
@@ -90,16 +90,16 @@ case class Comparison(op: String, index: Index, variable: Variable)
     extends Exp {
   def prettyFormat(): String = index match {
     case _: Variable | _ if op != "=" =>
-      s"(${index.prettyFormat} $op ${variable.prettyFormat})"
-    case _ => s"(${variable.prettyFormat} $op ${index.prettyFormat})"
+      s"(${index.prettyFormat()} $op ${variable.prettyFormat()})"
+    case _ => s"(${variable.prettyFormat()} $op ${index.prettyFormat()})"
   }
   def vars2RedundancyVars(): Comparison =
-    Comparison(op, index.vars2RedundancyVars, variable.vars2RedundancyVars)
+    Comparison(op, index.vars2RedundancyVars(), variable.vars2RedundancyVars())
 }
 
 case class Prod(exps: Seq[Exp]) {
   def prettyFormat(): String = {
-    val pr = exps.map(_.prettyFormat).mkString(" * ")
+    val pr = exps.map(_.prettyFormat()).mkString(" * ")
     if (pr.isEmpty) "∅" else pr
   }
   def inverse(): Prod = Prod(
@@ -114,13 +114,13 @@ case class Prod(exps: Seq[Exp]) {
 
 case class SoP(prods: Seq[Prod]) extends RuleOrSoP {
   def prettyFormat(): String = {
-    val pr = prods.map(_.prettyFormat).mkString(" + ")
+    val pr = prods.map(_.prettyFormat()).mkString(" + ")
     if (pr.isEmpty) "∅" else pr
   }
 
   def vars2RedundancyVars(): SoP = {
     SoP(prods.map { prod =>
-      Prod(prod.exps.map(_.vars2RedundancyVars))
+      Prod(prod.exps.map(_.vars2RedundancyVars()))
     })
   }
 
@@ -128,7 +128,7 @@ case class SoP(prods: Seq[Prod]) extends RuleOrSoP {
 }
 
 case class Rule(head: Access, body: SoP) extends RuleOrSoP {
-  def prettyFormat(): String = s"${head.prettyFormat} := ${body.prettyFormat}"
+  def prettyFormat(): String = s"${head.prettyFormat()} := ${body.prettyFormat()}"
   def inverse(): Rule = Rule(head.inverseHead(), body.inverse())
 }
 
