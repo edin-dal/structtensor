@@ -45,6 +45,7 @@ object Compiler {
     val all_intersects =
       vars.tail.foldLeft(vars.head)((acc, cur) => acc.intersect(cur))
     val vars_wo_intersects = vars.map(_.diff(all_intersects))
+    val cond0 = vars_wo_intersects.forall(_.length > 0)
     val cond1 = isPairwiseIntersectEmpty(vars_wo_intersects)
     val all_intersect_indecies = vars.map(v =>
       v.zipWithIndex.collect {
@@ -54,7 +55,7 @@ object Compiler {
     val cond2 = all_intersect_indecies.tail.forall(
       _.toSet == all_intersect_indecies.head.toSet
     )
-    cond1 && cond2
+    cond0 && cond1 && cond2
   }
 
   def groupBySameName(
@@ -290,8 +291,10 @@ object Compiler {
       )
     ) {
       val us = Rule(lhs.uniqueHead(), SoP(Seq(Prod(Seq(rhs.uniqueHead())))))
-      val rm = Rule(lhs.redundancyHead(), SoP(Seq(Prod(Seq(rhs.redundancyHead())))))
-      val c = Rule(lhs.compressedHead(), SoP(Seq(Prod(Seq(rhs.compressedHead())))))
+      val rm =
+        Rule(lhs.redundancyHead(), SoP(Seq(Prod(Seq(rhs.redundancyHead())))))
+      val c =
+        Rule(lhs.compressedHead(), SoP(Seq(Prod(Seq(rhs.compressedHead())))))
       (us, rm, c)
     } else {
       val us = Rule(
@@ -305,7 +308,10 @@ object Compiler {
           Seq(
             Prod(Seq(rhs.compressedHead())),
             Prod(
-              Seq(rhs.redundancyHead(), rhs.vars2RedundancyVars().compressedHead())
+              Seq(
+                rhs.redundancyHead(),
+                rhs.vars2RedundancyVars().compressedHead()
+              )
             )
           )
         )
@@ -1071,7 +1077,10 @@ object Compiler {
           val rm = Rule(lhs.redundancyHead(), rmBody)
 
           val cBody = SoP(
-            Seq(Prod(Seq(acc1.compressedHead())), Prod(Seq(acc2.compressedHead())))
+            Seq(
+              Prod(Seq(acc1.compressedHead())),
+              Prod(Seq(acc2.compressedHead()))
+            )
           )
           val c = Rule(lhs.compressedHead(), cBody)
 
@@ -1088,12 +1097,18 @@ object Compiler {
           val us = Rule(lhs.uniqueHead(), usBody)
 
           val rmBody = SoP(
-            Seq(Prod(Seq(acc1.redundancyHead())), Prod(Seq(acc2.redundancyHead())))
+            Seq(
+              Prod(Seq(acc1.redundancyHead())),
+              Prod(Seq(acc2.redundancyHead()))
+            )
           )
           val rm = Rule(lhs.redundancyHead(), rmBody)
 
           val cBody = SoP(
-            Seq(Prod(Seq(acc1.compressedHead())), Prod(Seq(acc2.compressedHead())))
+            Seq(
+              Prod(Seq(acc1.compressedHead())),
+              Prod(Seq(acc2.compressedHead()))
+            )
           )
           val c = Rule(lhs.compressedHead(), cBody)
 
