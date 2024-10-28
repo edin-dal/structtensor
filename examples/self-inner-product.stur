@@ -1,0 +1,3 @@
+symbols: N
+A() := B(i) * B(i)
+B:D(i) := (0 <= i) * (i < N)
