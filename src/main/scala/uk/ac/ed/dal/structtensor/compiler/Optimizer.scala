@@ -130,12 +130,12 @@ object Optimizer {
       acc + (us.head -> usBody) + (rm.head -> rmBody) + (cc.head -> ccBody) + (tc.head -> tcBody)
     })
 
-    val denormUS = Rule(head, denormMap(head.uniqueHead))
+    val denormUS = Rule(head, denormMap(head.uniqueHead()))
     val denormRM = Rule(
       Access(head.name, head.vars.redundancyVarsInplace, head.kind),
-      denormMap(head.redundancyHead)
+      denormMap(head.redundancyHead())
     )
-    val denormCC = Rule(head, denormMap(head.compressedHead))
+    val denormCC = Rule(head, denormMap(head.compressedHead()))
     val denormTC = Rule(head, denormMap(head))
 
     (denormUS, denormRM, denormCC, denormTC)
