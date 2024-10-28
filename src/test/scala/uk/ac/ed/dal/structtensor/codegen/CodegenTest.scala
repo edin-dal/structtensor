@@ -2196,4 +2196,26 @@ class CodegenTest extends AnyFlatSpec with Matchers {
     val lines2 = file2.getLines().toList
     lines2 should be(lines1)
   }
+
+  it should "generate correct code for self inner product without the body" in {
+    Utils.cnt = 0
+    Main.main(
+      Array(
+        "-i",
+        "examples/self-inner-product.stur",
+        "-o",
+        "src/test/resources/test_outputs/self-inner-product_wo_body_test.cpp"
+      )
+    )
+
+    val file1 = scala.io.Source.fromFile(
+      "src/test/resources/correct_test_outputs/self-inner-product_wo_body.cpp"
+    )
+    val file2 = scala.io.Source.fromFile(
+      "src/test/resources/test_outputs/self-inner-product_wo_body_test.cpp"
+    )
+    val lines1 = file1.getLines().toList
+    val lines2 = file2.getLines().toList
+    lines2 should be(lines1)
+  }
 }
